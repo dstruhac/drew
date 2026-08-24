@@ -26,6 +26,7 @@ export interface Database {
           display_name?: string;
           avatar_url?: string | null;
         };
+        Relationships: [];
       };
       competitions: {
         Row: {
@@ -58,6 +59,15 @@ export interface Database {
           points_winner?: number;
           points_total_goals?: number;
         };
+        Relationships: [
+          {
+            foreignKeyName: "competitions_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       matches: {
         Row: {
@@ -96,6 +106,15 @@ export interface Database {
           away_score?: number | null;
           overtime_flag?: boolean | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "matches_competition_id_fkey";
+            columns: ["competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       predictions: {
         Row: {
@@ -123,7 +142,27 @@ export interface Database {
           predicted_away_score?: number;
           predicted_overtime_flag?: boolean | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "predictions_match_id_fkey";
+            columns: ["match_id"];
+            isOneToOne: false;
+            referencedRelation: "matches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "predictions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
