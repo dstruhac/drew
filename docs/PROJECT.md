@@ -161,6 +161,12 @@ nevymýšlí za něj):
 5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
    se použije (nevybráno, nutno probrat s uživatelem)
+6. [ ] **Testy** — zatím žádné (žádný Jest/Vitest/Playwright test runner
+   není ani nainstalovaný, jen `tsc --noEmit` + `pnpm build` před
+   pushem). Uživatel potvrdil 2026-08-25, že to budeme řešit — priorita
+   by měly být RLS politiky (tam vznikl dnešní bug se zamykáním po
+   `finished`), pak klíčová business logika (scoring trigger). Rozsah
+   a nástroj (Vitest? Playwright pro e2e?) zatím nedomluven.
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
