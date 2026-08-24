@@ -74,7 +74,9 @@ export default async function CompetitionDetailPage({
 
       <ul className="flex flex-col gap-3">
         {matches?.map((match) => {
-          const isLocked = new Date(match.kickoff_at) <= new Date();
+          const isLocked =
+            match.status !== "scheduled" ||
+            new Date(match.kickoff_at) <= new Date();
           const existing = ownPredictionByMatch.get(match.id) ?? null;
 
           return (
