@@ -94,7 +94,11 @@ se jako nové tabulky/sloupce, až budou potřeba.
   **Pozor**: každá tabulka musí mít i `Relationships: [...]` klíč, jinak
   postgrest-js typuje `select()` jako `never` (na tohle jsme narazili).
 
-## Aktuální cíl: POC demo pro kámoše
+## Aktuální cíl: POC demo pro kámoše ✅ appka funguje (2026-08-25)
+
+Uživatel potvrdil: `/spaces` ukazuje soutěž, detail ukazuje 3 zápasy,
+tip jde uložit a zůstává po refreshi. Zbývá jen doplnit kamarády jako
+Google test users, až budou známé jejich e-maily (viz níže).
 
 Uživatel chce appku ukázat kamarádům jako proof-of-concept, bez
 napojení na reálná data/výsledky. Domluveno:
