@@ -1,4 +1,32 @@
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleGoogleSignIn() {
+    setIsLoading(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setIsLoading(false);
+    }
+    // On success the browser is redirected to Google, so no further
+    // action is needed here.
+  }
+
   return (
     <main className="flex flex-1 items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl border border-black/10 dark:border-white/15 p-8 text-center">
@@ -9,17 +37,19 @@ export default function LoginPage() {
 
         <button
           type="button"
-          disabled
-          title="Google přihlášení bude zapojeno v dalším kroku"
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-black/10 dark:border-white/15 px-4 py-2.5 text-sm font-medium opacity-50 cursor-not-allowed"
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          className="mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-black/10 dark:border-white/15 px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <GoogleIcon />
-          Přihlásit se přes Google
+          {isLoading ? "Přesměrovávám…" : "Přihlásit se přes Google"}
         </button>
 
-        <p className="mt-4 text-xs text-black/40 dark:text-white/40">
-          Google přihlášení zatím není zapojené (čeká na Google Client ID).
-        </p>
+        {error && (
+          <p className="mt-4 text-xs text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
       </div>
     </main>
   );
