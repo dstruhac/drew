@@ -38,7 +38,7 @@ export default async function CompetitionDetailPage({
     ? await supabase
         .from("predictions")
         .select(
-          "match_id, user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag",
+          "match_id, user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points",
         )
         .in("match_id", matchIds)
     : { data: [] };
@@ -95,11 +95,23 @@ export default async function CompetitionDetailPage({
               </div>
 
               {isLocked ? (
-                <p className="mt-2 text-xs text-black/40 dark:text-white/40">
-                  {existing
-                    ? `Váš tip: ${existing.predicted_home_score}:${existing.predicted_away_score}`
-                    : "Nestihl(a) jste tip, zápas je zamčený."}
-                </p>
+                <div className="mt-2 text-xs text-black/40 dark:text-white/40">
+                  {match.status === "finished" && (
+                    <p>
+                      Konečný výsledek: {match.home_score}:{match.away_score}
+                    </p>
+                  )}
+                  {existing ? (
+                    <p>
+                      Váš tip: {existing.predicted_home_score}:
+                      {existing.predicted_away_score}
+                      {existing.points !== null &&
+                        ` — získal(a) jste ${existing.points} b.`}
+                    </p>
+                  ) : (
+                    <p>Nestihl(a) jste tip, zápas je zamčený.</p>
+                  )}
+                </div>
               ) : (
                 <PredictionForm
                   sport={competition.sport}

@@ -140,8 +140,14 @@ nevymýšlí za něj):
 2. [x] UI pro zadání tipu (predictions) + zamykání po výkopu —
    `src/app/spaces/[id]/{prediction-form.tsx,actions.ts}`, upsert na
    `(match_id, user_id)`, RLS/kickoff_at hlídá zámek
-3. [ ] Přepočet bodů po dohrání zápasu (zatím nikde neřešeno, jak přesně
-   se `home_score`/`away_score` do `matches` vůbec dostane bez API)
+3. [x] Přepočet bodů po dohrání zápasu — DB trigger
+   `matches_calculate_points` (`supabase/migrations/20260825100000_scoring_trigger.sql`),
+   spouští se při ručním nastavení `status='finished'` + skóre v SQL
+   editoru. Pravidla (odsouhlaseno): exact skóre = `points_exact`
+   samostatně; jinak `points_winner` (správný výsledek/remíza) +
+   `points_total_goals` (správný součet gólů) se sčítají nezávisle na
+   sobě. `predicted_overtime_flag` se zatím nebodu­je. `/spaces/[id]`
+   u dohraných zápasů ukazuje konečné skóre a získané body.
 4. [ ] Leaderboard / žebříček za competition
 5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
