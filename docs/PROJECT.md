@@ -1,0 +1,135 @@
+# Drew — kontext projektu
+
+Živý dokument. Aktualizuje se po každé větší funkci nebo rozhodnutí, ať
+kdokoliv (včetně budoucí Claude Code session) může kdykoliv navázat bez
+ztráty kontextu. Viz `CLAUDE.md` pro trvalá pravidla, jak s tímto
+repozitářem pracovat.
+
+## Co to je
+
+Tipovací hra na sportovní zápasy (nejdřív hokej a fotbal) pro malou
+uzavřenou skupinu uživatelů (kolegové, kamarádi). Uživatelé tipují
+skóre zápasů před výkopem, po zápase se jim spočítají body.
+
+## Tech stack
+
+- **Next.js 16** (App Router) + TypeScript, `src/` layout, pnpm
+- **Tailwind CSS** (čistý, bez komponentní knihovny)
+- **Supabase**: Postgres DB, Auth (Google OAuth), do budoucna Edge
+  Functions + `pg_cron` pro pravidelné stahování výsledků (ne Vercel
+  Cron — free tier neumožňuje běh častěji než 1×/den)
+- **Hosting**: Vercel
+
+## Účty a odkazy
+
+- **GitHub repo**: https://github.com/dstruhac/drew (default branch `main`)
+- **Vercel projekt**: https://vercel.com/dstruhacs-projects/drew
+  - produkční URL: **https://drew-pink.vercel.app**
+  - produkční deploy se spouští jen z `main` (push na jinou branch = jen preview URL)
+- **Supabase projekt**: https://supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr
+  - `NEXT_PUBLIC_SUPABASE_URL=https://rvcxdlmwxdykkxpqegzr.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = publishable klíč, viz `.env.local` (necommitnutý; hodnota je veřejná/bezpečná v klientském kódu, ale přesto ji nedáváme do repa) a nastavený v env proměnných na Vercelu
+- **Google Cloud projekt "Drew"**: OAuth 2.0 client pro Google Sign-In
+  - Client ID: `151884903772-gdqjv8knvcghh17posnrd7qu5kta518l.apps.googleusercontent.com`
+  - Client Secret: uložen jen v Supabase Dashboardu (Authentication → Providers → Google), nikde v repu
+  - Redirect URI nastavené v Google Console: `https://rvcxdlmwxdykkxpqegzr.supabase.co/auth/v1/callback`
+  - Authorized origins: `https://drew-pink.vercel.app`, `http://localhost:3000`
+
+## Datový model (`supabase/migrations/`)
+
+Migrace jsou rozdělené po tabulkách, spouští se ručně přes Supabase SQL
+editor (žádné napojení přes Supabase CLI zatím není — projekt není
+`supabase link`ovaný, protože bychom potřebovali access token/DB heslo).
+
+- **profiles** — 1:1 k `auth.users`, `display_name` + `avatar_url`.
+  Auto-vytváří se triggerem `on_auth_user_created` při signupu.
+- **competitions** ("spaces") — jedna tipovací soutěž/sezóna. `sport`
+  a `status` jsou `text` + `check` constraint (ne Postgres enum) —
+  přidání nového sportu je pak jen změna constraintu, ne migrace typu.
+  Bodování (`points_exact`/`points_winner`/`points_total_goals`,
+  výchozí 3/1/1) je per-competition.
+- **matches** — zápasy uvnitř competition. `external_id` je nullable —
+  `NULL` už teď znamená "ručně vytvořený zápas mimo API", takže budoucí
+  manuální zápasy nevyžadují žádnou restrukturalizaci.
+- **predictions** — tip jednoho uživatele na jeden zápas. `is_locked`
+  je jen zobrazovací flag; skutečné vynucení "nelze upravit po výkopu"
+  dělá RLS porovnáním s `matches.kickoff_at`, ne tímto sloupcem.
+
+### RLS rozhodnutí (odsouhlaseno s uživatelem)
+
+- **Viditelnost tipů**: před výkopem vidí uživatel jen svůj vlastní
+  tip; po výkopu (`kickoff_at <= now()`) se odemknou tipy všech.
+  Zabraňuje opisování.
+- **Zakládání competitions/matches**: zatím žádná insert/update/delete
+  policy pro běžné uživatele — píše se jen přes service roli / SQL
+  editor ručně. Self-service založení soutěže je budoucí feature.
+- **Grants**: Supabase u čerstvého projektu automaticky negrantuje
+  `authenticated` roli přístup k novým tabulkám ve `public` schématu —
+  bez explicitního `GRANT` selhávají dotazy s "permission denied for
+  table ...", ještě před vyhodnocením RLS politik. Viz
+  `supabase/migrations/20260825090000_grants.sql`.
+
+### Vědomě NEimplementováno (ale místo v modelu na to je)
+
+Zadání explicitně říká tohle teď nestavět, jen nechat prostor:
+bonusové otázky ke dni, skupiny/týmy uvnitř competition, grace perioda
+na pozdní tip. Žádné z těchto polí/tabulek zatím neexistuje — přidají
+se jako nové tabulky/sloupce, až budou potřeba.
+
+## Aplikace (`src/`)
+
+- `src/app/login` — přihlašovací stránka, klientská komponenta,
+  `supabase.auth.signInWithOAuth({ provider: "google" })`
+- `src/app/auth/callback/route.ts` — vymění OAuth `code` za session
+  (`exchangeCodeForSession`), přesměruje na `/spaces`
+- `src/app/spaces` — server komponenta, načítá `competitions` z DB,
+  zobrazuje kartičky + odhlašovací tlačítko (server action)
+- `src/proxy.ts` + `src/lib/supabase/middleware.ts` — na každém
+  requestu obnoví session; nepřihlášené přesměruje na `/login`
+  (kromě `/login` a `/auth/callback`), přihlášené odchytí na `/login`
+  a pošle na `/spaces`
+- `src/lib/supabase/{client,server}.ts` — browser/server Supabase klienti
+- `src/lib/supabase/database.types.ts` — ručně psané typy podle
+  migrací (žádné `supabase link` zatím, takže ne generované).
+  **Pozor**: každá tabulka musí mít i `Relationships: [...]` klíč, jinak
+  postgrest-js typuje `select()` jako `never` (na tohle jsme narazili).
+
+## Stav (aktualizováno 2026-08-25)
+
+Hotovo:
+- [x] Scaffold Next.js + TS + Tailwind
+- [x] SQL migrace (profiles, competitions, matches, predictions + RLS + grants)
+- [x] Supabase klienti (browser/server/proxy)
+- [x] Login stránka + funkční Google OAuth
+- [x] Ochrana stránek podle přihlášení
+- [x] Nasazení na Vercel (https://drew-pink.vercel.app)
+- [x] `/spaces` načítá reálné competitions z DB
+- [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
+
+Není hotovo / další logické kroky (nerozhodnuto, čeká na uživatele):
+- [ ] Detail competition + seznam zápasů (matches)
+- [ ] UI pro zadání tipu (predictions) + zamykání po výkopu
+- [ ] Import zápasů/výsledků z externího API (hokej, fotbal) + Edge Function + `pg_cron`
+- [ ] Přepočet bodů po dohrání zápasu
+- [ ] Leaderboard / žebříček
+
+## Jak navázat (pro budoucí Claude Code session)
+
+```bash
+pnpm install
+cp .env.local.example .env.local   # doplnit skutečné hodnoty, viz sekce výše
+pnpm dev
+```
+
+Migrace se aplikují ručně přes Supabase SQL editor (soubory v
+`supabase/migrations/`, v pořadí podle názvu/timestampu). Repo nemá
+`supabase link` — CLI přístup by vyžadoval access token nebo DB heslo,
+které Claude Code session nemá.
+
+**Síťové omezení tohoto prostředí**: sandbox, ve kterém Claude Code
+běží, blokuje odchozí přístup na externí API mimo pár povolených domén
+(GitHub, npm, Supabase REST API ze server-side kódu ano; Vercel API,
+Google, obecný internet z prohlížeče/Playwrightu ne). Proto nejde
+nasazovat na Vercel ani ověřovat OAuth flow end-to-end automaticky —
+tyhle kroky vždy provede uživatel ručně ve svém prohlížeči podle
+instrukcí v chatu.
