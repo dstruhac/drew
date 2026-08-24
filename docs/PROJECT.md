@@ -105,6 +105,12 @@ napojení na reálná data/výsledky. Domluveno:
 - **pozor na Google OAuth consent screen "Testing" mode** — pokud není
   publikovaný (nebo kámoši přidáni jako test users), přihlášení jim
   spadne na "app is blocked". Nutno ověřit/vyřešit před demem.
+  - Rozhodnuto: zůstáváme v "Testing" a kamarády přidáme jako **Test
+    users** (ne Publish App) — uživatel to vyplní, až bude znát jejich
+    e-maily. Google Cloud Console → OAuth consent screen → nejdřív
+    dokončit tab **Branding** (app name/support email, obvykle už
+    vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
+  - **Stále otevřené, čeká se na e-maily kolegů.**
 
 ## Stav (aktualizováno 2026-08-25)
 
