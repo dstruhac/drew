@@ -106,12 +106,31 @@ Hotovo:
 - [x] `/spaces` načítá reálné competitions z DB
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 
-Není hotovo / další logické kroky (nerozhodnuto, čeká na uživatele):
-- [ ] Detail competition + seznam zápasů (matches)
-- [ ] UI pro zadání tipu (predictions) + zamykání po výkopu
-- [ ] Import zápasů/výsledků z externího API (hokej, fotbal) + Edge Function + `pg_cron`
-- [ ] Přepočet bodů po dohrání zápasu
-- [ ] Leaderboard / žebříček
+## Naplánované další kroky
+
+Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
+**při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
+nevymýšlí za něj):
+
+1. [ ] Detail competition + seznam zápasů (matches) — potřeba nejdřív
+   ručně přidat pár zápasů do "Hokejová extraliga 2026/27" přes SQL
+   editor, pak stránku, co je vypíše
+2. [ ] UI pro zadání tipu (predictions) + zamykání po výkopu
+3. [ ] Přepočet bodů po dohrání zápasu (zatím nikde neřešeno, jak přesně
+   se `home_score`/`away_score` do `matches` vůbec dostane bez API)
+4. [ ] Leaderboard / žebříček za competition
+5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
+   Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
+   se použije (nevybráno, nutno probrat s uživatelem)
+
+### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
+
+Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
+- bonusové otázky ke dni
+- skupiny/týmy uvnitř competition s vlastní tabulkou
+- grace perioda na pozdní tip
+- self-service zakládání competitions/matches běžnými uživateli (teď
+  jen service role / SQL editor, viz RLS rozhodnutí výše)
 
 ## Jak navázat (pro budoucí Claude Code session)
 
