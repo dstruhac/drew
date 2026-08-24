@@ -53,7 +53,8 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   manuální zápasy nevyžadují žádnou restrukturalizaci.
 - **predictions** — tip jednoho uživatele na jeden zápas. `is_locked`
   je jen zobrazovací flag; skutečné vynucení "nelze upravit po výkopu"
-  dělá RLS porovnáním s `matches.kickoff_at`, ne tímto sloupcem.
+  dělá RLS porovnáním s `matches.kickoff_at` **a** `matches.status`
+  (viz níže — obojí musí platit, ne jen jedno).
 
 ### RLS rozhodnutí (odsouhlaseno s uživatelem)
 
@@ -63,6 +64,14 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
 - **Zakládání competitions/matches**: zatím žádná insert/update/delete
   policy pro běžné uživatele — píše se jen přes service roli / SQL
   editor ručně. Self-service založení soutěže je budoucí feature.
+- **Zamykání tipů**: zápas je zamčený (nejde přidat/upravit/smazat tip),
+  když nastal `kickoff_at` NEBO `status <> 'scheduled'` — obě podmínky
+  se kontrolují nezávisle, protože při ručním zadávání výsledků přes
+  SQL editor běžně nastavíte `status='finished'` dřív, než reálně
+  uplyne naseedovaný `kickoff_at`. Objeveno jako bug při demo testování
+  (`supabase/migrations/20260825120000_lock_by_status.sql`) — do té
+  doby to kontrolovalo jen `kickoff_at`, takže šlo tip upravit i po
+  zadání výsledku.
 - **Grants**: Supabase u čerstvého projektu automaticky negrantuje
   `authenticated` roli přístup k novým tabulkám ve `public` schématu —
   bez explicitního `GRANT` selhávají dotazy s "permission denied for
