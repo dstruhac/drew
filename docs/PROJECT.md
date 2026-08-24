@@ -168,6 +168,27 @@ nevymýšlí za něj):
    `finished`), pak klíčová business logika (scoring trigger). Rozsah
    a nástroj (Vitest? Playwright pro e2e?) zatím nedomluven.
 
+### Uživatelova vize do budoucna (2026-08-25, zatím jen zaznamenáno, nerozpracováno)
+
+Detail zápasu (`/spaces/[id]`) by měl jít časem rozkliknout na bohatší
+pohled s:
+- **"pomocníčkem" s analýzou zápasu** — textová analýza k danému zápasu
+- **odkazem na Livesport** — prostý hypertextový odkaz ven na konkrétní
+  zápas (ne embedování/scrapování jejich obsahu). Nevyřešeno: jak spárovat
+  náš (ručně zadaný/fiktivní) zápas s konkrétní stránkou na Livesportu —
+  buď ruční odkaz per zápas, nebo jen generovaný vyhledávací odkaz podle
+  názvů týmů.
+- **AI prognózou** — vyžaduje připojení na AI (např. Claude API) a hlavně
+  reálná vstupní data (forma týmů, statistiky), jinak by to byl jen
+  věrohodně znějící výmysl. Dává tedy větší smysl až po reálném importu
+  zápasů (bod 5 výše).
+- **funfactem o týmech** — nejjednodušší kousek, nezávisí na reálných
+  datech konkrétního zápasu.
+
+**Otevřená otázka**: stavět už teď na fiktivních/testovacích zápasech
+(zjednodušená verze), nebo počkat na reálný import dat (bod 5)? Zatím
+nerozhodnuto.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
