@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
@@ -61,21 +62,23 @@ export default async function SpacesPage() {
       {competitions && competitions.length > 0 && (
         <ul className="flex flex-col gap-3">
           {competitions.map((competition) => (
-            <li
-              key={competition.id}
-              className="rounded-lg border border-black/10 dark:border-white/15 p-4"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{competition.name}</span>
-                <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
-                  {SPORT_LABELS[competition.sport]}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-                Body za přesný tip {competition.points_exact} · za vítěze{" "}
-                {competition.points_winner} · za góly celkem{" "}
-                {competition.points_total_goals}
-              </p>
+            <li key={competition.id}>
+              <Link
+                href={`/spaces/${competition.id}`}
+                className="block rounded-lg border border-black/10 dark:border-white/15 p-4 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{competition.name}</span>
+                  <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
+                    {SPORT_LABELS[competition.sport]}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+                  Body za přesný tip {competition.points_exact} · za vítěze{" "}
+                  {competition.points_winner} · za góly celkem{" "}
+                  {competition.points_total_goals}
+                </p>
+              </Link>
             </li>
           ))}
         </ul>

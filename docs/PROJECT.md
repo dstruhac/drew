@@ -94,6 +94,18 @@ se jako nové tabulky/sloupce, až budou potřeba.
   **Pozor**: každá tabulka musí mít i `Relationships: [...]` klíč, jinak
   postgrest-js typuje `select()` jako `never` (na tohle jsme narazili).
 
+## Aktuální cíl: POC demo pro kámoše
+
+Uživatel chce appku ukázat kamarádům jako proof-of-concept, bez
+napojení na reálná data/výsledky. Domluveno:
+- kámoši se sami přihlásí přes Google (ne jen sledují) a reálně zkusí
+  zadat tip
+- do "Hokejová extraliga 2026/27" jsou/budou 2–3 fiktivní zápasy v
+  budoucnosti (jde na ně tipovat), žádný v minulosti zatím záměrně ne
+- **pozor na Google OAuth consent screen "Testing" mode** — pokud není
+  publikovaný (nebo kámoši přidáni jako test users), přihlášení jim
+  spadne na "app is blocked". Nutno ověřit/vyřešit před demem.
+
 ## Stav (aktualizováno 2026-08-25)
 
 Hotovo:
@@ -105,6 +117,8 @@ Hotovo:
 - [x] Nasazení na Vercel (https://drew-pink.vercel.app)
 - [x] `/spaces` načítá reálné competitions z DB
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
+- [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
+- [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
 
 ## Naplánované další kroky
 
@@ -112,10 +126,10 @@ Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
 nevymýšlí za něj):
 
-1. [ ] Detail competition + seznam zápasů (matches) — potřeba nejdřív
-   ručně přidat pár zápasů do "Hokejová extraliga 2026/27" přes SQL
-   editor, pak stránku, co je vypíše
-2. [ ] UI pro zadání tipu (predictions) + zamykání po výkopu
+1. [x] Detail competition + seznam zápasů (matches) — `src/app/spaces/[id]/page.tsx`
+2. [x] UI pro zadání tipu (predictions) + zamykání po výkopu —
+   `src/app/spaces/[id]/{prediction-form.tsx,actions.ts}`, upsert na
+   `(match_id, user_id)`, RLS/kickoff_at hlídá zámek
 3. [ ] Přepočet bodů po dohrání zápasu (zatím nikde neřešeno, jak přesně
    se `home_score`/`away_score` do `matches` vůbec dostane bez API)
 4. [ ] Leaderboard / žebříček za competition
