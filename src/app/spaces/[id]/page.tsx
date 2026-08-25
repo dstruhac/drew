@@ -78,60 +78,137 @@ export default async function CompetitionDetailPage({
         </p>
       )}
 
-      <ul className="flex flex-col gap-3">
-        {matches?.map((match) => {
+      {(() => {
+        const upcoming: Match[] = [];
+        const past: Match[] = [];
+        for (const match of matches ?? []) {
           const isLocked =
             match.status !== "scheduled" ||
             new Date(match.kickoff_at) <= new Date();
-          const existing = ownPredictionByMatch.get(match.id) ?? null;
+          (isLocked ? past : upcoming).push(match);
+        }
+        // Nejbližší zápas nahoře v obou sekcích: nadcházející vzestupně
+        // (jak přišly z DB), proběhlé sestupně (nejnovější výsledek první).
+        past.reverse();
 
-          return (
-            <li
-              key={match.id}
-              className="rounded-lg border border-black/10 dark:border-white/15 p-4"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">
-                  {match.home_team} – {match.away_team}
-                </span>
-                <span className="text-xs text-black/40 dark:text-white/40">
-                  {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })}
-                </span>
-              </div>
+        return (
+          <>
+            {upcoming.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+                  Nadcházející
+                </h2>
+                <ul className="flex flex-col gap-3">
+                  {upcoming.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      isLocked={false}
+                      existing={ownPredictionByMatch.get(match.id) ?? null}
+                      sport={competition.sport}
+                      competitionId={competition.id}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
 
-              {isLocked ? (
-                <div className="mt-2 text-xs text-black/40 dark:text-white/40">
-                  {match.status === "finished" && (
-                    <p>
-                      Konečný výsledek: {match.home_score}:{match.away_score}
-                    </p>
-                  )}
-                  {existing ? (
-                    <p>
-                      Váš tip: {existing.predicted_home_score}:
-                      {existing.predicted_away_score}
-                      {existing.points !== null &&
-                        ` — získal(a) jste ${existing.points} b.`}
-                    </p>
-                  ) : (
-                    <p>Nestihl(a) jste tip, zápas je zamčený.</p>
-                  )}
-                </div>
-              ) : (
-                <PredictionForm
-                  sport={competition.sport}
-                  competitionId={competition.id}
-                  matchId={match.id}
-                  existing={existing}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
+            {past.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+                  Proběhlé
+                </h2>
+                <ul className="flex flex-col gap-3">
+                  {past.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      isLocked={true}
+                      existing={ownPredictionByMatch.get(match.id) ?? null}
+                      sport={competition.sport}
+                      competitionId={competition.id}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        );
+      })()}
     </main>
+  );
+}
+
+type Match = {
+  id: string;
+  home_team: string;
+  away_team: string;
+  kickoff_at: string;
+  status: "scheduled" | "live" | "finished";
+  home_score: number | null;
+  away_score: number | null;
+};
+
+type Prediction = {
+  predicted_home_score: number;
+  predicted_away_score: number;
+  predicted_overtime_flag: boolean | null;
+  points: number | null;
+} | null;
+
+function MatchCard({
+  match,
+  isLocked,
+  existing,
+  sport,
+  competitionId,
+}: {
+  match: Match;
+  isLocked: boolean;
+  existing: Prediction;
+  sport: "hockey" | "football";
+  competitionId: string;
+}) {
+  return (
+    <li className="rounded-lg border border-black/10 dark:border-white/15 p-4">
+      <div className="flex items-center justify-between">
+        <span className="font-medium">
+          {match.home_team} – {match.away_team}
+        </span>
+        <span className="text-xs text-black/40 dark:text-white/40">
+          {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
+            dateStyle: "short",
+            timeStyle: "short",
+          })}
+        </span>
+      </div>
+
+      {isLocked ? (
+        <div className="mt-2 text-xs text-black/40 dark:text-white/40">
+          {match.status === "finished" && (
+            <p>
+              Konečný výsledek: {match.home_score}:{match.away_score}
+            </p>
+          )}
+          {existing ? (
+            <p>
+              Váš tip: {existing.predicted_home_score}:
+              {existing.predicted_away_score}
+              {existing.points !== null &&
+                ` — získal(a) jste ${existing.points} b.`}
+            </p>
+          ) : (
+            <p>Nestihl(a) jste tip, zápas je zamčený.</p>
+          )}
+        </div>
+      ) : (
+        <PredictionForm
+          sport={sport}
+          competitionId={competitionId}
+          matchId={match.id}
+          existing={existing}
+        />
+      )}
+    </li>
   );
 }

@@ -139,6 +139,7 @@ Hotovo:
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
 - [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
 - [x] Leaderboard / žebříček za competition — `src/app/spaces/[id]/leaderboard/page.tsx`
+- [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže
 
 ## Naplánované další kroky
 
@@ -185,9 +186,13 @@ nevymýšlí za něj):
    odrážet body získané za vlastní tip uživatele (zelená/žlutá/šedá
    podle úspěšnosti tipu), nebo výsledek zápasu samotného (výhra
    domácích/hostů/remíza). Rozhodnout s uživatelem před implementací.
-9. [ ] Rozdělení zápasů v detailu soutěže do sekcí "Nadcházející" a
-   "Proběhlé" (dnes je to jeden lineární seznam řazený podle
-   `kickoff_at`, viz `src/app/spaces/[id]/page.tsx`).
+9. [x] Rozdělení zápasů v detailu soutěže do sekcí "Nadcházející" a
+   "Proběhlé" — `src/app/spaces/[id]/page.tsx`. Zápas patří do
+   "Proběhlé", jakmile je zamčený (stejná podmínka jako dřívější
+   `isLocked`: `status <> 'scheduled'` nebo `kickoff_at` v minulosti),
+   jinak do "Nadcházející". "Nadcházející" řazeno vzestupně (nejbližší
+   nahoře), "Proběhlé" sestupně (nejnovější výsledek nahoře). Sekce se
+   zobrazí jen když v ní jsou nějaké zápasy.
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
