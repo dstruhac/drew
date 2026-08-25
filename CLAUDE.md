@@ -45,11 +45,26 @@ téhle cesty — rovnou navrhni ruční postup přes uživatelův prohlížeč.
 ## Git a nasazení
 
 - Pracuj v malých krocích: jedna ucelená funkce/oprava = jeden commit,
-  push, a pokud jde o appku samotnou, i PR (branch →
-  `claude/stoic-tesla-w7znoa`, cíl `main`). Po pushi dej uživateli
-  odkaz na porovnání/PR, ale **PR nevytvářej ani neslučuj sám** —
-  vytvoření PR jen když o to uživatel výslovně požádá, merge dělá vždy
-  uživatel.
+  push, a pokud jde o appku samotnou, i PR do `main` (branch dostaneš
+  na začátku session v systémových instrukcích). **PR vytvářej rovnou
+  sám po každém pushi** — díky tomu Vercel na PR napíše komentář s
+  odkazem na preview, což je pro uživatele nejspolehlivější způsob, jak
+  změnu vyzkoušet, než jde do `main`.
+- **Merge PR dělej sám, ale až po výslovném souhlasu uživatele** v
+  chatu (např. "jedeme", "mergni to", "ok") — ne automaticky hned po
+  vytvoření PR. Dokud souhlas nepřijde, jen čekej / pracuj na dalším
+  kroku, PR nech otevřený.
+- **Jakmile je PR smergovaný (ať už jím nebo uživatelem ručně na
+  GitHubu), branch pro tenhle PR je "spotřebovaná".** Než na ni
+  pushneš další commit, ověř přes GitHub (`pull_request_read` / `list_pull_requests`),
+  jestli PR pro ni ještě je otevřený. Pokud je zavřený/smergovaný,
+  založ pro další práci nový PR (klidně ze stejné branch, pokud na ní
+  jsou nesmergované commity navíc) místo pushování do už uzavřeného PR
+  — jinak ty commity zůstanou nikde neviditelné. (Stalo se přesně tohle
+  25.8.2026 — dva commity po mergi PR #12 skončily "ztracené", než se
+  založil PR #13.)
+- Pokud na existující **otevřený** PR přibude další commit, není
+  potřeba nový PR zakládat, stačí pushnout do stejné branch.
 - Před každým pushem: `pnpm exec tsc --noEmit` a `pnpm build` musí
   projít bez chyb.
 - Produkční nasazení (`drew-pink.vercel.app`) se aktualizuje jen po
