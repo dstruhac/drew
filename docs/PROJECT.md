@@ -170,7 +170,40 @@ nevymýšlí za něj):
    jen u dohraných zápasů).
 5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
-   se použije (nevybráno, nutno probrat s uživatelem)
+   se použije (nevybráno, nutno probrat s uživatelem).
+
+   **Sledované soutěže (odsouhlaseno 2026-08-25):** hokej = česká
+   hokejová **Tipsport extraliga**, fotbal = česká **Chance Liga**.
+   Tohle je důležité, protože dostupnost/cena API se dost liší podle
+   toho, jde-li o velkou mezinárodní ligu, nebo lokální českou soutěž.
+
+   **Průzkum API zdrojů (2026-08-25, nevybráno, k rozhodnutí s
+   uživatelem):**
+   - **TheSportsDB** — jediný nalezený zdroj, který pokrývá **obě**
+     sledované soutěže najednou (fotbal Czech First League/Chance Liga
+     `league id 4631`, hokej Czech Extraliga `league id 4923`).
+     Zdarma testovací klíč: 30 req/min, ale max 10 výsledků na dotaz
+     (spíš na vyzkoušení). Plná data + vyšší limit za $9/měsíc přes
+     Patreon. → nejlevnější varianta na rozjezd, jedno API pro obě ligy.
+   - **api-sports.io / API-Football** — zdarma 100 req/den (všechny
+     endpointy dostupné, jen historické sezóny omezené), pak Pro
+     19 $/měsíc (7 500 req/den), Ultra 29 $/měsíc (75 000 req/den).
+     Funguje na modelu "všechny soutěže na všech tarifech", takže
+     Chance Ligu pravděpodobně má, ale nepodařilo se to veřejně
+     ověřit s jistotou. Pouze fotbal, žádný hokej.
+   - **Sportmonks** — má dedikovanou stránku pro Fortuna/Chance Ligu
+     (potvrzené pokrytí), ale nejlevnější tarif Starter je 29 €/měsíc
+     a u levnějších tarifů si ligy vybíráš z omezeného počtu. Pouze
+     fotbal, žádný hokej.
+   - **Oficiální API Českého hokeje** (ceskyhokej.cz/data-pro-kluby) —
+     pravděpodobně nejspolehlivější/nejautentičtější zdroj pro
+     extraligu, ale není samoobslužné (cena "podle objemu dat", nutno
+     kontaktovat konkrétně Adama Josku e-mailem/telefonicky), data se
+     načítají několikrát denně, ne živě. Pouze hokej.
+
+   **Můj (Claude) doporučený výchozí bod:** TheSportsDB, protože
+   pokrývá obě ligy jedním API a je nejlevnější na rozjezd — ale
+   uživatel to zatím nepotvrdil, čeká se na finální rozhodnutí.
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
