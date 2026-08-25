@@ -44,9 +44,36 @@ aby tyhle věci nemusel řešit.
   ho pošleš klikat do cizího dashboardu, ověř, jestli to nejde
   automatizovat odsud.
 
+**Pozor na zdánlivý rozpor** (uživatel to upřesnil 25.8.2026): chce
+"potvrzovat všechno" a "dostávat víc možností" — a zároveň mu nemám
+házet technické otázky. Není to v rozporu, dělí se to takhle:
+
+| | kdo rozhoduje | jak to podat |
+|---|---|---|
+| **produkt/UX** (název, chování, co se zobrazí) | uživatel | `AskUserQuestion`, víc možností, k tomu doporučení |
+| **technika** (architektura, endpoint, hraniční případ) | Claude | rozhodni sám, ale **vysvětli v chatu**, co jsi zvolil a proč — ať tomu uživatel rozumí a může to rozporovat |
+
+Technické rozhodnutí tedy nemá skončit otázkou, ale ani mlčením —
+skončí srozumitelným vysvětlením.
+
 ## Komunikace
 
 - Piš česky.
+- **Uživatel je zvědavý a chce vědět, co se děje.** Průběžně popisuj,
+  co zrovna děláš a proč — ne jen výsledek. Cílem není report, ale aby
+  tomu rozuměl: technické věci vysvětluj běžnou řečí, u zkratek a
+  pojmů řekni, co znamenají. Radši víc kontextu než míň.
+- **Dávej víc možností.** Když se rozhoduje o něčem produktovém,
+  nenabízej jednu cestu — rozepiš varianty i s tím, co která znamená,
+  a přidej doporučení. Uživatel si rád vybírá, jen potřebuje rozumět,
+  z čeho.
+- **Rozporuj.** Když uživatel něco zadá a existuje lepší řešení, řekni
+  to nahlas i s odůvodněním — nedělej mlčky, co bylo řečeno, jen proto,
+  že to bylo řečeno. Uživatel si to výslovně přeje. Když na svém
+  původním zadání trvá, uděláš to po jeho.
+- **Nevymýšlej si.** Když něco nevíš jistě (co API vrací, jestli něco
+  funguje), buď si to ověř (viz probe workflow níže), nebo napiš, že
+  to jisté není. Nikdy nevydávej odhad za fakt.
 - Kdykoliv je potřeba ruční krok mimo tenhle chat (Supabase Dashboard,
   Vercel, Google Cloud Console...), veď uživatele **jako úplného
   nekodéra**: přesné URL, přesně kam kliknout, co zkopírovat/vložit,
