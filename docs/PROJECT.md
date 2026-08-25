@@ -221,6 +221,43 @@ je potřeba společně probrat aspoň:
   periodicky (podobně jako budoucí import výsledků) vyhodnotí
   vítěze periody. Nic z tohoto zatím neexistuje.
 
+### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
+
+Čtyři související nápady od uživatele, zatím jen zapsané k budoucímu
+rozboru, nic z toho se neimplementuje:
+
+**1) Seznam uživatelů, kteří tipují danou soutěž** — "pool" hráčů
+viditelný třeba v detailu soutěže. Pozor: appka dnes nemá žádný
+koncept "přihlášení/členství" do competition — kdokoliv přihlášený
+může tipovat na jakoukoliv soutěž (viz RLS rozhodnutí výše). Než se to
+začne stavět, je potřeba rozhodnout, jestli "pool" znamená (a) prostě
+všichni, kdo už v té soutěži alespoň jednou tipovali (dá se odvodit ze
+stávajících dat stejně jako leaderboard), nebo (b) zavádíme skutečné
+"členství" v soutěži (kdo se do ní explicitně přihlásil) — to by byla
+větší změna datového modelu.
+
+**2) Vlastní přezdívka** — uživatel by si mohl změnit `display_name`,
+který se ukazuje na leaderboardu (dnes se nastaví automaticky při
+signupu z Google jména). Dobrá zpráva: RLS politika
+`profiles_update_own` už existuje a update vlastního profilu povoluje
+— jde tedy hlavně o UI (formulář/stránka nastavení), ne o změnu
+zabezpečení.
+
+**3) Detail/profil uživatele** — nová stránka, která by u daného
+hráče ukázala, kterých soutěží se účastní. Otevřené otázky: má to být
+veřejné (kdokoliv přihlášený vidí cizí profil), nebo jen svůj vlastní?
+Ukazovat jen seznam soutěží, nebo i statistiky/historii tipů?
+
+**4) Upozornění na nevyplněný den** — např. e-mail (uživatel má
+mail z Google OAuth) cca 2 hodiny před prvním zápasem daného dne v
+dané soutěži, pokud na ten den ještě nemá tip. Technicky pravděpodobně
+sdílí infrastrukturu s budoucím importem výsledků (krok 5 v plánu) —
+periodická úloha (`pg_cron` + Supabase Edge Function), která by
+kontrolovala nadcházející zápasy a chybějící tipy a přes nějakou
+e-mailovou službu (např. Resend) poslala zprávu s odkazem zpět do
+appky. Otevřené otázky: e-mail vs. jiný kanál, přesné časování, jestli
+se posílá jednou za den souhrnně, nebo per zápas.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
