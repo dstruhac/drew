@@ -138,6 +138,7 @@ Hotovo:
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
 - [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
+- [x] Leaderboard / žebříček za competition — `src/app/spaces/[id]/leaderboard/page.tsx`
 
 ## Naplánované další kroky
 
@@ -157,7 +158,15 @@ nevymýšlí za něj):
    `points_total_goals` (správný součet gólů) se sčítají nezávisle na
    sobě. `predicted_overtime_flag` se zatím nebodu­je. `/spaces/[id]`
    u dohraných zápasů ukazuje konečné skóre a získané body.
-4. [ ] Leaderboard / žebříček za competition
+4. [x] Leaderboard / žebříček za competition —
+   `src/app/spaces/[id]/leaderboard/page.tsx`, odkaz z detailu soutěže.
+   Sečte `predictions.points` (`null` = zápas ještě nevyhodnocen, počítá
+   se jako 0) po `user_id` napříč všemi zápasy dané competition, řadí
+   sestupně podle bodů (při shodě abecedně podle jména). U každého hráče
+   navíc ukazuje "X z Y zápasů vyhodnoceno". Žádná nová RLS politika
+   nebyla potřeba — `predictions_select_own_or_locked` už povoluje číst
+   cizí tipy, jakmile má zápas `status <> 'scheduled'` (a body existují
+   jen u dohraných zápasů).
 5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
    se použije (nevybráno, nutno probrat s uživatelem)
