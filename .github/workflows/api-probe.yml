@@ -31,6 +31,11 @@ on:
         required: false
         default: "40000"
         type: string
+      filter:
+        description: "Nepovinný regulární výraz — vypíše jen řádky, které mu odpovídají (užitečné u velkých odpovědí a HTML stránek)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -48,6 +53,7 @@ jobs:
           PROBE_URL: ${{ inputs.url }}
           HEADER_NAME: ${{ inputs.header_name }}
           MAX_CHARS: ${{ inputs.max_chars }}
+          FILTER: ${{ inputs.filter }}
         run: |
           set -uo pipefail
 
@@ -78,6 +84,20 @@ jobs:
 
           echo "----- Velikost odpovědi -----"
           wc -c < body.json
+
+          # Když je zadaný filtr, vypíše se jen to, co mu odpovídá. Hodí se
+          # na velké odpovědi a na HTML stránky, kde nás zajímá jen zmínka
+          # o konkrétní lize. `grep` vrací 1, když nic nenajde — to ale
+          # není chyba běhu, proto `|| true` (krok běží pod `bash -e`).
+          if [ -n "${FILTER}" ]; then
+            echo "----- Řádky odpovídající filtru: ${FILTER} -----"
+            grep -inE "${FILTER}" body.json > matches.txt || true
+            MATCH_COUNT=$(wc -l < matches.txt)
+            echo "Počet odpovídajících řádků: ${MATCH_COUNT}"
+            head -c "${MAX_CHARS}" matches.txt
+            echo
+            echo "----- Konec filtru -----"
+          fi
 
           # POZOR: nikdy sem nedávej `jq ... | head -c`. `head` po dosažení
           # limitu zavře rouru, `jq` dostane SIGPIPE a kvůli `pipefail`
