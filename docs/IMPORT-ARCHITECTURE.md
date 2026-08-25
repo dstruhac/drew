@@ -213,39 +213,69 @@ testovat i jeho vlastní úprava, dokud není v `main`.
 
 ## Zbývá rozhodnout / ověřit
 
-**Rozhodnutí pro uživatele: který zdroj použít.** Dvě reálné varianty:
+## api-sports.io — ověřeno reálnými dotazy (25.8.2026)
 
-1. **api-sports.io** — poskytovatel s 9+ sporty, včetně samostatných
-   **API-Football** a **API-HOCKEY**. Bezplatný tarif je **100
-   požadavků/den na každé API zvlášť**, takže fotbal i hokej vedle
-   sebe zdarma; náš odhad spotřeby je ~22 req/den dohromady, tedy
-   velká rezerva. Deklarují "všechny soutěže na všech tarifech", takže
-   bezplatný tarif by neměl být omezený výběrem lig.
-   *Pokud mají obě naše ligy, je tohle zdarma to, za co by se
-   u TheSportsDB platilo.* **Zatím neověřeno — viz níže.**
-2. **TheSportsDB Premium, $9/měsíc** — obě ligy **ověřeně** fungují
-   (viz sekce výše), jedno API, včetně log týmů i ligy. Jistota za
-   cenu ~200 Kč měsíčně.
+Se skutečným klíčem (GitHub secret `API_SPORTS_KEY`) byly přes probe
+workflow zavolány oba jejich API. Výsledek:
 
-**Pozor na dřívější chybu v této dokumentaci:** u api-sports.io bylo
-napsáno "pouze fotbal, žádný hokej". To je špatně — hokej mají.
-Vzniklo to tím, že se zkoumalo jen API-Football a závěr se přenesl na
-celého poskytovatele.
+**Obě naše ligy tam jsou:**
 
-**Neověřeno u api-sports.io** (vyžaduje registraci a klíč — jejich web
-je za Cloudflare, dokumentace se z něj nedá číst automaticky, ověřeno
-probe workflow: HTTP 403 "Just a moment…"):
+| sport | endpoint | liga | id |
+|---|---|---|---|
+| fotbal | `v3.football.api-sports.io` | Czech Liga (Chance Liga) | **345** |
+| hokej | `v1.hockey.api-sports.io` | Extraliga | **10** |
 
-1. Má **API-Football** českou Chance Ligu a jaké má `league id`?
-   (Nepřímý důkaz, že ano: TheSportsDB u zápasů vrací `idAPIfootball`.)
-2. Má **API-HOCKEY** Tipsport extraligu a jaké má `league id`?
-3. Dává bezplatný tarif přístup k **aktuální** sezóně? U některých
-   poskytovatelů je free omezený na historické sezóny — tohle je
-   jediná věc, která by variantu 1 mohla shodit.
+U fotbalu je celkem 17 českých soutěží (FNL `346`, pohár `347`, …),
+u hokeje má Extraliga sezónu 2026 od 16.9.2026 do 5.3.2027.
 
-Jakmile bude v repozitáři GitHub secret `API_SPORTS_KEY` (bezplatná
-registrace na dashboard.api-football.com), dají se všechny tři otázky
-zodpovědět probe workflow během pár minut, bez ručního zkoušení.
+**Kvóty se skutečně počítají zvlášť pro každé API** (potvrzeno
+z hlaviček: po dotazu na fotbal `requests-remaining: 98`, na hokej
+současně `99`):
 
-Další záložní zdroje (Sportmonks, oficiální API Českého hokeje) jsou
+```
+x-ratelimit-limit: 10             (za minutu)
+x-ratelimit-requests-limit: 100   (za den, na každé API zvlášť)
+```
+
+**❌ Ale bezplatný tarif nepustí aktuální sezónu.** Dotaz na zápasy
+vrátí u fotbalu i hokeje shodně:
+
+```json
+"errors": { "plan": "Free plans do not have access to this season,
+                     try from 2022 to 2024." }
+```
+
+Seznam lig a sezón se načte, **zápasy sezóny 2026 ale ne**. Bezplatný
+tarif je tedy pro živou tipovací hru nepoužitelný.
+
+**Cena za zpřístupnění aktuální sezóny:** tarify jsou per-API, takže
+fotbal i hokej = **dvě předplatná**, nejlevnější Pro à $19/měsíc →
+**~$38/měsíc**.
+
+## Závěr: doporučený zdroj
+
+**TheSportsDB Premium, $9/měsíc.**
+
+| | TheSportsDB | api-sports.io |
+|---|---|---|
+| obě ligy | ✅ ověřeno | ✅ ověřeno |
+| aktuální sezóna zdarma | ✅ ano (data 2026-2027 přišla) | ❌ ne (jen 2022–2024) |
+| omezení zdarma | max 3 výsledky na dotaz | aktuální sezóna zablokovaná |
+| cena za plný provoz | **$9/měsíc** (jedno API pro oba sporty) | **~$38/měsíc** (2× $19) |
+| loga týmů a ligy | ✅ v odpovědi | ✅ v odpovědi |
+
+Rozdíl je zásadní v tom, **co si za peníze kupuješ**: u TheSportsDB
+platíš za odstranění stropu na počet výsledků (data aktuální sezóny
+chodí i zdarma), u api-sports.io platíš za vůbec jakýkoliv přístup
+k aktuální sezóně, a to dvakrát.
+
+Záložní zdroje (Sportmonks, oficiální API Českého hokeje) jsou
 popsané v `PROJECT.md` u kroku 5.
+
+## Poučení k probe workflow
+
+Při ověřování se stala chyba, která vedla k opačnému závěru, než jaká
+byla pravda: `max_chars` ořezává **i cílený jq výběr**, takže při
+`max_chars=150` zmizela hledaná liga z výpisu a vypadalo to, že ji API
+nemá. Workflow proto teď u oříznutého výběru vypisuje varování.
+**U výběru, ze kterého se dělá závěr, dávej `max_chars` velkoryse.**

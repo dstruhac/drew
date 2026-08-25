@@ -135,6 +135,15 @@ jobs:
               jq -r "${JQ_EXPR}" body.json > selected.txt 2>jq_err.txt \
                 || { echo "(jq výraz selhal:)"; cat jq_err.txt; }
               head -c "${MAX_CHARS}" selected.txt
+              # Bez tohohle upozornění vypadá oříznutý výběr jako úplný
+              # seznam — a dá se z něj vyvodit pravý opak pravdy. Stalo
+              # se: při max_chars=150 zmizela hledaná liga z výpisu a
+              # závěr byl "tuhle ligu nemají", což byla nepravda.
+              SEL_TOTAL=$(wc -c < selected.txt)
+              if [ "${SEL_TOTAL}" -gt "${MAX_CHARS}" ]; then
+                echo
+                echo "::warning::VÝBĚR JE OŘÍZNUTÝ (${SEL_TOTAL} znaků, zobrazeno ${MAX_CHARS}) — nedělej závěry z neúplného seznamu, zvyš max_chars!"
+              fi
               echo
               echo "----- Konec výběru -----"
             fi
