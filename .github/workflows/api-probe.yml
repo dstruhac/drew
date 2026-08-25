@@ -36,6 +36,11 @@ on:
         required: false
         default: ""
         type: string
+      jq:
+        description: "Nepovinný jq výraz — vypíše jen vybranou část JSON odpovědi (např. '.response[] | .league.name')"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -54,6 +59,7 @@ jobs:
           HEADER_NAME: ${{ inputs.header_name }}
           MAX_CHARS: ${{ inputs.max_chars }}
           FILTER: ${{ inputs.filter }}
+          JQ_EXPR: ${{ inputs.jq }}
         run: |
           set -uo pipefail
 
@@ -119,6 +125,19 @@ jobs:
                 "(kořen odpovědi není objekt)"
               end
             ' body.json || echo "(počty se nepodařilo spočítat)"
+
+            # Cílený výběr z odpovědi. U velkých odpovědí (seznamy lig se
+            # všemi sezónami) je tohle jediný způsob, jak se dostat k tomu
+            # podstatnému, aniž by to utopil zbytek. Chybný výraz nemá
+            # shodit celý běh, proto `|| echo`.
+            if [ -n "${JQ_EXPR}" ]; then
+              echo "----- Výběr přes jq: ${JQ_EXPR} -----"
+              jq -r "${JQ_EXPR}" body.json > selected.txt 2>jq_err.txt \
+                || { echo "(jq výraz selhal:)"; cat jq_err.txt; }
+              head -c "${MAX_CHARS}" selected.txt
+              echo
+              echo "----- Konec výběru -----"
+            fi
 
             TOTAL=$(wc -c < pretty.json)
             echo "----- Tělo odpovědi (celkem ${TOTAL} znaků, vypisuji max ${MAX_CHARS}) -----"
