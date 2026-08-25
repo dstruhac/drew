@@ -22,7 +22,7 @@ on:
         required: true
         type: string
       header_name:
-        description: "Název hlavičky s API klíčem"
+        description: "Název hlavičky s API klíčem (prázdné = volat bez API klíče, např. běžnou webovou stránku)"
         required: false
         default: "x-apisports-key"
         type: string
@@ -65,36 +65,46 @@ jobs:
         run: |
           set -uo pipefail
 
-          # Který secret patří k jaké hlavičce se pozná automaticky podle
-          # jejího názvu — žádný další vstup, kterým by šlo klíč omylem
-          # poslat jako obyčejný (nezamaskovaný) parametr.
-          case "${HEADER_NAME}" in
-            *[Rr][Aa][Pp][Ii][Dd]*) API_KEY="${RAPIDAPI_KEY}" ;;
-            *) API_KEY="${API_SPORTS_KEY}" ;;
-          esac
-
-          if [ -z "${API_KEY}" ]; then
-            echo "::warning::Odpovídající secret není nastavený (hlavička '${HEADER_NAME}') — volám bez autorizační hlavičky."
+          # Prázdný header_name = volat bez API klíče (běžná webová
+          # stránka, žádný secret se nikam neposílá).
+          if [ -z "${HEADER_NAME}" ]; then
             AUTH_ARGS=()
           else
-            AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
-          fi
+            # Který secret patří k jaké hlavičce se pozná automaticky podle
+            # jejího názvu — žádný další vstup, kterým by šlo klíč omylem
+            # poslat jako obyčejný (nezamaskovaný) parametr.
+            case "${HEADER_NAME}" in
+              *[Rr][Aa][Pp][Ii][Dd]*) API_KEY="${RAPIDAPI_KEY}" ;;
+              *) API_KEY="${API_SPORTS_KEY}" ;;
+            esac
 
-          # RapidAPI navíc vyžaduje hlavičku x-rapidapi-host s hostname
-          # z URL — jinak vrací 403. Doplní se automaticky, ať se nemusí
-          # posílat jako další vstup.
-          case "${HEADER_NAME}" in
-            *[Rr][Aa][Pp][Ii][Dd]*)
-              RAPIDAPI_HOST=$(echo "${PROBE_URL}" | sed -E 's#^[a-zA-Z]+://([^/]+).*#\1#')
-              AUTH_ARGS+=(-H "x-rapidapi-host: ${RAPIDAPI_HOST}")
-              ;;
-          esac
+            if [ -z "${API_KEY}" ]; then
+              echo "::warning::Odpovídající secret není nastavený (hlavička '${HEADER_NAME}') — volám bez autorizační hlavičky."
+              AUTH_ARGS=()
+            else
+              AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
+            fi
+
+            # RapidAPI navíc vyžaduje hlavičku x-rapidapi-host s hostname
+            # z URL — jinak vrací 403. Doplní se automaticky, ať se nemusí
+            # posílat jako další vstup.
+            case "${HEADER_NAME}" in
+              *[Rr][Aa][Pp][Ii][Dd]*)
+                RAPIDAPI_HOST=$(echo "${PROBE_URL}" | sed -E 's#^[a-zA-Z]+://([^/]+).*#\1#')
+                AUTH_ARGS+=(-H "x-rapidapi-host: ${RAPIDAPI_HOST}")
+                ;;
+            esac
+          fi
 
           echo "URL: ${PROBE_URL}"
           echo "Hlavička s klíčem: ${HEADER_NAME}"
           echo "----- HTTP status a hlavičky -----"
 
-          HTTP_CODE=$(curl -sS --max-time 30 \
+          # Běžné webové stránky (ne API) často blokují/přesměrovávají
+          # požadavky bez "prohlížečového" User-Agenta — proto ho
+          # posíláme vždy, u API endpointů nevadí.
+          HTTP_CODE=$(curl -sSL --max-time 30 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36" \
             "${AUTH_ARGS[@]}" \
             -D headers.txt \
             -o body.json \
