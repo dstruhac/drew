@@ -79,11 +79,36 @@ jobs:
           echo "----- Velikost odpovědi -----"
           wc -c < body.json
 
-          echo "----- Tělo odpovědi (zkrácené na ${MAX_CHARS} znaků) -----"
+          # POZOR: nikdy sem nedávej `jq ... | head -c`. `head` po dosažení
+          # limitu zavře rouru, `jq` dostane SIGPIPE a kvůli `pipefail`
+          # spadne celý krok (stalo se, exit code 2). Proto se nejdřív
+          # zapíše do souboru a teprve ten se ořízne.
           if jq -e . body.json >/dev/null 2>&1; then
-            jq . body.json | head -c "${MAX_CHARS}"
+            jq . body.json > pretty.json
+
+            # Počet položek v poli — hlavní údaj, když se ověřuje, jestli
+            # API vrací celý seznam, nebo jen ořezaný vzorek.
+            echo "----- Počty -----"
+            jq -r '
+              if type == "object" then
+                to_entries
+                | map(select(.value | type == "array")
+                      | "\(.key): \(.value | length) položek")
+                | if length > 0 then .[] else "(žádné pole v odpovědi)" end
+              else
+                "(kořen odpovědi není objekt)"
+              end
+            ' body.json || echo "(počty se nepodařilo spočítat)"
+
+            TOTAL=$(wc -c < pretty.json)
+            echo "----- Tělo odpovědi (celkem ${TOTAL} znaků, vypisuji max ${MAX_CHARS}) -----"
+            head -c "${MAX_CHARS}" pretty.json
+            if [ "${TOTAL}" -gt "${MAX_CHARS}" ]; then
+              echo
+              echo "…(zkráceno — zvyš max_chars, pokud potřebuješ zbytek)"
+            fi
           else
-            echo "(odpověď není platný JSON, vypisuji syrově)"
+            echo "----- Tělo odpovědi (není platný JSON, vypisuji syrově) -----"
             head -c "${MAX_CHARS}" body.json
           fi
           echo
