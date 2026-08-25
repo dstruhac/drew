@@ -45,11 +45,14 @@ téhle cesty — rovnou navrhni ruční postup přes uživatelův prohlížeč.
 ## Git a nasazení
 
 - Pracuj v malých krocích: jedna ucelená funkce/oprava = jeden commit,
-  push, a pokud jde o appku samotnou, i PR (branch →
-  `claude/stoic-tesla-w7znoa`, cíl `main`). Po pushi dej uživateli
-  odkaz na porovnání/PR, ale **PR nevytvářej ani neslučuj sám** —
-  vytvoření PR jen když o to uživatel výslovně požádá, merge dělá vždy
-  uživatel.
+  push, a pokud jde o appku samotnou, i PR do `main` (branch dostaneš
+  na začátku session v systémových instrukcích). **PR vytvářej rovnou
+  sám po každém pushi** — díky tomu Vercel na PR napíše komentář s
+  odkazem na preview, což je pro uživatele nejspolehlivější způsob, jak
+  změnu vyzkoušet, než jde do `main`. **Merge PR ale nikdy nedělej sám**
+  — to vždy provede uživatel ručně na GitHubu. Pokud na existující PR
+  přibude další commit, není potřeba nový PR zakládat, stačí pushnout
+  do stejné branch.
 - Před každým pushem: `pnpm exec tsc --noEmit` a `pnpm build` musí
   projít bez chyb.
 - Produkční nasazení (`drew-pink.vercel.app`) se aktualizuje jen po
