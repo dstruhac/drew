@@ -51,10 +51,12 @@ jobs:
     steps:
       - name: Zavolat API a vypsat odpověď
         env:
-          # Hodnota se do logu nikdy nevypíše — GitHub secrets v logu
-          # automaticky maskuje. Pokud secret není nastavený, zavolá se
-          # API bez hlavičky a odpověď (nejspíš chyba) to ukáže.
-          API_KEY: ${{ secrets.API_SPORTS_KEY }}
+          # Hodnoty se do logu nikdy nevypíšou — GitHub secrets v logu
+          # automaticky maskuje. Který z nich se použije, se pozná podle
+          # HEADER_NAME (viz níže) — repo je veřejné, takže klíč nikdy
+          # nesmí projít jako obyčejný (neskrytý) vstup workflow.
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           PROBE_URL: ${{ inputs.url }}
           HEADER_NAME: ${{ inputs.header_name }}
           MAX_CHARS: ${{ inputs.max_chars }}
@@ -63,8 +65,16 @@ jobs:
         run: |
           set -uo pipefail
 
+          # Který secret patří k jaké hlavičce se pozná automaticky podle
+          # jejího názvu — žádný další vstup, kterým by šlo klíč omylem
+          # poslat jako obyčejný (nezamaskovaný) parametr.
+          case "${HEADER_NAME}" in
+            *[Rr][Aa][Pp][Ii][Dd]*) API_KEY="${RAPIDAPI_KEY}" ;;
+            *) API_KEY="${API_SPORTS_KEY}" ;;
+          esac
+
           if [ -z "${API_KEY}" ]; then
-            echo "::warning::Secret API_SPORTS_KEY není nastavený — volám bez autorizační hlavičky."
+            echo "::warning::Odpovídající secret není nastavený (hlavička '${HEADER_NAME}') — volám bez autorizační hlavičky."
             AUTH_ARGS=()
           else
             AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
