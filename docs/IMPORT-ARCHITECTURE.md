@@ -252,6 +252,43 @@ tarif je tedy pro živou tipovací hru nepoužitelný.
 fotbal i hokej = **dvě předplatná**, nejlevnější Pro à $19/měsíc →
 **~$38/měsíc**.
 
+## SportAPI7 (RapidAPI) — ověřeno reálným dotazem (25.8.2026)
+
+Uživatel navrhl k prozkoumání i https://rapidapi.com/rapidsportapi/api/sportapi7/pricing
+(wrapper nad daty Sofascore). Klíč uživatel vložil přímo do chatu —
+protože je repo `dstruhac/drew` **veřejné** a logy Actions běhů jsou
+tedy čitelné komukoliv, klíč se **nikdy neposlal jako obyčejný vstup
+workflow** (to by ho vypsalo do veřejného logu). Místo toho ho uživatel
+sám vložil jako GitHub secret (`Settings → Secrets → Actions →
+RAPIDAPI_KEY`) a `api-probe.yml` byl upraven, aby ho automaticky použil
+(rozpozná se podle názvu hlavičky `x-rapidapi-key`) a zároveň doplnil
+povinnou druhou hlavičku `x-rapidapi-host`, kterou RapidAPI vyžaduje.
+
+**Data reálně fungují** — dotaz `search/all?q=czech` vrátil HTTP 200 a
+skutečná data (českou reprezentaci, ligy, `Czech First League` id `172`
+atd.), takže by šlo najít i Chance Ligu a Tipsport extraligu.
+
+**❌ Ale kvóta bezplatného plánu je pro provoz appky nepoužitelná.**
+Odpověď obsahovala tyto hlavičky:
+
+```
+x-ratelimit-requests-limit: 50
+x-ratelimit-requests-remaining: 49
+x-ratelimit-requests-reset: 2678114        (≈ 31 dní)
+```
+
+Tedy **50 požadavků za měsíc celkem**, ne za den. Pro srovnání: i jen
+samotná Úloha A (rozpis zápasů, 1× denně) by potřebovala ~30–60
+požadavků měsíčně podle počtu soutěží — tedy by vyčerpala **celou**
+měsíční kvótu sama o sobě, ještě než by se vůbec začaly stahovat
+výsledky (Úloha B). Nemá tedy smysl dál ověřovat, jestli SportAPI7 obě
+ligy skutečně obsahuje (u task A i B dohromady bychom kvótu překročili
+o řád) — na rozdíl od TheSportsDB (limit je "jen" na počet výsledků v
+jedné odpovědi, ne na počet požadavků) nebo api-sports.io (100/den =
+~3000/měsíc, na každé API zvlášť) je 50/měsíc o dva řády míň, než appka
+potřebuje. Zbylých 49 z 50 požadavků zůstává nevyčerpaných pro jiné
+budoucí ověřování.
+
 ## Závěr: doporučený zdroj
 
 **TheSportsDB Premium, $9/měsíc.**

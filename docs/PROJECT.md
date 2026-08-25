@@ -214,6 +214,13 @@ nevymýšlí za něj):
      kontaktovat konkrétně Adama Josku e-mailem/telefonicky), data se
      načítají několikrát denně, ne živě. Pouze hokej.
 
+   **SportAPI7 (RapidAPI, navrženo uživatelem 25.8.2026) — ověřeno a
+   zamítnuto.** Reálná data fungují (potvrzeno dotazem, viz
+   `IMPORT-ARCHITECTURE.md`), ale bezplatný plán má kvótu jen **50
+   požadavků za měsíc celkem** — o dva řády míň, než appka potřebuje
+   (samotný denní import rozpisu by ji vyčerpal sám). Nemá tedy smysl
+   dál ověřovat pokrytí lig u tohohle zdroje.
+
    **Můj (Claude) doporučený výchozí bod:** TheSportsDB, protože
    pokrývá obě ligy jedním API a je nejlevnější na rozjezd — ale
    uživatel to zatím nepotvrdil, čeká se na finální rozhodnutí.
