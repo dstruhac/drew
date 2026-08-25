@@ -19,6 +19,31 @@ jen tuhle konverzaci.
   jak přesně napsat SQL dotaz) řeš sám bez ptaní — otázky šetři na
   věci, které mění chování appky nebo datový model.
 
+### Ptát se ANO na produkt, NE na techniku
+
+Tohle je nejčastější způsob, jak uživatele zklamat (vytkl to
+25.8.2026): házet mu zpátky **technické** otázky, na které si mám
+odpovědět sám. Uživatel je netechnický a používá Claude přesně na to,
+aby tyhle věci nemusel řešit.
+
+- **Technické otázky jsou moje.** Jak navrhnout architekturu, kolik to
+  bude requestů, jaký endpoint zavolat, jak ošetřit hraniční případ,
+  který zdroj dat je lepší — tohle si **nastuduj a rozhodni**, ať to
+  stojí víc kroků. Nedávej uživateli na výběr mezi variantami, kterým
+  nemůže rozumět.
+- **Produktové otázky jsou jeho.** Jak se co jmenuje, co se má
+  zobrazit, jestli medaile nebo rank, jaká liga se sleduje.
+- **Než se zeptáš, zkus to zjistit.** `WebSearch`, dokumentace,
+  probe workflow přes GitHub Actions (viz síťové omezení níže), čtení
+  kódu. Otázka typu "nevím, ověř mi to v prohlížeči" je až poslední
+  možnost, ne první.
+- **Když se ptát musíš, přijď s doporučením a výchozí volbou.** Ne
+  "co chceš?", ale "navrhuju X, protože Y; pokud neřekneš jinak,
+  udělám X". Uživatel má opravovat směr, ne ho vymýšlet.
+- **Nedávej práci uživateli, když ji můžeš udělat sám.** Před tím, než
+  ho pošleš klikat do cizího dashboardu, ověř, jestli to nejde
+  automatizovat odsud.
+
 ## Komunikace
 
 - Piš česky.
@@ -35,12 +60,29 @@ jen tuhle konverzaci.
 ## Síťové omezení tohoto prostředí
 
 Sandbox, ve kterém tahle Claude Code session běží, má omezený odchozí
-přístup: GitHub, npm registry a Supabase REST API (server-side) fungují;
-**Vercel API, Google, a obecně cizí domény ne** — ani přes CLI/token,
-ani přes Playwright prohlížeč. Ověřeno na `api.vercel.com` (403 na
-CONNECT) a `accounts.google.com`/`supabase.co` z Playwrightu
-(`ERR_TUNNEL_CONNECTION_FAILED`). Neztrácej čas opakovaným zkoušením
-téhle cesty — rovnou navrhni ruční postup přes uživatelův prohlížeč.
+přístup. Ověřeno `curl`em 25.8.2026 (403 na CONNECT = zablokováno):
+
+| Cíl | Funguje ze session? |
+|---|---|
+| GitHub (vč. GitHub API/MCP nástrojů) | **ano** |
+| npm registry | **ano** |
+| `WebSearch` (vyhledávání na webu) | **ano** |
+| `WebFetch` na cizí doménu | **ne** (EGRESS_BLOCKED) |
+| **`supabase.co`** (REST i Edge Functions) | **ne** |
+| `api.vercel.com`, Google, sportovní API | **ne** |
+
+**Pozor**, dřívější verze téhle poznámky tvrdila, že "Supabase REST API
+funguje" — to je **špatně** a stálo to čas. Funguje z **nasazené appky**
+(Vercel/Edge Function), ne z téhle session.
+
+**Jak se přesto dostat ven — přes GitHub Actions.** GitHub je
+dosažitelný a Actions běží s plným internetem. V repu je
+`.github/workflows/api-probe.yml`: ručně spustitelný workflow, který
+zavolá zadanou URL a vypíše odpověď do logu. Claude ho umí sám spustit
+(`actions_run_trigger`) i přečíst jeho log (`get_job_logs`) — takže si
+umí ověřit reálná data z cizího API bez toho, aby to uživatel musel
+kopírovat ručně. Tohle použij dřív, než pošleš uživatele něco ověřovat
+do prohlížeče.
 
 ## Git a nasazení
 
