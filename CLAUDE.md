@@ -49,11 +49,18 @@ téhle cesty — rovnou navrhni ruční postup přes uživatelův prohlížeč.
   na začátku session v systémových instrukcích). **PR vytvářej rovnou
   sám po každém pushi** — díky tomu Vercel na PR napíše komentář s
   odkazem na preview, což je pro uživatele nejspolehlivější způsob, jak
-  změnu vyzkoušet, než jde do `main`.
+  změnu vyzkoušet, než jde do `main`. **Hned po založení PR se na něj
+  přihlas přes `subscribe_pr_activity`** (uživatel plánuje GitHub
+  workflow s Copilot code review, který na PR bude nechávat komentáře
+  — automaticky se tak dozvím o nových komentářích/CI a budu na ně
+  moct reagovat, než požádám o merge).
 - **Merge PR dělej sám, ale až po výslovném souhlasu uživatele** v
   chatu (např. "jedeme", "mergni to", "ok") — ne automaticky hned po
   vytvoření PR. Dokud souhlas nepřijde, jen čekej / pracuj na dalším
-  kroku, PR nech otevřený.
+  kroku, PR nech otevřený. Pokud mezitím na PR přibudou komentáře
+  (např. od Copilota), nejdřív na ně zareaguj (drobnosti oprav rovnou,
+  u větších věcí navrhni řešení v chatu) — teprve pak čekej na
+  uživatelovo "jedeme".
 - **Jakmile je PR smergovaný (ať už jím nebo uživatelem ručně na
   GitHubu), branch pro tenhle PR je "spotřebovaná".** Než na ni
   pushneš další commit, ověř přes GitHub (`pull_request_read` / `list_pull_requests`),
