@@ -155,25 +155,84 @@ U hokeje navíc stav "po prodloužení/nájezdech" → `overtime_flag = true`
    nerozbije. Bonus: API obvykle vrací i **URL loga týmu**, což by
    skoro zadarmo vyřešilo odložený krok 7 (loga týmů) v plánu.
 
-## Co je ještě potřeba ověřit
+## Ověřeno na reálných datech (25.8.2026)
 
-Nic z toho nejde ověřit z Claude Code session — sandbox blokuje
+Přes `api-probe.yml` (GitHub Actions) byly zavolány reálné endpointy
+TheSportsDB s veřejným testovacím klíčem `3`. Výsledky:
+
+**TheSportsDB má obě sledované ligy, s daty na aktuální sezónu
+2026-2027** — potvrzeno konkrétními zápasy:
+
+| liga | `idLeague` | ukázka z odpovědi |
+|---|---|---|
+| Czech First League (Chance Liga) | `4631` | Baník Ostrava vs Sigma Olomouc, 29.8.2026 18:00 UTC, 6. kolo |
+| Czech Extraliga (Tipsport extraliga) | `4923` | Motor České Budějovice vs Mladá Boleslav, 16.9.2026 15:30 UTC, 1. kolo |
+
+**Odpověď obsahuje všechna pole, která import potřebuje:**
+
+| pole v API | použití u nás |
+|---|---|
+| `idEvent` | `matches.external_id` (stabilní klíč pro upsert) |
+| `strTimestamp` (UTC) | `matches.kickoff_at` |
+| `strHomeTeam` / `strAwayTeam` | `matches.home_team` / `away_team` |
+| `intHomeScore` / `intAwayScore` | `matches.home_score` / `away_score` |
+| `strStatus` (`NS`, …) | `matches.status` |
+| `strPostponed` (`yes`/`no`) | **řeší otevřenou otázku s odloženými zápasy** |
+| `intRound` | zatím nepoužito, ale k dispozici |
+| `strHomeTeamBadge` / `strAwayTeamBadge` | **loga týmů — krok 7 plánu skoro zadarmo** |
+| `strLeagueBadge` | **logo ligy — krok 6 plánu skoro zadarmo** |
+
+**Zásadní omezení: bezplatný klíč ořezává počet výsledků.**
+`eventsday.php` vrátil pro 29.8. i 30.8. shodně přesně **3 položky**,
+což odpovídá dokumentovanému limitu tohoto endpointu ("Free Limit: 3",
+Premium 1500). U `eventsnextleague.php` vrátil dokonce jen 1 položku.
+Není to tedy skutečný počet zápasů toho dne — chybějící zápasy by se
+prostě **tiše nenaimportovaly**, což je horší než chyba, protože by si
+toho nikdo nemusel všimnout.
+
+→ **Pro ostrý provoz je potřeba placený klíč** (TheSportsDB Patreon,
+$9/měsíc). Návrh architektury výše zůstává beze změny, jen se nedá
+provozovat na testovacím klíči.
+
+Mimochodem, TheSportsDB u každého zápasu vrací i `idAPIfootball`
+(např. `1560005`) — což je nepřímé potvrzení, že **API-Football tuhle
+ligu taky má**, kdyby padla volba na něj.
+
+## Jak se ověřuje (probe workflow)
+
+Nic z toho nejde ověřit přímo z Claude Code session — sandbox blokuje
 odchozí přístup na sportovní API i na `supabase.co` (ověřeno curlem,
-403 na CONNECT). Proto vznikl **probe workflow** (viz
-`.github/workflows/api-probe.yml`): GitHub Actions běží s plným
-internetem, zavolá API a vypíše odpověď do logu, který si Claude umí
-přečíst zpátky přes GitHub API.
+403 na CONNECT). Proto vznikl **probe workflow**
+(`.github/workflows/api-probe.yml`): GitHub Actions běží s plným
+internetem, zavolá zadanou URL a vypíše odpověď do logu, který si
+Claude umí přečíst zpátky přes GitHub API — takže si ověřuje reálná
+data sám, bez ručního kopírování.
 
-Ověřit je potřeba:
+Workflow jde spustit i z větve (`ref` = jméno větve), takže se dá
+testovat i jeho vlastní úprava, dokud není v `main`.
 
-1. Má **API-Football** (api-sports.io) v datech českou **Chance Ligu**?
-   Jaké má `league id`?
-2. Má **API-Hockey** (stejný poskytovatel) českou **Tipsport
-   extraligu**? Jaké `league id`?
-3. Dává **free tarif** přístup k **aktuální sezóně** (2026/27)? Free
-   tarif má u některých poskytovatelů omezené jen historické sezóny —
-   tohle je jediná věc, která by volbu mohla shodit.
+## Zbývá rozhodnout / ověřit
 
-Pokud by některá odpověď byla ne, záložní varianty jsou popsané
-v `PROJECT.md` u kroku 5 (TheSportsDB, Sportmonks, oficiální API
-Českého hokeje).
+**Rozhodnutí pro uživatele: který zdroj koupit/použít.** Varianty:
+
+1. **TheSportsDB Premium, $9/měsíc** — obě ligy ověřeně fungují jedním
+   API, včetně log týmů i ligy. Nejjednodušší na provoz (jedna
+   integrace). *Doporučeno.*
+2. **API-Football free (100 req/den)** — jen fotbal, hokej by zůstal
+   ruční nebo by potřeboval druhý zdroj. Zdarma.
+3. Kombinace (fotbal z API-Football zdarma, hokej z TheSportsDB
+   Premium) — nejlevnější varianta s plným pokrytím, ale dvě
+   integrace = víc kódu a víc věcí, co se může rozbít.
+
+**Neověřeno** (má smysl testovat, až padne rozhodnutí, opět přes
+probe workflow — potřeboval by k tomu GitHub secret `API_SPORTS_KEY`):
+
+1. Má **API-Football** českou Chance Ligu a jaké `league id`?
+   (Nepřímý důkaz, že ano: TheSportsDB u zápasů vrací `idAPIfootball`.)
+2. Má **API-Hockey** (stejný poskytovatel) Tipsport extraligu?
+3. Dává free tarif API-Football přístup k **aktuální** sezóně? U
+   některých poskytovatelů je free omezený na historické sezóny —
+   tohle je jediná věc, která by variantu 2 mohla shodit.
+
+Další záložní zdroje (Sportmonks, oficiální API Českého hokeje) jsou
+popsané v `PROJECT.md` u kroku 5.
