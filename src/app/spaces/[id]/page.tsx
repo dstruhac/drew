@@ -64,6 +64,12 @@ export default async function CompetitionDetailPage({
             {SPORT_LABELS[competition.sport]}
           </span>
         </div>
+        <Link
+          href={`/spaces/${competition.id}/leaderboard`}
+          className="mt-3 inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+        >
+          Žebříček →
+        </Link>
       </header>
 
       {!matches?.length && (
