@@ -194,6 +194,33 @@ nevymýšlí za něj):
    nahoře), "Proběhlé" sestupně (nejnovější výsledek nahoře). Sekce se
    zobrazí jen když v ní jsou nějaké zápasy.
 
+### Nápad: medaile/odznaky za vítězství (2026-08-25, nerozpracováno)
+
+Uživatel navrhl herní prvek navíc k celkovému žebříčku: nějaká forma
+odměny (medaile/odznak/kartička, případně "rank"/level), kterou hráč
+dostane za vítězství v kratším časovém úseku — např. samostatná
+tabulka/žebříček **za daný týden**, a vítěz týdne dostane medaili nebo
+mu stoupne rank. Úmysl je zvýšit motivaci hrát pravidelně, ne jen
+sledovat jeden dlouhodobý celkový žebříček.
+
+Uživatel to ještě nemá plně rozmyšlené — než se začne implementovat,
+je potřeba společně probrat aspoň:
+- **Perioda**: přesně týden (po-ne)? Herní kolo/matchday? Nebo
+  konfigurovatelné za competition?
+- **Co uživatel reálně dostane**: vizuální odznak/medaile (obrázek),
+  číselný "rank"/level, který roste, nebo obojí?
+- **Kde se to zobrazí**: u jména na leaderboardu, na nějakém profilu
+  hráče (ten zatím v appce vůbec neexistuje jako samostatná stránka),
+  obojí?
+- **Řešení remíz**: co když je na první příčce daného týdne víc hráčů
+  se stejným počtem bodů?
+- **Rozsah**: platí to napříč celou competition (viz. napříč sporty?),
+  nebo je to nezávislé pro každou competition zvlášť?
+- **Datový model**: pravděpodobně nová tabulka na "úspěchy"/odznaky
+  (např. `achievements`/`user_achievements`) + logika, která
+  periodicky (podobně jako budoucí import výsledků) vyhodnotí
+  vítěze periody. Nic z tohoto zatím neexistuje.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
