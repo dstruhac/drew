@@ -213,26 +213,39 @@ testovat i jeho vlastní úprava, dokud není v `main`.
 
 ## Zbývá rozhodnout / ověřit
 
-**Rozhodnutí pro uživatele: který zdroj koupit/použít.** Varianty:
+**Rozhodnutí pro uživatele: který zdroj použít.** Dvě reálné varianty:
 
-1. **TheSportsDB Premium, $9/měsíc** — obě ligy ověřeně fungují jedním
-   API, včetně log týmů i ligy. Nejjednodušší na provoz (jedna
-   integrace). *Doporučeno.*
-2. **API-Football free (100 req/den)** — jen fotbal, hokej by zůstal
-   ruční nebo by potřeboval druhý zdroj. Zdarma.
-3. Kombinace (fotbal z API-Football zdarma, hokej z TheSportsDB
-   Premium) — nejlevnější varianta s plným pokrytím, ale dvě
-   integrace = víc kódu a víc věcí, co se může rozbít.
+1. **api-sports.io** — poskytovatel s 9+ sporty, včetně samostatných
+   **API-Football** a **API-HOCKEY**. Bezplatný tarif je **100
+   požadavků/den na každé API zvlášť**, takže fotbal i hokej vedle
+   sebe zdarma; náš odhad spotřeby je ~22 req/den dohromady, tedy
+   velká rezerva. Deklarují "všechny soutěže na všech tarifech", takže
+   bezplatný tarif by neměl být omezený výběrem lig.
+   *Pokud mají obě naše ligy, je tohle zdarma to, za co by se
+   u TheSportsDB platilo.* **Zatím neověřeno — viz níže.**
+2. **TheSportsDB Premium, $9/měsíc** — obě ligy **ověřeně** fungují
+   (viz sekce výše), jedno API, včetně log týmů i ligy. Jistota za
+   cenu ~200 Kč měsíčně.
 
-**Neověřeno** (má smysl testovat, až padne rozhodnutí, opět přes
-probe workflow — potřeboval by k tomu GitHub secret `API_SPORTS_KEY`):
+**Pozor na dřívější chybu v této dokumentaci:** u api-sports.io bylo
+napsáno "pouze fotbal, žádný hokej". To je špatně — hokej mají.
+Vzniklo to tím, že se zkoumalo jen API-Football a závěr se přenesl na
+celého poskytovatele.
 
-1. Má **API-Football** českou Chance Ligu a jaké `league id`?
+**Neověřeno u api-sports.io** (vyžaduje registraci a klíč — jejich web
+je za Cloudflare, dokumentace se z něj nedá číst automaticky, ověřeno
+probe workflow: HTTP 403 "Just a moment…"):
+
+1. Má **API-Football** českou Chance Ligu a jaké má `league id`?
    (Nepřímý důkaz, že ano: TheSportsDB u zápasů vrací `idAPIfootball`.)
-2. Má **API-Hockey** (stejný poskytovatel) Tipsport extraligu?
-3. Dává free tarif API-Football přístup k **aktuální** sezóně? U
-   některých poskytovatelů je free omezený na historické sezóny —
-   tohle je jediná věc, která by variantu 2 mohla shodit.
+2. Má **API-HOCKEY** Tipsport extraligu a jaké má `league id`?
+3. Dává bezplatný tarif přístup k **aktuální** sezóně? U některých
+   poskytovatelů je free omezený na historické sezóny — tohle je
+   jediná věc, která by variantu 1 mohla shodit.
+
+Jakmile bude v repozitáři GitHub secret `API_SPORTS_KEY` (bezplatná
+registrace na dashboard.api-football.com), dají se všechny tři otázky
+zodpovědět probe workflow během pár minut, bez ručního zkoušení.
 
 Další záložní zdroje (Sportmonks, oficiální API Českého hokeje) jsou
 popsané v `PROJECT.md` u kroku 5.
