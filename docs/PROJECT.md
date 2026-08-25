@@ -172,6 +172,11 @@ nevymýšlí za něj):
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
    se použije (nevybráno, nutno probrat s uživatelem).
 
+   **➡️ Podrobný návrh architektury je v
+   [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md)** —
+   klouzavé okno místo "kol", dvě naplánované úlohy, odhad spotřeby
+   requestů, potřebné změny datového modelu.
+
    **Sledované soutěže (odsouhlaseno 2026-08-25):** hokej = česká
    hokejová **Tipsport extraliga**, fotbal = česká **Chance Liga**.
    Tohle je důležité, protože dostupnost/cena API se dost liší podle

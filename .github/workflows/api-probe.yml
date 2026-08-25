@@ -1,0 +1,90 @@
+# Pomocný workflow: zavolá zadané sportovní API a vypíše odpověď do logu.
+#
+# Proč existuje: Claude Code session běží v sandboxu, který blokuje
+# odchozí přístup na sportovní API (403 na CONNECT). GitHub Actions ale
+# běží s plným internetem a Claude si umí přečíst log doběhlého běhu
+# zpátky přes GitHub API. Tohle je tedy jediná cesta, jak si z chatu
+# ověřit, co konkrétní API reálně vrací, bez ručního kopírování.
+#
+# Spouští se jen ručně (workflow_dispatch) — nic neběží samo od sebe
+# a workflow nikam nezapisuje, jen čte.
+#
+# POZOR: aby šel workflow spustit, musí být tenhle soubor už
+# smergovaný v `main` (GitHub jinak workflow_dispatch nenabídne).
+
+name: API probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Plná URL API endpointu, včetně parametrů"
+        required: true
+        type: string
+      header_name:
+        description: "Název hlavičky s API klíčem"
+        required: false
+        default: "x-apisports-key"
+        type: string
+      max_chars:
+        description: "Kolik znaků odpovědi maximálně vypsat do logu"
+        required: false
+        default: "40000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Zavolat API a vypsat odpověď
+        env:
+          # Hodnota se do logu nikdy nevypíše — GitHub secrets v logu
+          # automaticky maskuje. Pokud secret není nastavený, zavolá se
+          # API bez hlavičky a odpověď (nejspíš chyba) to ukáže.
+          API_KEY: ${{ secrets.API_SPORTS_KEY }}
+          PROBE_URL: ${{ inputs.url }}
+          HEADER_NAME: ${{ inputs.header_name }}
+          MAX_CHARS: ${{ inputs.max_chars }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${API_KEY}" ]; then
+            echo "::warning::Secret API_SPORTS_KEY není nastavený — volám bez autorizační hlavičky."
+            AUTH_ARGS=()
+          else
+            AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
+          fi
+
+          echo "URL: ${PROBE_URL}"
+          echo "Hlavička s klíčem: ${HEADER_NAME}"
+          echo "----- HTTP status a hlavičky -----"
+
+          HTTP_CODE=$(curl -sS --max-time 30 \
+            "${AUTH_ARGS[@]}" \
+            -D headers.txt \
+            -o body.json \
+            -w '%{http_code}' \
+            "${PROBE_URL}") || {
+              echo "::error::curl selhal (viz výstup výše)"
+              exit 1
+            }
+
+          echo "HTTP kód: ${HTTP_CODE}"
+          # Hlavičky s limity requestů jsou to hlavní, co nás zajímá.
+          grep -iE '^(x-ratelimit|ratelimit|content-type|retry-after)' headers.txt || true
+
+          echo "----- Velikost odpovědi -----"
+          wc -c < body.json
+
+          echo "----- Tělo odpovědi (zkrácené na ${MAX_CHARS} znaků) -----"
+          if jq -e . body.json >/dev/null 2>&1; then
+            jq . body.json | head -c "${MAX_CHARS}"
+          else
+            echo "(odpověď není platný JSON, vypisuji syrově)"
+            head -c "${MAX_CHARS}" body.json
+          fi
+          echo
+          echo "----- Konec odpovědi -----"
