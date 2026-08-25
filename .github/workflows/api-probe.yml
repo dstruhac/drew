@@ -80,6 +80,16 @@ jobs:
             AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
           fi
 
+          # RapidAPI navíc vyžaduje hlavičku x-rapidapi-host s hostname
+          # z URL — jinak vrací 403. Doplní se automaticky, ať se nemusí
+          # posílat jako další vstup.
+          case "${HEADER_NAME}" in
+            *[Rr][Aa][Pp][Ii][Dd]*)
+              RAPIDAPI_HOST=$(echo "${PROBE_URL}" | sed -E 's#^[a-zA-Z]+://([^/]+).*#\1#')
+              AUTH_ARGS+=(-H "x-rapidapi-host: ${RAPIDAPI_HOST}")
+              ;;
+          esac
+
           echo "URL: ${PROBE_URL}"
           echo "Hlavička s klíčem: ${HEADER_NAME}"
           echo "----- HTTP status a hlavičky -----"
