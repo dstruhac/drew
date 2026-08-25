@@ -161,6 +161,24 @@ nevymýšlí za něj):
 5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
    Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
    se použije (nevybráno, nutno probrat s uživatelem)
+6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
+   v jejím detailu. Otevřená otázka: odkud logo bere (upload do
+   Supabase Storage vs. URL sloupec u `competitions`) — probrat při
+   implementaci.
+7. [ ] Loga týmů u zápasů. **Otevřená otázka (2026-08-25, vědomě
+   odloženo):** `matches.home_team`/`away_team` jsou dnes prostý text,
+   žádná centrální evidence týmů neexistuje. Při implementaci nejdřív
+   s uživatelem probrat a rozhodnout mezi (a) centrální tabulkou týmů
+   s logem, na kterou by se zápasy musely přepsat, nebo (b) samostatnou
+   mapovací tabulkou "název týmu → logo" bez zásahu do `matches`.
+8. [ ] Barevné odlišení kartičky zápasu podle skóre. **Otevřená otázka
+   (2026-08-25, vědomě odloženo):** není určeno, jestli barva má
+   odrážet body získané za vlastní tip uživatele (zelená/žlutá/šedá
+   podle úspěšnosti tipu), nebo výsledek zápasu samotného (výhra
+   domácích/hostů/remíza). Rozhodnout s uživatelem před implementací.
+9. [ ] Rozdělení zápasů v detailu soutěže do sekcí "Nadcházející" a
+   "Proběhlé" (dnes je to jeden lineární seznam řazený podle
+   `kickoff_at`, viz `src/app/spaces/[id]/page.tsx`).
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
