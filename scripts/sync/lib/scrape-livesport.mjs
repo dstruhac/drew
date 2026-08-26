@@ -15,7 +15,7 @@
 
 import { chromium } from "playwright";
 
-function parseScore(text) {
+export function parseScore(text) {
   const t = (text || "").trim();
   if (!t || t === "-") return null;
   const n = Number(t);
@@ -25,35 +25,32 @@ function parseScore(text) {
 // Převede "wall clock" čas v Europe/Prague na správný UTC ISO řetězec —
 // počítá s letním/zimním časem přes vestavěný Intl (formatToParts trik),
 // bez závislosti na externí knihovně na časová pásma.
-function pragueWallTimeToUtcIso(year, month, day, hour, minute) {
-  const naiveUtcMs = Date.UTC(year, month - 1, day, hour, minute);
+//
+// Offset se zjišťuje z POLEDNE daného kalendářního dne, ne z přesné
+// zadané hodiny — jinak by šel o hodinu vedle přesně v ranních hodinách
+// dne přechodu na letní/zimní čas (kdy naivní odhad zjišťovaný přímo z
+// hour/minute může spadnout na druhou stranu přechodu). Přechody v
+// Evropě jsou vždy brzy ráno (1–3h), poledne je od nich vždy bezpečně
+// mimo — a sportovní zápasy se v tu dobu nehrají, takže tohle appce
+// pro reálná data stačí.
+export function pragueWallTimeToUtcIso(year, month, day, hour, minute) {
+  const noonUtcMs = Date.UTC(year, month - 1, day, 12, 0);
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Prague",
     hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
   });
-  const parts = Object.fromEntries(dtf.formatToParts(naiveUtcMs).map((p) => [p.type, p.value]));
-  const asIfUtcMs = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  const offsetMs = asIfUtcMs - naiveUtcMs;
-  return new Date(naiveUtcMs - offsetMs).toISOString();
+  const parts = Object.fromEntries(dtf.formatToParts(noonUtcMs).map((p) => [p.type, p.value]));
+  const offsetMinutes = Number(parts.hour) * 60 + Number(parts.minute) - 12 * 60;
+  const naiveUtcMs = Date.UTC(year, month - 1, day, hour, minute);
+  return new Date(naiveUtcMs - offsetMinutes * 60 * 1000).toISOString();
 }
 
 // "29.08. 15:00" neobsahuje rok — dopočítá se podle dnešního data: když
 // by vyšlo datum víc než ~2 měsíce v minulosti, jde o zápas dalšího
 // roku (řeší přechod sezóny přes Nový rok, např. leden 2027).
-function inferYear(month, day, hour, minute, referenceDate) {
+export function inferYear(month, day, hour, minute, referenceDate) {
   let year = referenceDate.getUTCFullYear();
   const candidateMs = Date.UTC(year, month - 1, day, hour, minute);
   const twoMonthsMs = 60 * 24 * 60 * 60 * 1000;

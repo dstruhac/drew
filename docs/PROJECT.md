@@ -91,8 +91,13 @@ se jako nové tabulky/sloupce, až budou potřeba.
   `supabase.auth.signInWithOAuth({ provider: "google" })`
 - `src/app/auth/callback/route.ts` — vymění OAuth `code` za session
   (`exchangeCodeForSession`), přesměruje na `/spaces`
-- `src/app/spaces` — server komponenta, načítá `competitions` z DB,
-  zobrazuje kartičky + odhlašovací tlačítko (server action)
+- `src/app/(app)/` — route group (nemění URL) pro celou přihlášenou
+  část appky: `spaces/`, `spaces/[id]/`, `spaces/[id]/leaderboard/`,
+  `profil/`. Sdílí `layout.tsx`, který renderuje `AppHeader`.
+- `src/components/app-header.tsx` — horní lišta napříč `(app)`:
+  fotečka uživatele (`profiles.avatar_url`, iniciála jako fallback)
+  vedoucí na `/profil` + "Odhlásit se" (server action).
+- `src/app/(app)/spaces` — server komponenta, načítá `competitions` z DB
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — na každém
   requestu obnoví session; nepřihlášené přesměruje na `/login`
   (kromě `/login` a `/auth/callback`), přihlášené odchytí na `/login`
@@ -246,16 +251,18 @@ nevymýšlí za něj):
    jinak do "Nadcházející". "Nadcházející" řazeno vzestupně (nejbližší
    nahoře), "Proběhlé" sestupně (nejnovější výsledek nahoře). Sekce se
    zobrazí jen když v ní jsou nějaké zápasy.
-10. [x] Vlastní přezdívka — `src/app/profil/{page.tsx,nickname-form.tsx,actions.ts}`,
-    odkaz "Nastavení profilu" v hlavičce `/spaces`. Upravuje
-    `profiles.display_name` přes existující RLS politiku
+10. [x] Vlastní přezdívka — `src/app/(app)/profil/{page.tsx,nickname-form.tsx,actions.ts}`.
+    Upravuje `profiles.display_name` přes existující RLS politiku
     `profiles_update_own` (žádná nová migrace nebyla potřeba).
-11. [ ] Sdílená hlavička appky — dnes má každá stránka (`/spaces`,
-    detail soutěže, leaderboard, `/profil`) svoji vlastní hlavičku,
-    žádné sdílené UI napříč appkou. Uživatel navrhl (2026-08-26) do
-    hlavičky časem přidat fotečku přihlášeného uživatele (`avatar_url`
-    z `profiles`, appka ho už má z Google OAuth) s odkazem na profil —
-    tohle je předpoklad pro ten vzhled. Zatím nerozpracováno.
+11. [x] Sdílená hlavička appky — `src/components/app-header.tsx` +
+    `src/app/(app)/layout.tsx`. Autentizované stránky (`/spaces`,
+    detail soutěže, leaderboard, `/profil`) přesunuty pod route group
+    `(app)` (nemění URL, jen sdílí layout). Hlavička: vlevo odkaz
+    "Drew" na `/spaces`, vpravo fotečka uživatele (`profiles.avatar_url`
+    z Google OAuth, s iniciálou jako fallback) vedoucí na `/profil` +
+    "Odhlásit se". Jednotlivé stránky teď mají v hlavičce jen svůj
+    vlastní obsah (název, zpětný odkaz), duplicitní odkaz na profil a
+    odhlášení se ze `/spaces` odstranily.
 12. [ ] Skutečné "přihlášení" (členství) do competition — navazuje na
     krok 11. Uživatel navrhl (2026-08-26): leaderboard by měl
     zobrazovat jen hráče, kteří se do dané soutěže výslovně přihlásili

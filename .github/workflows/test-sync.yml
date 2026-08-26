@@ -1,0 +1,41 @@
+# Spustí unit testy pro scripts/sync/ (scraping/sync logika) při každém
+# pushi a PR, který se jich dotkne. Testuje jen čistou logiku (parsování
+# skóre, převod časového pásma, kontrola rozumnosti dat) — nic, co by
+# potřebovalo Playwright/prohlížeč nebo připojení k Supabase.
+
+name: Test sync scripts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/sync/**"
+  pull_request:
+    paths:
+      - "scripts/sync/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nainstalovat závislosti
+        # Testy nikdy nespouští skutečný prohlížeč (jen čistou logiku), takže
+        # se nemusí stahovat těžké binárky Chromia — jen se importuje modul.
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm install
+
+      - name: Spustit testy
+        run: npx vitest run
