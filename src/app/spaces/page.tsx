@@ -37,14 +37,22 @@ export default async function SpacesPage() {
             </p>
           )}
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
+        <div className="flex items-center gap-4">
+          <Link
+            href="/profil"
             className="text-sm underline underline-offset-2 hover:no-underline"
           >
-            Odhlásit se
-          </button>
-        </form>
+            Nastavení profilu
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="text-sm underline underline-offset-2 hover:no-underline"
+            >
+              Odhlásit se
+            </button>
+          </form>
+        </div>
       </header>
 
       {error && (
