@@ -246,6 +246,23 @@ nevymýšlí za něj):
    jinak do "Nadcházející". "Nadcházející" řazeno vzestupně (nejbližší
    nahoře), "Proběhlé" sestupně (nejnovější výsledek nahoře). Sekce se
    zobrazí jen když v ní jsou nějaké zápasy.
+10. [x] Vlastní přezdívka — `src/app/profil/{page.tsx,nickname-form.tsx,actions.ts}`,
+    odkaz "Nastavení profilu" v hlavičce `/spaces`. Upravuje
+    `profiles.display_name` přes existující RLS politiku
+    `profiles_update_own` (žádná nová migrace nebyla potřeba).
+11. [ ] Sdílená hlavička appky — dnes má každá stránka (`/spaces`,
+    detail soutěže, leaderboard, `/profil`) svoji vlastní hlavičku,
+    žádné sdílené UI napříč appkou. Uživatel navrhl (2026-08-26) do
+    hlavičky časem přidat fotečku přihlášeného uživatele (`avatar_url`
+    z `profiles`, appka ho už má z Google OAuth) s odkazem na profil —
+    tohle je předpoklad pro ten vzhled. Zatím nerozpracováno.
+12. [ ] Skutečné "přihlášení" (členství) do competition — navazuje na
+    krok 11. Uživatel navrhl (2026-08-26): leaderboard by měl
+    zobrazovat jen hráče, kteří se do dané soutěže výslovně přihlásili
+    (ne "kohokoliv, kdo kdy tipoval", jak je to dnes). Tohle je
+    varianta (b) z nápadu "participanti soutěže" níže — vyžaduje
+    novou tabulku členství a změnu v tom, jak `leaderboard/page.tsx`
+    hráče vybírá. Zatím nerozpracováno, čeká na sdílenou hlavičku.
 
 ### Nápad: medaile/odznaky za vítězství (2026-08-25, nerozpracováno)
 
@@ -289,12 +306,13 @@ stávajících dat stejně jako leaderboard), nebo (b) zavádíme skutečné
 "členství" v soutěži (kdo se do ní explicitně přihlásil) — to by byla
 větší změna datového modelu.
 
-**2) Vlastní přezdívka** — uživatel by si mohl změnit `display_name`,
-který se ukazuje na leaderboardu (dnes se nastaví automaticky při
-signupu z Google jména). Dobrá zpráva: RLS politika
-`profiles_update_own` už existuje a update vlastního profilu povoluje
-— jde tedy hlavně o UI (formulář/stránka nastavení), ne o změnu
-zabezpečení.
+**Rozhodnuto směrem (b) (2026-08-26):** uživatel potvrdil, že chce
+skutečné členství — leaderboard má zobrazovat jen hráče, kteří se do
+soutěže přihlásili, ne kohokoliv, kdo kdy tipoval. Viz krok 12 v plánu
+výše — čeká na sdílenou hlavičku appky (krok 11), zatím nerozpracováno.
+
+**2) Vlastní přezdívka — ✅ hotovo (2026-08-26), viz krok 10 v plánu
+výše.**
 
 **3) Detail/profil uživatele** — nová stránka, která by u daného
 hráče ukázala, kterých soutěží se účastní. Otevřené otázky: má to být

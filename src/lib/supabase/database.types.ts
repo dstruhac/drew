@@ -37,6 +37,8 @@ export interface Database {
           points_exact: number;
           points_winner: number;
           points_total_goals: number;
+          scrape_source: string | null;
+          scrape_path: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -49,6 +51,8 @@ export interface Database {
           points_exact?: number;
           points_winner?: number;
           points_total_goals?: number;
+          scrape_source?: string | null;
+          scrape_path?: string | null;
           created_by?: string | null;
         };
         Update: {
@@ -58,6 +62,8 @@ export interface Database {
           points_exact?: number;
           points_winner?: number;
           points_total_goals?: number;
+          scrape_source?: string | null;
+          scrape_path?: string | null;
         };
         Relationships: [
           {

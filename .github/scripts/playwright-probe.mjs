@@ -7,6 +7,8 @@ import { chromium } from "playwright";
 const url = process.env.PROBE_URL;
 const waitSelector = process.env.WAIT_SELECTOR || null;
 const extractSelector = process.env.EXTRACT_SELECTOR || null;
+const extractAttr = process.env.EXTRACT_ATTR || null;
+const extractHtml = process.env.EXTRACT_HTML === "true";
 const maxItems = parseInt(process.env.MAX_ITEMS || "50", 10);
 const maxChars = parseInt(process.env.MAX_CHARS || "3000", 10);
 const takeScreenshot = process.env.SCREENSHOT === "true";
@@ -36,9 +38,20 @@ if (takeScreenshot) {
 }
 
 if (extractSelector) {
-  const items = await page.$$eval(extractSelector, (els) =>
-    els.map((el) => el.textContent.trim()).filter(Boolean),
-  );
+  let items;
+  if (extractHtml) {
+    items = await page.$$eval(extractSelector, (els) => els.map((el) => el.outerHTML));
+  } else if (extractAttr) {
+    items = await page.$$eval(
+      extractSelector,
+      (els, attr) => els.map((el) => `[${attr}=${el.getAttribute(attr)}] ${el.textContent.trim()}`),
+      extractAttr,
+    );
+  } else {
+    items = await page.$$eval(extractSelector, (els) =>
+      els.map((el) => el.textContent.trim()).filter(Boolean),
+    );
+  }
   console.log(
     `----- Nalezeno ${items.length} prvků pro selektor: ${extractSelector} -----`,
   );

@@ -1,0 +1,43 @@
+# Stáhne rozpis zápasů (klouzavé okno 21 dní dopředu) pro každou
+# competition s vyplněným scrape_source/scrape_path a zapíše ho do
+# `matches`. Než se cokoliv zapíše, data projdou kontrolou rozumnosti
+# (scripts/sync/lib/validate-fixtures.mjs) — když neprojdou (web třeba
+# změnil layout), nic se nezapíše a založí/aktualizuje se GitHub Issue
+# místo tichého zapsání špatných dat.
+#
+# POZOR: zatím jen `workflow_dispatch` (ruční spuštění). Až se ověří,
+# že běh v praxi funguje spolehlivě, přidá se `schedule:` na 1×/den.
+
+name: Sync fixtures
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nainstalovat závislosti a Chromium
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Spustit sync-fixtures
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node fixtures.mjs
