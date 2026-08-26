@@ -55,12 +55,21 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   je jen zobrazovací flag; skutečné vynucení "nelze upravit po výkopu"
   dělá RLS porovnáním s `matches.kickoff_at` **a** `matches.status`
   (viz níže — obojí musí platit, ne jen jedno).
+- **competition_participants** — explicitní "hraju tuhle soutěž"
+  (`competition_id`, `user_id`, `joined_at`), samoobslužné
+  přihlášení/odhlášení. Bez tohohle řádku appka nedovolí zadat první
+  tip v dané competition (viz níže) a hráč se neukáže v leaderboardu.
 
 ### RLS rozhodnutí (odsouhlaseno s uživatelem)
 
 - **Viditelnost tipů**: před výkopem vidí uživatel jen svůj vlastní
   tip; po výkopu (`kickoff_at <= now()`) se odemknou tipy všech.
   Zabraňuje opisování.
+- **Přihlášení do soutěže jako podmínka pro tip** (odsouhlaseno
+  2026-08-26): uživatel musí mít v `competition_participants` řádek
+  pro danou competition, jinak mu insert do `predictions` selže na
+  RLS — nejde tedy tipovat bez explicitního "Chci hrát". Vynuceno
+  v DB, ne jen skrytím tlačítka v UI.
 - **Zakládání competitions/matches**: zatím žádná insert/update/delete
   policy pro běžné uživatele — píše se jen přes service roli / SQL
   editor ručně. Self-service založení soutěže je budoucí feature.
@@ -130,7 +139,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-25)
+## Stav (aktualizováno 2026-08-26)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -143,8 +152,10 @@ Hotovo:
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
 - [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
-- [x] Leaderboard / žebříček za competition — `src/app/spaces/[id]/leaderboard/page.tsx`
+- [x] Leaderboard / žebříček za competition — `src/app/(app)/spaces/[id]/leaderboard/page.tsx`
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže
+- [x] Sdílená hlavička appky s fotečkou uživatele
+- [x] Skutečné "přihlášení" (členství) do competition
 
 ## Naplánované další kroky
 
@@ -263,13 +274,35 @@ nevymýšlí za něj):
     "Odhlásit se". Jednotlivé stránky teď mají v hlavičce jen svůj
     vlastní obsah (název, zpětný odkaz), duplicitní odkaz na profil a
     odhlášení se ze `/spaces` odstranily.
-12. [ ] Skutečné "přihlášení" (členství) do competition — navazuje na
-    krok 11. Uživatel navrhl (2026-08-26): leaderboard by měl
-    zobrazovat jen hráče, kteří se do dané soutěže výslovně přihlásili
-    (ne "kohokoliv, kdo kdy tipoval", jak je to dnes). Tohle je
-    varianta (b) z nápadu "participanti soutěže" níže — vyžaduje
-    novou tabulku členství a změnu v tom, jak `leaderboard/page.tsx`
-    hráče vybírá. Zatím nerozpracováno, čeká na sdílenou hlavičku.
+12. [x] Skutečné "přihlášení" (členství) do competition — navazuje na
+    krok 11. Nová tabulka `competition_participants`
+    (`supabase/migrations/20260826200000_competition_participants.sql`):
+    `(competition_id, user_id, joined_at)`, RLS: kdokoliv přihlášený
+    vidí všechny řádky (`select`), insert/delete jen svůj vlastní
+    (samoobslužné přihlášení/odhlášení). Migrace navíc **zpětně
+    doplní** participanty ze stávajících `predictions` (kdo už dřív
+    tipoval, evidentně tu soutěž hraje), ať nikomu nezmizí z
+    leaderboardu.
+
+    **Odsouhlaseno s uživatelem (2026-08-26, přes `AskUserQuestion`):**
+    přihlášení do soutěže je **podmínkou** pro první tip — ne jen
+    volitelný "opt-in" pro zobrazení v leaderboardu. Vynuceno na
+    úrovni DB, ne jen v UI: politika `predictions_insert_own_before_kickoff`
+    teď navíc vyžaduje `exists` řádek v `competition_participants` pro
+    daného uživatele a competition zápasu.
+
+    UI (`src/app/(app)/spaces/[id]/page.tsx`): v hlavičce detailu
+    soutěže je vidět počet přihlášených hráčů a tlačítko "Chci hrát" /
+    "Opustit soutěž" (`joinCompetition`/`leaveCompetition` server
+    akce v `actions.ts`, upsert-style insert s no-op na duplicitu).
+    Dokud uživatel není přihlášený, `MatchCard` u nezamčených zápasů
+    místo `PredictionForm` ukáže hint, ať se nejdřív přihlásí.
+
+    `leaderboard/page.tsx` teď staví žebříček primárně z
+    `competition_participants` (každý přihlášený se zobrazí, i s 0
+    body/tipy) a `predictions` jen doplňuje body/počet tipů nad tímhle
+    základem — dřív se žebříček stavěl jen z `predictions`, takže
+    přihlášený hráč bez tipu by se vůbec nezobrazil.
 
 ### Nápad: medaile/odznaky za vítězství (2026-08-25, nerozpracováno)
 
@@ -313,10 +346,8 @@ stávajících dat stejně jako leaderboard), nebo (b) zavádíme skutečné
 "členství" v soutěži (kdo se do ní explicitně přihlásil) — to by byla
 větší změna datového modelu.
 
-**Rozhodnuto směrem (b) (2026-08-26):** uživatel potvrdil, že chce
-skutečné členství — leaderboard má zobrazovat jen hráče, kteří se do
-soutěže přihlásili, ne kohokoliv, kdo kdy tipoval. Viz krok 12 v plánu
-výše — čeká na sdílenou hlavičku appky (krok 11), zatím nerozpracováno.
+**Rozhodnuto směrem (b) — ✅ hotovo (2026-08-26), viz krok 12 v plánu
+výše.**
 
 **2) Vlastní přezdívka — ✅ hotovo (2026-08-26), viz krok 10 v plánu
 výše.**

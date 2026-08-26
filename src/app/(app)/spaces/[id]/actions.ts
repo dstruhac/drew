@@ -6,6 +6,51 @@ import type { Sport } from "@/lib/supabase/database.types";
 
 export type SubmitPredictionState = { error: string | null };
 
+export async function joinCompetition(competitionId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .insert({ competition_id: competitionId, user_id: user.id });
+
+  // 23505 = unique_violation (už přihlášen) -- není chyba, jen no-op.
+  if (error && error.code !== "23505") {
+    throw new Error(`Přihlášení do soutěže se nepodařilo: ${error.message}`);
+  }
+
+  revalidatePath(`/spaces/${competitionId}`);
+  revalidatePath(`/spaces/${competitionId}/leaderboard`);
+  revalidatePath("/spaces");
+}
+
+export async function leaveCompetition(competitionId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .delete()
+    .eq("competition_id", competitionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Odhlášení ze soutěže se nepodařilo: ${error.message}`);
+  }
+
+  revalidatePath(`/spaces/${competitionId}`);
+  revalidatePath(`/spaces/${competitionId}/leaderboard`);
+  revalidatePath("/spaces");
+}
+
 export async function submitPrediction(
   sport: Sport,
   competitionId: string,
