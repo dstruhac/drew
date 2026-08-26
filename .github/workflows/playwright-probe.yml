@@ -1,0 +1,84 @@
+# Pomocný workflow: načte zadanou stránku ve skutečném (neviditelném)
+# prohlížeči a vypíše, co se z ní dá vytáhnout.
+#
+# Proč existuje: api-probe.yml (curl) nevidí obsah, který se na stránku
+# dostává až přes JavaScript (typické u moderních sportovních webů jako
+# livesport.cz). Playwright spustí opravdový Chrome, počká, až se
+# stránka vykreslí, a teprve pak z ní čte — vidí přesně to, co by viděl
+# člověk v prohlížeči.
+#
+# Spouští se jen ručně (workflow_dispatch) a nikam nezapisuje, jen čte.
+#
+# POZOR: aby šel workflow spustit, musí být tenhle soubor už
+# smergovaný v `main` (GitHub jinak workflow_dispatch nenabídne).
+
+name: Playwright probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Plná URL stránky k načtení"
+        required: true
+        type: string
+      wait_selector:
+        description: "Nepovinný CSS selektor, na který se počká, než se stránka považuje za vykreslenou (např. čekání na konkrétní widget)"
+        required: false
+        default: ""
+        type: string
+      extract_selector:
+        description: "Nepovinný CSS selektor — vypíše textový obsah všech odpovídajících prvků (např. '.event__match' pro seznam zápasů)"
+        required: false
+        default: ""
+        type: string
+      max_items:
+        description: "Kolik nalezených prvků (u extract_selector) maximálně vypsat"
+        required: false
+        default: "50"
+        type: string
+      max_chars:
+        description: "Kolik znaků vykresleného HTML maximálně vypsat, když není zadaný extract_selector"
+        required: false
+        default: "3000"
+        type: string
+      screenshot:
+        description: "Uložit screenshot celé stránky jako artifact běhu"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nainstalovat Playwright a Chromium
+        run: |
+          npm install playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Načíst stránku a vypsat výsledek
+        env:
+          PROBE_URL: ${{ inputs.url }}
+          WAIT_SELECTOR: ${{ inputs.wait_selector }}
+          EXTRACT_SELECTOR: ${{ inputs.extract_selector }}
+          MAX_ITEMS: ${{ inputs.max_items }}
+          MAX_CHARS: ${{ inputs.max_chars }}
+          SCREENSHOT: ${{ inputs.screenshot }}
+        run: node .github/scripts/playwright-probe.mjs
+
+      - name: Nahrát screenshot jako artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot
+          path: screenshot.png
+          if-no-files-found: ignore
