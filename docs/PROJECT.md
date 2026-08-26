@@ -237,9 +237,25 @@ nevymýšlí za něj):
    (samotný denní import rozpisu by ji vyčerpal sám). Nemá tedy smysl
    dál ověřovat pokrytí lig u tohohle zdroje.
 
-   **Můj (Claude) doporučený výchozí bod:** TheSportsDB, protože
-   pokrývá obě ligy jedním API a je nejlevnější na rozjezd — ale
-   uživatel to zatím nepotvrdil, čeká se na finální rozhodnutí.
+   **Můj (Claude) doporučený výchozí bod byl:** TheSportsDB, protože
+   pokrývá obě ligy jedním API a je nejlevnější na rozjezd.
+
+   **Rozhodnuto jinak (26.8.2026):** uživatel se místo placeného API
+   rozhodl pro **scraping livesport.cz přes Playwright** — mj. i jako
+   záměrný projekt na naučení se scrapingu. Implementováno v
+   `scripts/sync/` (`sync-fixtures.mjs` + `sync-results` teprve
+   plánováno), spouští `.github/workflows/sync-fixtures.yml`. Detaily,
+   ověřené `scrape_path` hodnoty pro obě ligy a jak zapnout pro
+   existující competition jsou v
+   [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md) v sekci
+   "Aktuálně implementováno: scraping z livesport.cz". Scraper (výběr
+   CSS selektorů, parsování data/skóre/časového pásma) je funkčně
+   hotový a ověřený reálným během proti oběma ligám (26.8.2026,
+   fotbal 116 zápasů, hokej 111 zápasů) — **zbývá jen ruční krok
+   uživatele**: spustit `UPDATE` v Supabase SQL editoru (viz
+   `IMPORT-ARCHITECTURE.md`) a nastavit `SUPABASE_SERVICE_ROLE_KEY`
+   jako GitHub repo secret, než `sync-fixtures.yml` může začít
+   opravdu zapisovat zápasy.
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
