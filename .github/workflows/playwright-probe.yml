@@ -36,6 +36,11 @@ on:
         required: false
         default: ""
         type: string
+      extract_html:
+        description: "Když true (spolu s extract_selector), vypíše syrové vnitřní HTML každého nalezeného prvku místo textu — hodí se na zjištění přesné struktury pro psaní parseru"
+        required: false
+        default: false
+        type: boolean
       max_items:
         description: "Kolik nalezených prvků (u extract_selector) maximálně vypsat"
         required: false
@@ -76,6 +81,7 @@ jobs:
           WAIT_SELECTOR: ${{ inputs.wait_selector }}
           EXTRACT_SELECTOR: ${{ inputs.extract_selector }}
           EXTRACT_ATTR: ${{ inputs.extract_attr }}
+          EXTRACT_HTML: ${{ inputs.extract_html }}
           MAX_ITEMS: ${{ inputs.max_items }}
           MAX_CHARS: ${{ inputs.max_chars }}
           SCREENSHOT: ${{ inputs.screenshot }}
