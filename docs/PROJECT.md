@@ -195,7 +195,15 @@ nevymýšlí za něj):
      19 $/měsíc (7 500 req/den), Ultra 29 $/měsíc (75 000 req/den).
      Funguje na modelu "všechny soutěže na všech tarifech", takže
      Chance Ligu pravděpodobně má, ale nepodařilo se to veřejně
-     ověřit s jistotou. Pouze fotbal, žádný hokej.
+     ověřit s jistotou. **Oprava (25.8.2026):** dřív tu stálo "pouze
+     fotbal, žádný hokej" — to je **špatně**. api-sports.io je
+     poskytovatel s 9+ sporty a má i samostatné **API-HOCKEY**.
+     Bezplatný tarif je navíc 100 req/den **na každé API zvlášť**,
+     takže fotbal i hokej lze provozovat zdarma vedle sebe (náš odhad
+     spotřeby je ~22 req/den dohromady). Zbývá ověřit, jestli mají
+     konkrétně Tipsport extraligu a Chance Ligu — vyžaduje to
+     registraci a klíč, jejich web je za Cloudflare a nejde z něj
+     číst dokumentaci automaticky (ověřeno probe workflow, HTTP 403).
    - **Sportmonks** — má dedikovanou stránku pro Fortuna/Chance Ligu
      (potvrzené pokrytí), ale nejlevnější tarif Starter je 29 €/měsíc
      a u levnějších tarifů si ligy vybíráš z omezeného počtu. Pouze
@@ -205,6 +213,13 @@ nevymýšlí za něj):
      extraligu, ale není samoobslužné (cena "podle objemu dat", nutno
      kontaktovat konkrétně Adama Josku e-mailem/telefonicky), data se
      načítají několikrát denně, ne živě. Pouze hokej.
+
+   **SportAPI7 (RapidAPI, navrženo uživatelem 25.8.2026) — ověřeno a
+   zamítnuto.** Reálná data fungují (potvrzeno dotazem, viz
+   `IMPORT-ARCHITECTURE.md`), ale bezplatný plán má kvótu jen **50
+   požadavků za měsíc celkem** — o dva řády míň, než appka potřebuje
+   (samotný denní import rozpisu by ji vyčerpal sám). Nemá tedy smysl
+   dál ověřovat pokrytí lig u tohohle zdroje.
 
    **Můj (Claude) doporučený výchozí bod:** TheSportsDB, protože
    pokrývá obě ligy jedním API a je nejlevnější na rozjezd — ale

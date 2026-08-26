@@ -22,7 +22,7 @@ on:
         required: true
         type: string
       header_name:
-        description: "Název hlavičky s API klíčem"
+        description: "Název hlavičky s API klíčem (prázdné = volat bez API klíče, např. běžnou webovou stránku)"
         required: false
         default: "x-apisports-key"
         type: string
@@ -30,6 +30,16 @@ on:
         description: "Kolik znaků odpovědi maximálně vypsat do logu"
         required: false
         default: "40000"
+        type: string
+      filter:
+        description: "Nepovinný regulární výraz — vypíše jen řádky, které mu odpovídají (užitečné u velkých odpovědí a HTML stránek)"
+        required: false
+        default: ""
+        type: string
+      jq:
+        description: "Nepovinný jq výraz — vypíše jen vybranou část JSON odpovědi (např. '.response[] | .league.name')"
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -41,28 +51,60 @@ jobs:
     steps:
       - name: Zavolat API a vypsat odpověď
         env:
-          # Hodnota se do logu nikdy nevypíše — GitHub secrets v logu
-          # automaticky maskuje. Pokud secret není nastavený, zavolá se
-          # API bez hlavičky a odpověď (nejspíš chyba) to ukáže.
-          API_KEY: ${{ secrets.API_SPORTS_KEY }}
+          # Hodnoty se do logu nikdy nevypíšou — GitHub secrets v logu
+          # automaticky maskuje. Který z nich se použije, se pozná podle
+          # HEADER_NAME (viz níže) — repo je veřejné, takže klíč nikdy
+          # nesmí projít jako obyčejný (neskrytý) vstup workflow.
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           PROBE_URL: ${{ inputs.url }}
           HEADER_NAME: ${{ inputs.header_name }}
           MAX_CHARS: ${{ inputs.max_chars }}
+          FILTER: ${{ inputs.filter }}
+          JQ_EXPR: ${{ inputs.jq }}
         run: |
           set -uo pipefail
 
-          if [ -z "${API_KEY}" ]; then
-            echo "::warning::Secret API_SPORTS_KEY není nastavený — volám bez autorizační hlavičky."
+          # Prázdný header_name = volat bez API klíče (běžná webová
+          # stránka, žádný secret se nikam neposílá).
+          if [ -z "${HEADER_NAME}" ]; then
             AUTH_ARGS=()
           else
-            AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
+            # Který secret patří k jaké hlavičce se pozná automaticky podle
+            # jejího názvu — žádný další vstup, kterým by šlo klíč omylem
+            # poslat jako obyčejný (nezamaskovaný) parametr.
+            case "${HEADER_NAME}" in
+              *[Rr][Aa][Pp][Ii][Dd]*) API_KEY="${RAPIDAPI_KEY}" ;;
+              *) API_KEY="${API_SPORTS_KEY}" ;;
+            esac
+
+            if [ -z "${API_KEY}" ]; then
+              echo "::warning::Odpovídající secret není nastavený (hlavička '${HEADER_NAME}') — volám bez autorizační hlavičky."
+              AUTH_ARGS=()
+            else
+              AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
+            fi
+
+            # RapidAPI navíc vyžaduje hlavičku x-rapidapi-host s hostname
+            # z URL — jinak vrací 403. Doplní se automaticky, ať se nemusí
+            # posílat jako další vstup.
+            case "${HEADER_NAME}" in
+              *[Rr][Aa][Pp][Ii][Dd]*)
+                RAPIDAPI_HOST=$(echo "${PROBE_URL}" | sed -E 's#^[a-zA-Z]+://([^/]+).*#\1#')
+                AUTH_ARGS+=(-H "x-rapidapi-host: ${RAPIDAPI_HOST}")
+                ;;
+            esac
           fi
 
           echo "URL: ${PROBE_URL}"
           echo "Hlavička s klíčem: ${HEADER_NAME}"
           echo "----- HTTP status a hlavičky -----"
 
-          HTTP_CODE=$(curl -sS --max-time 30 \
+          # Běžné webové stránky (ne API) často blokují/přesměrovávají
+          # požadavky bez "prohlížečového" User-Agenta — proto ho
+          # posíláme vždy, u API endpointů nevadí.
+          HTTP_CODE=$(curl -sSL --max-time 30 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36" \
             "${AUTH_ARGS[@]}" \
             -D headers.txt \
             -o body.json \
@@ -79,11 +121,72 @@ jobs:
           echo "----- Velikost odpovědi -----"
           wc -c < body.json
 
-          echo "----- Tělo odpovědi (zkrácené na ${MAX_CHARS} znaků) -----"
+          # Když je zadaný filtr, vypíše se jen to, co mu odpovídá. Hodí se
+          # na velké odpovědi a na HTML stránky, kde nás zajímá jen zmínka
+          # o konkrétní lize. `grep` vrací 1, když nic nenajde — to ale
+          # není chyba běhu, proto `|| true` (krok běží pod `bash -e`).
+          if [ -n "${FILTER}" ]; then
+            echo "----- Řádky odpovídající filtru: ${FILTER} -----"
+            grep -inE "${FILTER}" body.json > matches.txt || true
+            MATCH_COUNT=$(wc -l < matches.txt)
+            echo "Počet odpovídajících řádků: ${MATCH_COUNT}"
+            head -c "${MAX_CHARS}" matches.txt
+            echo
+            echo "----- Konec filtru -----"
+          fi
+
+          # POZOR: nikdy sem nedávej `jq ... | head -c`. `head` po dosažení
+          # limitu zavře rouru, `jq` dostane SIGPIPE a kvůli `pipefail`
+          # spadne celý krok (stalo se, exit code 2). Proto se nejdřív
+          # zapíše do souboru a teprve ten se ořízne.
           if jq -e . body.json >/dev/null 2>&1; then
-            jq . body.json | head -c "${MAX_CHARS}"
+            jq . body.json > pretty.json
+
+            # Počet položek v poli — hlavní údaj, když se ověřuje, jestli
+            # API vrací celý seznam, nebo jen ořezaný vzorek.
+            echo "----- Počty -----"
+            jq -r '
+              if type == "object" then
+                to_entries
+                | map(select(.value | type == "array")
+                      | "\(.key): \(.value | length) položek")
+                | if length > 0 then .[] else "(žádné pole v odpovědi)" end
+              else
+                "(kořen odpovědi není objekt)"
+              end
+            ' body.json || echo "(počty se nepodařilo spočítat)"
+
+            # Cílený výběr z odpovědi. U velkých odpovědí (seznamy lig se
+            # všemi sezónami) je tohle jediný způsob, jak se dostat k tomu
+            # podstatnému, aniž by to utopil zbytek. Chybný výraz nemá
+            # shodit celý běh, proto `|| echo`.
+            if [ -n "${JQ_EXPR}" ]; then
+              echo "----- Výběr přes jq: ${JQ_EXPR} -----"
+              jq -r "${JQ_EXPR}" body.json > selected.txt 2>jq_err.txt \
+                || { echo "(jq výraz selhal:)"; cat jq_err.txt; }
+              head -c "${MAX_CHARS}" selected.txt
+              # Bez tohohle upozornění vypadá oříznutý výběr jako úplný
+              # seznam — a dá se z něj vyvodit pravý opak pravdy. Stalo
+              # se: při max_chars=150 zmizela hledaná liga z výpisu a
+              # závěr byl "tuhle ligu nemají", což byla nepravda.
+              SEL_TOTAL=$(wc -c < selected.txt)
+              if [ "${SEL_TOTAL}" -gt "${MAX_CHARS}" ]; then
+                echo
+                echo "::warning::VÝBĚR JE OŘÍZNUTÝ (${SEL_TOTAL} znaků, zobrazeno ${MAX_CHARS}) — nedělej závěry z neúplného seznamu, zvyš max_chars!"
+              fi
+              echo
+              echo "----- Konec výběru -----"
+            fi
+
+            TOTAL=$(wc -c < pretty.json)
+            echo "----- Tělo odpovědi (celkem ${TOTAL} znaků, vypisuji max ${MAX_CHARS}) -----"
+            head -c "${MAX_CHARS}" pretty.json
+            if [ "${TOTAL}" -gt "${MAX_CHARS}" ]; then
+              echo
+              echo "…(zkráceno — zvyš max_chars, pokud potřebuješ zbytek)"
+            fi
           else
-            echo "(odpověď není platný JSON, vypisuji syrově)"
+            echo "----- Tělo odpovědi (není platný JSON, vypisuji syrově) -----"
             head -c "${MAX_CHARS}" body.json
           fi
           echo
