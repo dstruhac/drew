@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
 import { joinCompetition, leaveCompetition } from "./actions";
@@ -20,34 +20,33 @@ export default async function CompetitionDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: competition } = await supabase
-    .from("competitions")
-    .select("id, name, sport")
-    .eq("id", id)
-    .single();
+  // Čtyři nezávislé dotazy najednou -- žádný z nich nepotřebuje výsledek
+  // dalšího (competition/participants/matches filtrují rovnou podle `id`
+  // z route parametru, ne podle competition.id z předchozího dotazu), takže
+  // souběžně ušetří tolik síťových cest, kolik jich je (perf review
+  // 27.8.2026).
+  const [user, { data: competition }, { data: participants }, { data: matches }] =
+    await Promise.all([
+      getCurrentUser(),
+      supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
+      supabase
+        .from("competition_participants")
+        .select("user_id, profiles(display_name)")
+        .eq("competition_id", id),
+      supabase
+        .from("matches")
+        .select(
+          "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+        )
+        .eq("competition_id", id)
+        .order("kickoff_at", { ascending: true }),
+    ]);
 
   if (!competition) {
     notFound();
   }
 
-  const { data: participants } = await supabase
-    .from("competition_participants")
-    .select("user_id, profiles(display_name)")
-    .eq("competition_id", id);
-
   const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
-
-  const { data: matches } = await supabase
-    .from("matches")
-    .select(
-      "id, home_team, away_team, kickoff_at, status, home_score, away_score",
-    )
-    .eq("competition_id", id)
-    .order("kickoff_at", { ascending: true });
 
   const matchIds = matches?.map((m) => m.id) ?? [];
   const { data: predictions } = matchIds.length
@@ -70,7 +69,7 @@ export default async function CompetitionDetailPage({
       <header>
         <Link
           href="/spaces"
-          className="text-xs text-black/40 dark:text-white/40 hover:underline"
+          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
         >
           ← Soutěže
         </Link>
@@ -83,7 +82,7 @@ export default async function CompetitionDetailPage({
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Link
             href={`/spaces/${competition.id}/leaderboard`}
-            className="inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            className="btn-press inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
           >
             Žebříček →
           </Link>
@@ -97,7 +96,7 @@ export default async function CompetitionDetailPage({
             <form action={leaveCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
-                className="rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                className="btn-press rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10"
               >
                 Opustit soutěž
               </button>
@@ -106,7 +105,7 @@ export default async function CompetitionDetailPage({
             <form action={joinCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
-                className="rounded-lg bg-black dark:bg-white px-3 py-1.5 text-sm font-medium text-white dark:text-black hover:opacity-90 transition-opacity"
+                className="btn-press rounded-lg bg-black dark:bg-white px-3 py-1.5 text-sm font-medium text-white dark:text-black hover:opacity-90"
               >
                 Chci hrát
               </button>
@@ -233,7 +232,7 @@ function MatchCard({
     >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
-        className="flex items-center justify-between hover:underline"
+        className="btn-press -mx-2 -my-1 flex items-center justify-between rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
       >
         <span className="font-medium">
           {match.home_team} – {match.away_team}

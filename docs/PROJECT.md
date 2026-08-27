@@ -173,23 +173,27 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-27, medaile za vítězství týdne)
+## Stav (aktualizováno 2026-08-27, UX vylepšení detailu soutěže/přehledu soutěží)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
 - [x] SQL migrace (profiles, competitions, matches, predictions + RLS + grants)
 - [x] Supabase klienti (browser/server/proxy)
-- [x] Login stránka + funkční Google OAuth
+- [x] Login stránka + funkční Google OAuth, motto a vizuální redesign
 - [x] Ochrana stránek podle přihlášení
 - [x] Nasazení na Vercel (https://drew-pink.vercel.app)
-- [x] `/spaces` načítá reálné competitions z DB
+- [x] `/spaces` načítá reálné competitions z DB, u vlastních soutěží ukazuje
+  pozici v žebříčku (🏆 Tvoje pozice: X. místo z Y)
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
 - [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
 - [x] Leaderboard / žebříček za competition — `src/app/(app)/spaces/[id]/leaderboard/page.tsx`
-- [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže
+- [x] Detail zápasu se seznamem tipů všech hráčů — `/spaces/[id]/matches/[matchId]`
+- [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže — "Proběhlé" ve
+  vlastní šedé kartě, "Nadcházející" omezeno na 8 zápasů výchozně
 - [x] Sdílená hlavička appky s fotečkou uživatele
-- [x] Skutečné "přihlášení" (členství) do competition
+- [x] Skutečné "přihlášení" (členství) do competition — nepřihlášenému
+  hráči appka hned pod hlavičkou soutěže navrhne kliknout na "Chci hrát"
 - [x] `sync-fixtures` (import rozpisu zápasů scrapingem) běží ostře — hokejová extraliga má reálné zápasy se správným časem
 - [x] `sync-results` (import výsledků) běží ostře, automaticky, včetně zpětného dotažení
 - [x] Medaile za vítězství týdne (`weekly_badges`) — 🏅 na žebříčku soutěže

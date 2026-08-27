@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { PredictionForm } from "../../prediction-form";
 
 export default async function MatchDetailPage({
@@ -9,28 +9,44 @@ export default async function MatchDetailPage({
   const { id, matchId } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: competition } = await supabase
-    .from("competitions")
-    .select("id, name, sport")
-    .eq("id", id)
-    .single();
+  // Pět nezávislých dotazů najednou -- všechny filtrují rovnou podle `id`/
+  // `matchId` z route parametrů, žádný nepotřebuje výsledek jiného (perf
+  // review 27.8.2026). Před výkopem vrátí RLS
+  // (predictions_select_own_or_locked) u predictions jen vlastní řádek
+  // přihlášeného uživatele, cizí tipy prostě nepřijdou -- odemčení po
+  // výkopu je tak vynucené v databázi, ne jen skrytím v UI.
+  const [
+    user,
+    { data: competition },
+    { data: match },
+    { data: participants },
+    { data: predictions },
+  ] = await Promise.all([
+    getCurrentUser(),
+    supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
+    supabase
+      .from("matches")
+      .select(
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+      )
+      .eq("id", matchId)
+      .eq("competition_id", id)
+      .single(),
+    supabase
+      .from("competition_participants")
+      .select("user_id, profiles(display_name)")
+      .eq("competition_id", id),
+    supabase
+      .from("predictions")
+      .select(
+        "user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, profiles(display_name)",
+      )
+      .eq("match_id", matchId),
+  ]);
 
   if (!competition) {
     notFound();
   }
-
-  const { data: match } = await supabase
-    .from("matches")
-    .select(
-      "id, home_team, away_team, kickoff_at, status, home_score, away_score",
-    )
-    .eq("id", matchId)
-    .eq("competition_id", id)
-    .single();
 
   if (!match) {
     notFound();
@@ -39,22 +55,7 @@ export default async function MatchDetailPage({
   const isLocked =
     match.status !== "scheduled" || new Date(match.kickoff_at) <= new Date();
 
-  const { data: participants } = await supabase
-    .from("competition_participants")
-    .select("user_id, profiles(display_name)")
-    .eq("competition_id", id);
-
   const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
-
-  // Před výkopem vrátí RLS (predictions_select_own_or_locked) jen vlastní
-  // řádek přihlášeného uživatele, cizí tipy prostě nepřijdou -- odemčení po
-  // výkopu je tak vynucené v databázi, ne jen skrytím v UI.
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select(
-      "user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, profiles(display_name)",
-    )
-    .eq("match_id", matchId);
 
   const ownPrediction =
     predictions?.find((p) => p.user_id === user?.id) ?? null;
@@ -84,7 +85,7 @@ export default async function MatchDetailPage({
       <header>
         <Link
           href={`/spaces/${competition.id}`}
-          className="text-xs text-black/40 dark:text-white/40 hover:underline"
+          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
         >
           ← {competition.name}
         </Link>

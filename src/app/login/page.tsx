@@ -49,7 +49,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-black/10 dark:border-white/15 px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="btn-press mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-black/10 dark:border-white/15 px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {isLoading ? "Přesměrovávám…" : "Přihlásit se přes Google"}
