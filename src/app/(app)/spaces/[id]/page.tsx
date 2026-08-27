@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
 import { joinCompetition, leaveCompetition } from "./actions";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
+
+// Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
+// všechny" (odsouhlaseno s uživatelem 27.8.2026).
+const PAST_VISIBLE_COUNT = 5;
+const UPCOMING_VISIBLE_WINDOW_DAYS = 7;
 
 export default async function CompetitionDetailPage({
   params,
@@ -126,6 +132,15 @@ export default async function CompetitionDetailPage({
         // (jak přišly z DB), proběhlé sestupně (nejnovější výsledek první).
         past.reverse();
 
+        // Kolik nadcházejících zápasů spadá do nejbližšího okna (výchozí
+        // zobrazení) — seznam je seřazený vzestupně, takže "prvních N" je
+        // totéž jako "těch v okně" a nemusí se filtrovat zvlášť.
+        const upcomingWindowEnd =
+          Date.now() + UPCOMING_VISIBLE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+        const upcomingVisibleCount = upcoming.filter(
+          (m) => new Date(m.kickoff_at).getTime() <= upcomingWindowEnd,
+        ).length;
+
         return (
           <>
             {upcoming.length > 0 && (
@@ -133,8 +148,10 @@ export default async function CompetitionDetailPage({
                 <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
                   Nadcházející
                 </h2>
-                <ul className="flex flex-col gap-3">
-                  {upcoming.map((match) => (
+                <ExpandableList
+                  initialCount={upcomingVisibleCount}
+                  emptyInitialHint={`Nejbližší zápas je dál než za ${UPCOMING_VISIBLE_WINDOW_DAYS} dní.`}
+                  items={upcoming.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -145,7 +162,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                     />
                   ))}
-                </ul>
+                />
               </section>
             )}
 
@@ -154,8 +171,9 @@ export default async function CompetitionDetailPage({
                 <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
                   Proběhlé
                 </h2>
-                <ul className="flex flex-col gap-3">
-                  {past.map((match) => (
+                <ExpandableList
+                  initialCount={PAST_VISIBLE_COUNT}
+                  items={past.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -166,7 +184,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                     />
                   ))}
-                </ul>
+                />
               </section>
             )}
           </>
