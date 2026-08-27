@@ -207,7 +207,8 @@ nevymýšlí za něj):
    cizí tipy, jakmile má zápas `status <> 'scheduled'` (a body existují
    jen u dohraných zápasů).
 5. [x] Import **rozpisu** zápasů (hokej, fotbal) — hotovo, viz níže.
-   [ ] Import **výsledků** (`sync-results`) — zatím nezačato.
+   [x] Import **výsledků** (`sync-results`) — implementováno, čeká na
+   sloučení PR #26 do `main` a první ostré spuštění.
 
    **➡️ Podrobný návrh architektury je v
    [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md)** —
@@ -315,6 +316,35 @@ nevymýšlí za něj):
    `sync-fixtures` pro ni rovnou zapsal **28 zápasů** (zároveň
    aktualizoval i 7 zápasů hokejové extraligy). Appka tak teď sleduje
    obě ligy z `docs/PROJECT.md` sekce "Sledované soutěže".
+
+   **[x] `sync-results` implementováno (27.8.2026, PR #26).** Druhá
+   plánovaná úloha z `docs/IMPORT-ARCHITECTURE.md` — `scripts/sync/results.mjs`
+   + `.github/workflows/sync-results.yml` (zatím jen ruční spuštění,
+   stejně jako `sync-fixtures.yml`). Pro každou competition se nejdřív
+   zeptá vlastní databáze, jestli existují zápasy s `kickoff_at`
+   v minulosti a `status <> 'finished'` — pokud ne, přeskočí ji bez
+   otevření prohlížeče. Pokud ano, stáhne stránku `.../vysledky/` na
+   livesport.cz (`scrapeLivesportResults` ve `scrape-livesport.mjs`,
+   sdílí extrakční jádro s rozpisem) a dohledá výsledek podle
+   `external_id`. Na rozdíl od rozpisu nevyžaduje platné datum výkopu
+   (páruje se jen podle `external_id`), takže nevadí ani živě probíhající
+   zápas s běžící minutou místo data. Zápasy se zapsaným skóre dostanou
+   `status='finished'` — body si pak samo dopočítá existující trigger
+   `matches_calculate_points`, import žádné body nepočítá.
+
+   **Ověřeno přes probe workflow (27.8.2026):** struktura stránky
+   `/vysledky/` je shodná s `/program/` (stejné selektory) — ověřeno na
+   Chance Lize, 36 dohraných zápasů se skóre. Hokejová extraliga
+   2026/27 v době psaní ještě nezačala hrát (start 16.9.2026), stránka
+   vrátila 0 zápasů — čekané, ne chyba.
+
+   **Vědomě zatím chybí:** `overtime_flag` (prodloužení/nájezdy u
+   hokeje) se nezapisuje — livesport.cz způsob označení není ověřený na
+   reálných datech (žádný odehraný hokejový zápas zatím neexistuje).
+   Doplní se, až se objeví první reálný dohraný zápas v prodloužení.
+   Odložené/zrušené zápasy zůstávají stejně neřešené jako u
+   `sync-fixtures` (viz otevřená otázka v `IMPORT-ARCHITECTURE.md`).
+
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
