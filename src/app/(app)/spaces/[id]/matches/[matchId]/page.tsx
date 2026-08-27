@@ -21,6 +21,7 @@ export default async function MatchDetailPage({
     { data: match },
     { data: participants },
     { data: predictions },
+    { data: teamLogos },
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
@@ -42,6 +43,7 @@ export default async function MatchDetailPage({
         "user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, profiles(display_name)",
       )
       .eq("match_id", matchId),
+    supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
   ]);
 
   if (!competition) {
@@ -51,6 +53,8 @@ export default async function MatchDetailPage({
   if (!match) {
     notFound();
   }
+
+  const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
 
   const isLocked =
     match.status !== "scheduled" || new Date(match.kickoff_at) <= new Date();
@@ -89,8 +93,24 @@ export default async function MatchDetailPage({
         >
           ← {competition.name}
         </Link>
-        <h1 className="mt-1 text-xl font-semibold">
+        <h1 className="mt-1 flex items-center gap-2 text-xl font-semibold">
+          {logoUrlByTeam.get(match.home_team) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrlByTeam.get(match.home_team)}
+              alt=""
+              className="h-6 w-6 rounded bg-white object-contain p-0.5"
+            />
+          )}
           {match.home_team} – {match.away_team}
+          {logoUrlByTeam.get(match.away_team) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrlByTeam.get(match.away_team)}
+              alt=""
+              className="h-6 w-6 rounded bg-white object-contain p-0.5"
+            />
+          )}
         </h1>
         <p className="mt-1 text-sm text-black/60 dark:text-white/60">
           {new Date(match.kickoff_at).toLocaleString("cs-CZ", {

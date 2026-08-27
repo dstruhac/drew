@@ -18,7 +18,7 @@ export default async function SpacesPage() {
     getCurrentUser(),
     supabase
       .from("competitions")
-      .select("id, name, sport, status, points_exact, points_winner, points_total_goals")
+      .select("id, name, sport, status, points_exact, points_winner, points_total_goals, logo_url")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -121,7 +121,17 @@ export default async function SpacesPage() {
                   className="card-lift block rounded-lg border border-black/10 dark:border-white/15 p-4 hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{competition.name}</span>
+                    <span className="flex items-center gap-2 font-medium">
+                      {competition.logo_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={competition.logo_url}
+                          alt=""
+                          className="h-6 w-6 rounded bg-white object-contain p-0.5"
+                        />
+                      )}
+                      {competition.name}
+                    </span>
                     <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
                       {SPORT_LABELS[competition.sport]}
                     </span>

@@ -20,31 +20,39 @@ export default async function CompetitionDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Čtyři nezávislé dotazy najednou -- žádný z nich nepotřebuje výsledek
-  // dalšího (competition/participants/matches filtrují rovnou podle `id`
-  // z route parametru, ne podle competition.id z předchozího dotazu), takže
-  // souběžně ušetří tolik síťových cest, kolik jich je (perf review
-  // 27.8.2026).
-  const [user, { data: competition }, { data: participants }, { data: matches }] =
-    await Promise.all([
-      getCurrentUser(),
-      supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
-      supabase
-        .from("competition_participants")
-        .select("user_id, profiles(display_name)")
-        .eq("competition_id", id),
-      supabase
-        .from("matches")
-        .select(
-          "id, home_team, away_team, kickoff_at, status, home_score, away_score",
-        )
-        .eq("competition_id", id)
-        .order("kickoff_at", { ascending: true }),
-    ]);
+  // Pět nezávislých dotazů najednou -- žádný z nich nepotřebuje výsledek
+  // dalšího (competition/participants/matches/team_logos filtrují rovnou
+  // podle `id` z route parametru, ne podle competition.id z předchozího
+  // dotazu), takže souběžně ušetří tolik síťových cest, kolik jich je
+  // (perf review 27.8.2026).
+  const [
+    user,
+    { data: competition },
+    { data: participants },
+    { data: matches },
+    { data: teamLogos },
+  ] = await Promise.all([
+    getCurrentUser(),
+    supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
+    supabase
+      .from("competition_participants")
+      .select("user_id, profiles(display_name)")
+      .eq("competition_id", id),
+    supabase
+      .from("matches")
+      .select(
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+      )
+      .eq("competition_id", id)
+      .order("kickoff_at", { ascending: true }),
+    supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
+  ]);
 
   if (!competition) {
     notFound();
   }
+
+  const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
 
   const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
 
@@ -74,7 +82,17 @@ export default async function CompetitionDetailPage({
           ← Soutěže
         </Link>
         <div className="mt-1 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{competition.name}</h1>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            {competition.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={competition.logo_url}
+                alt=""
+                className="h-8 w-8 rounded bg-white object-contain p-1"
+              />
+            )}
+            {competition.name}
+          </h1>
           <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
             {SPORT_LABELS[competition.sport]}
           </span>
@@ -158,6 +176,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competition.sport}
                       competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
                     />
                   ))}
                 />
@@ -180,6 +199,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competition.sport}
                       competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
                     />
                   ))}
                 />
@@ -209,6 +229,14 @@ type Prediction = {
   points: number | null;
 } | null;
 
+function TeamLogo({ url }: { url: string | undefined }) {
+  if (!url) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className="h-4 w-4 shrink-0 rounded-sm bg-white object-contain p-0.5" />
+  );
+}
+
 function MatchCard({
   match,
   isLocked,
@@ -216,6 +244,7 @@ function MatchCard({
   existing,
   sport,
   competitionId,
+  logoUrlByTeam,
 }: {
   match: Match;
   isLocked: boolean;
@@ -223,6 +252,7 @@ function MatchCard({
   existing: Prediction;
   sport: "hockey" | "football";
   competitionId: string;
+  logoUrlByTeam: Map<string, string>;
 }) {
   return (
     <li
@@ -234,8 +264,10 @@ function MatchCard({
         href={`/spaces/${competitionId}/matches/${match.id}`}
         className="btn-press -mx-2 -my-1 flex items-center justify-between rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
       >
-        <span className="font-medium">
+        <span className="flex items-center gap-1.5 font-medium">
+          <TeamLogo url={logoUrlByTeam.get(match.home_team)} />
           {match.home_team} – {match.away_team}
+          <TeamLogo url={logoUrlByTeam.get(match.away_team)} />
         </span>
         <span className="text-xs text-black/40 dark:text-white/40">
           {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
