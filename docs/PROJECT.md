@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-27, UX vylepšení detailu soutěže/přehledu soutěží)
+## Stav (aktualizováno 2026-08-27, auto-save tipu, týdenní žebříček, výkon appky)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -186,8 +186,15 @@ Hotovo:
   pozici v žebříčku (🏆 Tvoje pozice: X. místo z Y)
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
-- [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
-- [x] Leaderboard / žebříček za competition — `src/app/(app)/spaces/[id]/leaderboard/page.tsx`
+- [x] Formulář na tip (predictions) — upsert přes server action,
+  auto-save po vyplnění obou skóre a opuštění pole (tlačítko "Uložit tip"
+  zůstává jako záloha), numerická klávesnice na mobilu, disabled/readonly
+  po zamčení (kickoff_at v minulosti)
+- [x] Leaderboard / žebříček za competition —
+  `src/app/(app)/spaces/[id]/leaderboard/page.tsx`. Celkový žebříček (počet
+  přesně trefených výsledků u každého hráče) + živý týdenní žebříček
+  (aktuální rozpracovaný týden, sám se vynuluje s novým týdnem, žádná nová
+  tabulka)
 - [x] Detail zápasu se seznamem tipů všech hráčů — `/spaces/[id]/matches/[matchId]`
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže — "Proběhlé" ve
   vlastní šedé kartě, "Nadcházející" omezeno na 8 zápasů výchozně
@@ -197,6 +204,11 @@ Hotovo:
 - [x] `sync-fixtures` (import rozpisu zápasů scrapingem) běží ostře — hokejová extraliga má reálné zápasy se správným časem
 - [x] `sync-results` (import výsledků) běží ostře, automaticky, včetně zpětného dotažení
 - [x] Medaile za vítězství týdne (`weekly_badges`) — 🏅 na žebříčku soutěže
+- [x] Výkonová optimalizace — sdílený `getCurrentUser()` (React `cache()`,
+  místo 2-3× volání `supabase.auth.getUser()` na request) + souběžné
+  (`Promise.all`) místo sekvenčních databázových dotazů na každé stránce
+- [x] Konzistentní hover/klik/focus odezva napříč appkou (`.btn-press`,
+  `.card-lift` v `globals.css`)
 
 ## Naplánované další kroky
 

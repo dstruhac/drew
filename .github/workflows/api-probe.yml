@@ -84,6 +84,18 @@ jobs:
           echo "----- Velikost odpovědi -----"
           wc -c < body.json
 
+          # ZIP (a jiné binární archivy) nemá smysl filtrovat/vypisovat jako
+          # text -- zajímá nás seznam souborů uvnitř, ne syrové bajty.
+          # Zjišťuje se přes `file`, ne jen Content-Type hlavičku, protože
+          # některé servery ji nastaví nesprávně (objeveno 27.8.2026 při
+          # ověřování loga Chance Ligy).
+          if file body.json | grep -qi 'zip archive'; then
+            echo "----- Tělo je ZIP archiv, vypisuji obsah -----"
+            unzip -l body.json || echo "(nepodařilo se přečíst obsah ZIPu)"
+            echo "----- Konec obsahu ZIPu -----"
+            exit 0
+          fi
+
           # Když je zadaný filtr, vypíše se jen to, co mu odpovídá. Hodí se
           # na velké odpovědi a na HTML stránky, kde nás zajímá jen zmínka
           # o konkrétní lize. `grep` vrací 1, když nic nenajde — to ale
