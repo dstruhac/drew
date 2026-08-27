@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-27, auto-save tipu, týdenní žebříček, výkon appky)
+## Stav (aktualizováno 2026-08-27, loga soutěže a klubů)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -209,6 +209,8 @@ Hotovo:
   (`Promise.all`) místo sekvenčních databázových dotazů na každé stránce
 - [x] Konzistentní hover/klik/focus odezva napříč appkou (`.btn-press`,
   `.card-lift` v `globals.css`)
+- [x] Loga soutěže a klubů (Chance Liga) — zdroj lfafotbal.cz, viz kroky
+  6+7 níže pro detaily architektury i importu
 
 ## Naplánované další kroky
 
@@ -432,16 +434,50 @@ nevymýšlí za něj):
    - `workflow_dispatch` (ruční spuštění) zůstává u obou zachované pro
      ladění.
 
-6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
-   v jejím detailu. Otevřená otázka: odkud logo bere (upload do
-   Supabase Storage vs. URL sloupec u `competitions`) — probrat při
-   implementaci.
-7. [ ] Loga týmů u zápasů. **Otevřená otázka (2026-08-25, vědomě
-   odloženo):** `matches.home_team`/`away_team` jsou dnes prostý text,
-   žádná centrální evidence týmů neexistuje. Při implementaci nejdřív
-   s uživatelem probrat a rozhodnout mezi (a) centrální tabulkou týmů
-   s logem, na kterou by se zápasy musely přepsat, nebo (b) samostatnou
-   mapovací tabulkou "název týmu → logo" bez zásahu do `matches`.
+6. [x] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
+   v jejím detailu.
+7. [x] Loga týmů u zápasů.
+
+   **Kroky 6+7 hotové dohromady (27.8.2026), zdroj lfafotbal.cz.**
+   Uživatel našel oficiální zdroj log s vektorovými PDF/AI soubory
+   (`https://www.lfafotbal.cz/dokumenty?search=&id_category=8`) —
+   ověřeno jako reálně stažitelné ZIPy přes `api-probe.yml`/
+   `db-probe.yml` (GitHub Actions, protože tenhle sandbox nemá přístup
+   na cizí domény, viz "Síťové omezení" v `CLAUDE.md`).
+
+   **Architektura (rozhodnutí z otevřených otázek výše):**
+   - Skutečné PNG soubory žijí ve **Supabase Storage** (nový veřejný
+     bucket `logos`), appka je jen odkazuje přes URL sloupec —
+     kombinace obou variant zvažovaných u kroku 6, ne buď/anebo.
+   - Loga týmů řešena jako **samostatná mapovací tabulka** `team_logos`
+     (`competition_id, team_name, logo_url`) — varianta (b) z otevřené
+     otázky u kroku 7, **bez** zásahu do `matches.home_team`/`away_team`
+     (ty zůstávají prostý text, jak je scrapuje `sync-fixtures`).
+     Migrace: `supabase/migrations/20260827150000_team_logos.sql`.
+
+   **Import:** `scripts/sync/import-logos.mjs` +
+   `.github/workflows/import-logos.yml` (jednorázový, ruční spuštění,
+   žádný schedule — loga se nemění denně). Stáhne ZIP loga ligy
+   (`/dokument/647-logo-chance-liga`) a ZIP log klubů
+   (`/dokument/725-loga-klubu-chance-ligy-2026-2027`), PDF loga klubů
+   převede na oříznuté PNG (`pdftoppm` + ImageMagick `-trim`), nahraje
+   do Storage a zapíše `competitions.logo_url`/`team_logos`. Mapování
+   zkratka→tým (PLZ, HKR, ZBR...) ověřeno proti skutečným hodnotám
+   `matches.home_team`/`away_team` přes `db-probe.yml`, ne uhodnuté —
+   16 klubů, 16 zkratek, jednoznačná shoda.
+
+   **První ostrý běh (27.8.2026):** spadl na `ENOENT` — `downloadZip()`
+   zapisoval do podadresáře, který nikdy nevznikl (`mkdtempSync`
+   vytvoří jen kořenový dočasný adresář, ne jeho potomky). Opraveno
+   přidáním `mkdirSync(destDir, {recursive:true})`. Po opravě proběhl
+   import úspěšně na první pokus — logo ligy i všech 16 klubů uloženo,
+   ověřeno i zpětně dotazem do databáze.
+
+   UI: logo soutěže na `/spaces` (u každé karty) a v hlavičce detailu
+   soutěže; loga týmů u zápasů v detailu soutěže
+   (`src/app/(app)/spaces/[id]/page.tsx`) a na stránce detailu zápasu.
+   Logo se vykresluje na bílém "chipu" (`bg-white p-*`), aby bylo
+   čitelné i v dark módu bez ohledu na barvu loga.
 8. [ ] Barevné odlišení kartičky zápasu podle skóre. **Otevřená otázka
    (2026-08-25, vědomě odloženo):** není určeno, jestli barva má
    odrážet body získané za vlastní tip uživatele (zelená/žlutá/šedá
