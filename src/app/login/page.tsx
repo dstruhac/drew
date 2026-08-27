@@ -28,12 +28,22 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-black/10 dark:border-white/15 p-8 text-center">
-        <h1 className="text-2xl font-semibold">Drew</h1>
-        <p className="mt-2 text-sm text-black/60 dark:text-white/60">
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-10%,rgba(0,0,0,0.06),transparent_60%)] dark:bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,0.08),transparent_60%)]"
+      />
+
+      <div className="w-full max-w-sm rounded-2xl border border-black/10 dark:border-white/15 bg-white/70 dark:bg-white/[0.03] p-8 text-center shadow-sm backdrop-blur-sm">
+        <h1 className="text-4xl font-bold tracking-tight">Drew</h1>
+        <p className="mt-2 text-sm font-medium italic text-black/50 dark:text-white/50">
+          Tipuj. Boduj. Chečruj kamarády.
+        </p>
+        <p className="mt-4 text-sm text-black/60 dark:text-white/60">
           Tipovací hra na sportovní zápasy
         </p>
+
+        <div className="mt-8 border-t border-black/10 dark:border-white/10" />
 
         <button
           type="button"
