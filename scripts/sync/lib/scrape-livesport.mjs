@@ -58,8 +58,12 @@ export function inferYear(month, day, hour, minute, referenceDate) {
   return year;
 }
 
-export async function scrapeLivesportFixtures(scrapePath, { referenceDate = new Date() } = {}) {
-  const url = `https://www.livesport.cz/${scrapePath}/program/`;
+// Sdílené jádro pro obě stránky livesport.cz (rozpis "/program/" i
+// výsledky "/vysledky/") — obě mají stejné selektory, liší se jen URL a
+// tím, co je pro danou stránku "platný" záznam (rozpis potřebuje platné
+// datum výkopu, výsledky potřebují jen skóre — viz volající funkce níže).
+async function scrapeLivesportRaw(scrapePath, urlSuffix) {
+  const url = `https://www.livesport.cz/${scrapePath}/${urlSuffix}/`;
   const browser = await chromium.launch();
 
   try {
@@ -78,7 +82,7 @@ export async function scrapeLivesportFixtures(scrapePath, { referenceDate = new 
     });
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
 
-    const raw = await page.$$eval(".event__match", (els) =>
+    return await page.$$eval(".event__match", (els) =>
       els.map((el) => ({
         externalId: el.id || null,
         dateTimeText:
@@ -91,32 +95,59 @@ export async function scrapeLivesportFixtures(scrapePath, { referenceDate = new 
         awayScoreText: el.querySelector(".event__score--away")?.textContent.trim() || null,
       })),
     );
-
-    return raw
-      .filter((r) => r.externalId && r.dateTimeText && r.homeTeam && r.awayTeam)
-      .map((r) => {
-        const m = r.dateTimeText.match(/^(\d{1,2})\.(\d{1,2})\.\s+(\d{1,2}):(\d{2})$/);
-        if (!m) {
-          // Nerozpoznaný formát data — necháme kickoffAt null, validace
-          // to odchytí místo tichého zapsání špatného data.
-          return { externalId: r.externalId, homeTeam: r.homeTeam, awayTeam: r.awayTeam, kickoffAt: null, homeScore: null, awayScore: null };
-        }
-        const [, dayStr, monthStr, hourStr, minuteStr] = m;
-        const day = Number(dayStr);
-        const month = Number(monthStr);
-        const hour = Number(hourStr);
-        const minute = Number(minuteStr);
-        const year = inferYear(month, day, hour, minute, referenceDate);
-        return {
-          externalId: r.externalId,
-          homeTeam: r.homeTeam,
-          awayTeam: r.awayTeam,
-          kickoffAt: pragueWallTimeToUtcIso(year, month, day, hour, minute),
-          homeScore: parseScore(r.homeScoreText),
-          awayScore: parseScore(r.awayScoreText),
-        };
-      });
   } finally {
     await browser.close();
   }
+}
+
+function parseKickoffAt(dateTimeText, referenceDate) {
+  if (!dateTimeText) return null;
+  const m = dateTimeText.match(/^(\d{1,2})\.(\d{1,2})\.\s+(\d{1,2}):(\d{2})$/);
+  if (!m) return null; // nerozpoznaný formát (např. běžící minuta u živého zápasu)
+  const [, dayStr, monthStr, hourStr, minuteStr] = m;
+  const day = Number(dayStr);
+  const month = Number(monthStr);
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  const year = inferYear(month, day, hour, minute, referenceDate);
+  return pragueWallTimeToUtcIso(year, month, day, hour, minute);
+}
+
+export async function scrapeLivesportFixtures(scrapePath, { referenceDate = new Date() } = {}) {
+  const raw = await scrapeLivesportRaw(scrapePath, "program");
+
+  return raw
+    .filter((r) => r.externalId && r.dateTimeText && r.homeTeam && r.awayTeam)
+    .map((r) => ({
+      externalId: r.externalId,
+      homeTeam: r.homeTeam,
+      awayTeam: r.awayTeam,
+      // Nerozpoznané datum necháme jako null — validace to odchytí
+      // místo tichého zapsání špatného data.
+      kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate),
+      homeScore: parseScore(r.homeScoreText),
+      awayScore: parseScore(r.awayScoreText),
+    }));
+}
+
+// Stránka "/vysledky/" — na rozdíl od rozpisu nepotřebujeme platné datum
+// výkopu (sync-results zápas jen dohledá podle external_id a doplní
+// skóre), takže se tu datum nevyžaduje. Díky tomu nevadí ani živě
+// probíhající zápas, u kterého livesport místo data zobrazuje běžící
+// minutu — takový záznam prostě projde s kickoffAt: null a bez skóre se
+// stejně nepoužije (viz results.mjs, který bere jen záznamy s vyplněným
+// skóre obou týmů).
+export async function scrapeLivesportResults(scrapePath, { referenceDate = new Date() } = {}) {
+  const raw = await scrapeLivesportRaw(scrapePath, "vysledky");
+
+  return raw
+    .filter((r) => r.externalId && r.homeTeam && r.awayTeam)
+    .map((r) => ({
+      externalId: r.externalId,
+      homeTeam: r.homeTeam,
+      awayTeam: r.awayTeam,
+      kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate),
+      homeScore: parseScore(r.homeScoreText),
+      awayScore: parseScore(r.awayScoreText),
+    }));
 }

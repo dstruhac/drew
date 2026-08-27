@@ -1,0 +1,43 @@
+# Dohledá výsledky u zápasů, kterým už uplynul výkop, ale v databázi
+# ještě nemají status='finished'. Než cokoliv scrapne, zeptá se vlastní
+# databáze (scripts/sync/results.mjs) — pokud pro danou competition
+# žádné takové zápasy nejsou, přeskočí ji bez otevření prohlížeče.
+#
+# POZOR: zatím jen `workflow_dispatch` (ruční spuštění), stejně jako
+# sync-fixtures.yml. Až se ověří, že běh v praxi funguje spolehlivě,
+# přidá se `schedule:` (podle návrhu v docs/IMPORT-ARCHITECTURE.md
+# každých ~30 minut ve večerním okně, kdy se hraje).
+
+name: Sync results
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nainstalovat závislosti a Chromium
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Spustit sync-results
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node results.mjs
