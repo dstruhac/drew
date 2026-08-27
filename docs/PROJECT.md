@@ -321,16 +321,34 @@ nevymýšlí za něj):
    plánovaná úloha z `docs/IMPORT-ARCHITECTURE.md` — `scripts/sync/results.mjs`
    + `.github/workflows/sync-results.yml` (zatím jen ruční spuštění,
    stejně jako `sync-fixtures.yml`). Pro každou competition se nejdřív
-   zeptá vlastní databáze, jestli existují zápasy s `kickoff_at`
-   v minulosti a `status <> 'finished'` — pokud ne, přeskočí ji bez
-   otevření prohlížeče. Pokud ano, stáhne stránku `.../vysledky/` na
-   livesport.cz (`scrapeLivesportResults` ve `scrape-livesport.mjs`,
-   sdílí extrakční jádro s rozpisem) a dohledá výsledek podle
-   `external_id`. Na rozdíl od rozpisu nevyžaduje platné datum výkopu
-   (páruje se jen podle `external_id`), takže nevadí ani živě probíhající
-   zápas s běžící minutou místo data. Zápasy se zapsaným skóre dostanou
-   `status='finished'` — body si pak samo dopočítá existující trigger
-   `matches_calculate_points`, import žádné body nepočítá.
+   zeptá vlastní databáze, jestli je vůbec potřeba otevírat prohlížeč —
+   buď (a) existuje zápas s `kickoff_at` v minulosti a `status <>
+   'finished'`, nebo (b) competition v databázi nemá žádný zápas vůbec.
+   Pokud ani jedno neplatí, přeskočí ji bez otevření prohlížeče. Pokud
+   ano, stáhne stránku `.../vysledky/` na livesport.cz
+   (`scrapeLivesportResults` ve `scrape-livesport.mjs`, sdílí extrakční
+   jádro s rozpisem) a zapíše VŠECHNY nalezené zápasy se skóre — jak
+   update už existujících (podle `external_id`), tak insert úplně
+   nových řádků. Zápasy dostanou `status='finished'` — body si u
+   existujících zápasů samo dopočítá trigger `matches_calculate_points`
+   (běží jen na UPDATE; nově vloženému zápasu nevadí, že mu neběží,
+   protože nemohl mít žádný tip k obodování).
+
+   **Opraveno po prvním ostrém běhu (27.8.2026): chybějící zápasy z
+   minulého týdne.** Hned první ruční spuštění `sync-results` po PR #26
+   ukázalo `0 požadavků` u obou soutěží — u hokeje čekaně (sezóna ještě
+   nezačala), u Chance Ligy ale nečekaně, protože zápasy z 22.–23. 8.
+   už byly dohrané. Příčina: `ensure-competition`/`sync-fixtures` pro
+   Chance Ligu poprvé proběhly až 27.8. a `sync-fixtures` stahuje jen
+   okno `[dnes-1, dnes+21]` — zápasy odehrané před tímhle datem se do
+   databáze vůbec nedostaly, takže `sync-results` (který páruje jen
+   podle `external_id` už existujících řádků) je neměl jak najít.
+   Oprava: `sync-results` teď umí i **zpětně dotáhnout** zápasy, které
+   v databázi ještě vůbec nejsou (viz odstavec výše, bod b) — týká se
+   každé nové soutěže přidané uprostřed sezóny, ne jen tohohle
+   jednorázového případu. Kvůli tomu teď validace (`validate-results.mjs`)
+   navíc vyžaduje platné `kickoff_at` (dřív ne) — nový řádek bez něj by
+   spadl na NOT NULL constraint v databázi.
 
    **Ověřeno přes probe workflow (27.8.2026):** struktura stránky
    `/vysledky/` je shodná s `/program/` (stejné selektory) — ověřeno na
@@ -344,6 +362,17 @@ nevymýšlí za něj):
    Doplní se, až se objeví první reálný dohraný zápas v prodloužení.
    Odložené/zrušené zápasy zůstávají stejně neřešené jako u
    `sync-fixtures` (viz otevřená otázka v `IMPORT-ARCHITECTURE.md`).
+
+   **Optimalizace: cachování Playwright/Chromia (27.8.2026).** Každý
+   běh `sync-fixtures`/`sync-results` dřív stahoval ~300 MB Chromia od
+   nuly (GitHub Actions runner je pokaždé úplně čerstvý stroj bez
+   ničeho nainstalovaného) — všimnul si toho uživatel při prvním ostrém
+   běhu (job trval 67 s, z toho ~50 s instalace). Přidán `actions/cache`
+   na `~/.cache/ms-playwright` (klíčovaný podle `package-lock.json`) +
+   `cache: npm` u `setup-node` — Playwright sám přeskočí stažení
+   prohlížeče, když ho v cache najde, `npm install` využije keš balíčků.
+   Nic to nestojí navíc (repo je veřejné → GitHub Actions minuty
+   neomezené zdarma), jde jen o rychlost běhu.
 
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do

@@ -1,14 +1,29 @@
 // Entrypoint pro sync-results.yml. Pro každou competition nejdřív zjistí
-// z VLASTNÍ databáze (zdarma, bez scrapování), jestli má nějaké zápasy,
-// kterým už uplynul kickoff_at, ale pořád nemají status='finished' —
-// pokud ne, competition se přeskočí bez jediného otevření prohlížeče.
-// Teprve když takové zápasy existují, stáhne se stránka "/vysledky/" a
-// dohledá se na ní výsledek podle external_id. Zápasy, které tam ještě
-// nemají skóre (dohrávka, odložení, apod.), se prostě přeskočí a zkusí
-// se znovu při dalším běhu.
+// z VLASTNÍ databáze (zdarma, bez scrapování), jestli je vůbec potřeba
+// otevírat prohlížeč — buď (a) nemá v databázi ŽÁDNÝ zápas (typicky
+// nová soutěž přidaná uprostřed sezóny — viz "zpětné dotažení" níže),
+// nebo (b) má zápas, kterému už uplynul kickoff_at, ale pořád nemá
+// status='finished'. Pokud ani jedno neplatí, competition se přeskočí
+// bez jediného otevření prohlížeče.
+//
+// Teprve když je potřeba, stáhne se stránka "/vysledky/" a zapíšou se
+// VŠECHNY nalezené zápasy se skóre — jak update už existujících (podle
+// external_id), tak insert úplně nových řádků. Tohle je záměrně
+// "zpětné dotažení" zdarma: když appka začne sledovat soutěž, jejíž
+// sezóna už běží (přesně tenhle případ nastal 27.8.2026 u Chance Ligy —
+// sync-fixtures naimportoval jen zápasy v okně [dnes-1, dnes+21], starší
+// dohrané zápasy z databáze úplně chyběly), první běh sync-results je
+// rovnou dotáhne i s výsledkem, aniž by to vyžadovalo zvláštní ruční
+// krok. Zápasy, které na výsledkové stránce ještě skóre nemají
+// (dohrávka, odložení, apod.), se prostě přeskočí a zkusí se znovu při
+// dalším běhu.
 //
 // Body se přepočítají samy — DB trigger `matches_calculate_points` se
-// spustí, jakmile zápas dostane status='finished' a obě skóre.
+// spustí, jakmile existující zápas dostane status='finished' a obě
+// skóre (běží jen na UPDATE). Nově vloženým zápasům trigger neběží, ale
+// nevadí to: zápas, který v databázi ještě neexistoval, nemohl mít ani
+// žádný tip k obodování — a nový tip na už odehraný zápas RLS politika
+// (kickoff_at v minulosti) stejně nedovolí.
 //
 // POZOR: `overtime_flag` (prodloužení/nájezdy u hokeje) se zatím
 // nezapisuje — livesport.cz způsob označení není ověřený na reálných
@@ -38,38 +53,41 @@ async function main() {
   }
 
   let hadFailure = false;
-  const now = new Date().toISOString();
+  const now = Date.now();
 
   for (const competition of competitions) {
     const label = `sync-results:${competition.id}`;
 
     try {
-      const { data: pending, error: pendingError } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("matches")
-        .select("id, external_id")
-        .eq("competition_id", competition.id)
-        .not("external_id", "is", null)
-        .neq("status", "finished")
-        .lte("kickoff_at", now);
+        .select("id, status, kickoff_at")
+        .eq("competition_id", competition.id);
 
-      if (pendingError) throw new Error(`Nepodařilo se načíst nedohrané zápasy: ${pendingError.message}`);
+      if (existingError) throw new Error(`Nepodařilo se načíst zápasy: ${existingError.message}`);
 
-      if (!pending || pending.length === 0) {
+      const pendingCount = (existing ?? []).filter(
+        (m) => m.status !== "finished" && new Date(m.kickoff_at).getTime() <= now,
+      ).length;
+      const hasAnyMatches = (existing ?? []).length > 0;
+
+      if (hasAnyMatches && pendingCount === 0) {
         console.log(`${competition.name}: žádné nedohrané zápasy po výkopu, přeskakuji (0 požadavků).`);
         continue;
       }
 
-      console.log(`----- ${competition.name}: ${pending.length} zápasů čeká na výsledek -----`);
+      console.log(
+        hasAnyMatches
+          ? `----- ${competition.name}: ${pendingCount} zápasů čeká na výsledek -----`
+          : `----- ${competition.name}: v databázi zatím žádný zápas, zkouším zpětně dotáhnout ze stránky s výsledky -----`,
+      );
 
       if (competition.scrape_source !== "livesport") {
         throw new Error(`Neznámý scrape_source: ${competition.scrape_source}`);
       }
 
       const scraped = await scrapeLivesportResults(competition.scrape_path);
-      const pendingExternalIds = new Set(pending.map((m) => m.external_id));
-      const withResult = scraped.filter(
-        (m) => pendingExternalIds.has(m.externalId) && m.homeScore != null && m.awayScore != null,
-      );
+      const withResult = scraped.filter((m) => m.homeScore != null && m.awayScore != null);
 
       const { ok, errors } = validateResults(withResult);
 
@@ -90,7 +108,7 @@ async function main() {
       }
 
       if (withResult.length === 0) {
-        console.log(`${competition.name}: zatím žádný z čekajících zápasů nemá na livesport.cz zapsaný výsledek.`);
+        console.log(`${competition.name}: na livesport.cz zatím žádný zápas se zapsaným výsledkem.`);
         await reportRecovery({ label, summary: "Poslední běh v pořádku, zatím bez nových výsledků." });
         continue;
       }
@@ -100,6 +118,7 @@ async function main() {
         external_id: m.externalId,
         home_team: m.homeTeam,
         away_team: m.awayTeam,
+        kickoff_at: m.kickoffAt,
         home_score: m.homeScore,
         away_score: m.awayScore,
         status: "finished",
@@ -111,8 +130,8 @@ async function main() {
 
       if (upsertError) throw new Error(`Upsert selhal: ${upsertError.message}`);
 
-      console.log(`Zapsán výsledek u ${rows.length} zápasů.`);
-      await reportRecovery({ label, summary: `Poslední běh v pořádku, ${rows.length} nových výsledků.` });
+      console.log(`Zapsáno/aktualizováno ${rows.length} zápasů s výsledkem.`);
+      await reportRecovery({ label, summary: `Poslední běh v pořádku, ${rows.length} zápasů s výsledkem.` });
     } catch (err) {
       hadFailure = true;
       console.log(`::error::${competition.name}: ${err.message}`);

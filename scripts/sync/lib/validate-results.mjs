@@ -1,10 +1,14 @@
 // Kontrola rozumnosti výsledků, než se zapíšou do databáze — stejný
 // důvod jako u validate-fixtures.mjs (web může kdykoliv změnit layout).
-// Na rozdíl od rozpisu se tu nekontroluje kickoff_at (výsledky se párují
-// jen podle external_id, datum se nepoužívá) a neřeší se min/max počet:
-// volající už předem vybírá jen zápasy, které v databázi čekají na
-// výsledek, takže "0 nalezeno" jen znamená "zatím žádný z nich nemá
-// výsledek" a není to chyba.
+// Na rozdíl od rozpisu se neřeší min/max počet: volající už předem
+// vybírá jen zápasy se skóre, takže "0 nalezeno" jen znamená "zatím
+// žádný z nich nemá výsledek" a není to chyba.
+//
+// kickoff_at SE kontroluje (na rozdíl od dřívější verze) — results.mjs
+// teď umí i zakládat úplně nové řádky (zápas, který v databázi ještě
+// vůbec neexistuje, typicky zpětné dotažení zápasů z doby předtím, než
+// appka danou soutěž začala sledovat), a nový řádek bez kickoff_at by
+// spadl na NOT NULL constraint v databázi.
 
 export function validateResults(matches) {
   const errors = [];
@@ -20,6 +24,10 @@ export function validateResults(matches) {
     if (!m.awayTeam || !m.awayTeam.trim()) errors.push(`${where}: chybí jméno hostujícího týmu`);
     if (m.homeTeam && m.awayTeam && m.homeTeam === m.awayTeam) {
       errors.push(`${where}: domácí a hosté vyšli stejně ("${m.homeTeam}") — parser je asi rozbitý`);
+    }
+
+    if (!m.kickoffAt || Number.isNaN(new Date(m.kickoffAt).getTime())) {
+      errors.push(`${where}: neplatný kickoff_at ("${m.kickoffAt}")`);
     }
 
     if (!Number.isInteger(m.homeScore) || m.homeScore < 0) {
