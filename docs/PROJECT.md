@@ -155,7 +155,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-26)
+## Stav (aktualizováno 2026-08-27)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -172,6 +172,7 @@ Hotovo:
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže
 - [x] Sdílená hlavička appky s fotečkou uživatele
 - [x] Skutečné "přihlášení" (členství) do competition
+- [x] `sync-fixtures` (import rozpisu zápasů scrapingem) běží ostře — hokejová extraliga má reálné zápasy se správným časem
 
 ## Naplánované další kroky
 
@@ -200,9 +201,8 @@ nevymýšlí za něj):
    nebyla potřeba — `predictions_select_own_or_locked` už povoluje číst
    cizí tipy, jakmile má zápas `status <> 'scheduled'` (a body existují
    jen u dohraných zápasů).
-5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
-   Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
-   se použije (nevybráno, nutno probrat s uživatelem).
+5. [x] Import **rozpisu** zápasů (hokej, fotbal) — hotovo, viz níže.
+   [ ] Import **výsledků** (`sync-results`) — zatím nezačato.
 
    **➡️ Podrobný návrh architektury je v
    [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md)** —
@@ -259,19 +259,39 @@ nevymýšlí za něj):
    **Rozhodnuto jinak (26.8.2026):** uživatel se místo placeného API
    rozhodl pro **scraping livesport.cz přes Playwright** — mj. i jako
    záměrný projekt na naučení se scrapingu. Implementováno v
-   `scripts/sync/` (`sync-fixtures.mjs` + `sync-results` teprve
-   plánováno), spouští `.github/workflows/sync-fixtures.yml`. Detaily,
-   ověřené `scrape_path` hodnoty pro obě ligy a jak zapnout pro
-   existující competition jsou v
+   `scripts/sync/` (`sync-fixtures.mjs` hotovo, `sync-results` teprve
+   plánováno), spouští `.github/workflows/sync-fixtures.yml`. Detaily
+   a ověřené `scrape_path` hodnoty pro obě ligy jsou v
    [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md) v sekci
-   "Aktuálně implementováno: scraping z livesport.cz". Scraper (výběr
-   CSS selektorů, parsování data/skóre/časového pásma) je funkčně
-   hotový a ověřený reálným během proti oběma ligám (26.8.2026,
-   fotbal 116 zápasů, hokej 111 zápasů) — **zbývá jen ruční krok
-   uživatele**: spustit `UPDATE` v Supabase SQL editoru (viz
-   `IMPORT-ARCHITECTURE.md`) a nastavit `SUPABASE_SERVICE_ROLE_KEY`
-   jako GitHub repo secret, než `sync-fixtures.yml` může začít
-   opravdu zapisovat zápasy.
+   "Aktuálně implementováno: scraping z livesport.cz".
+
+   **[x] `sync-fixtures` běží ostře a zapisuje zápasy (27.8.2026).**
+   Uživatel spustil migrace a nastavil `SUPABASE_SERVICE_ROLE_KEY`/
+   `SUPABASE_URL` jako GitHub secrets. První ostré běhy postupně
+   odhalily a opravily tři reálné bugy (všechny zdokumentované výše u
+   RLS/datového modelu i v `IMPORT-ARCHITECTURE.md`): chybějící GRANT
+   pro `service_role`, částečný index nekompatibilní s `ON CONFLICT`,
+   a **časový posun o 4 hodiny** — livesport.cz zobrazuje čas výkopu
+   podle časového pásma prohlížeče (auto-detekce), ne napevno podle
+   Prahy; scraper běžící na GitHub Actions (UTC) tak sbíral čas už
+   lokalizovaný do UTC, který se pak mylně převáděl podruhé, jako by
+   šlo o pražský čas (-2h), a appka ho navíc zobrazovala bez explicitní
+   časové zóny podle prostředí serveru (další -2h). Opraveno nastavením
+   `timezoneId: "Europe/Prague"` u Playwright stránky
+   (`scripts/sync/lib/scrape-livesport.mjs`) a explicitním
+   `timeZone: "Europe/Prague"` při zobrazení
+   (`src/app/(app)/spaces/[id]/page.tsx`). Po opravě ověřeno reálným
+   během — 7 zápasů hokejové extraligy zapsáno se správným časem.
+
+   **Odstraněno jako nepoužívaná slepá cesta (27.8.2026):** mechanismus
+   pro volání placených sportovních API (`API_SPORTS_KEY`/`RAPIDAPI_KEY`
+   hlavičky) v `.github/workflows/api-probe.yml` — appka nakonec API
+   nepoužívá. Workflow zůstává jako obecný nástroj "zavolej URL a
+   vypiš odpověď" (pořád užitečný, viz sekce "Síťové omezení" v
+   `CLAUDE.md`), jen bez API-klíčové části. **Zbývá ruční krok
+   uživatele**: smazat GitHub secrets `RAPIDAPI_KEY` a `API_SPORTS_KEY`
+   a zrušit/odvolat samotné klíče u RapidAPI a api-sports.io (přesné
+   kroky viz odpověď v chatu z 27.8.2026).
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
