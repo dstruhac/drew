@@ -90,7 +90,12 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   `supabase/migrations/20260827090000_service_role_grants.sql` (role
   `service_role`, objeveno prvním ostrým během `sync-fixtures.yml`
   27.8.2026 — stejná chyba, jen jiná role, dřív nebyl důvod ji potkat,
-  protože nic pod service role klíčem ještě neběželo).
+  protože nic pod service role klíčem ještě neběželo) a
+  `supabase/migrations/20260827110000_competitions_service_role_insert_grant.sql`
+  (opět `service_role`, ale tentokrát `insert`/`update` na `competitions`
+  — dřív měla jen `select`, protože nic pod service role klíčem do
+  `competitions` nezapisovalo; objeveno 27.8.2026 při prvním běhu
+  `scripts/sync/ensure-competition.mjs`, viz níže).
 - **Unikátní index pro upsert zápasů**: `matches_competition_external_id_key`
   byl původně částečný (`where external_id is not null`), aby ručně
   vytvořené zápasy (`external_id is null`) mohly existovat vícekrát.
@@ -292,6 +297,22 @@ nevymýšlí za něj):
    uživatele**: smazat GitHub secrets `RAPIDAPI_KEY` a `API_SPORTS_KEY`
    a zrušit/odvolat samotné klíče u RapidAPI a api-sports.io (přesné
    kroky viz odpověď v chatu z 27.8.2026).
+
+   **Fotbalová Chance Liga — rozjezd (27.8.2026, rozpracováno):**
+   competition pro ni v appce dosud neexistovala (dřív se zakládaly jen
+   ručně přes SQL editor). Místo dalšího ručního kroku pro uživatele
+   přidán `scripts/sync/ensure-competition.mjs` +
+   `.github/workflows/ensure-competition.yml` — idempotentně
+   založí/aktualizuje competition podle name+sport se service role
+   klíčem (PR #23). První ostrý běh narazil na stejnou třídu chyby jako
+   dřív `matches` (viz "Grants" výše): `permission denied for table
+   competitions`, protože `service_role` měla na `competitions` jen
+   `select`. Oprava je
+   `supabase/migrations/20260827110000_competitions_service_role_insert_grant.sql`
+   — **čeká na ruční spuštění uživatelem v Supabase SQL editoru**, pak
+   se `ensure-competition` (name="Chance Liga", sport="football",
+   scrape_source="livesport", scrape_path="fotbal/cesko/chance-liga")
+   a následně `sync-fixtures` spustí znovu.
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
