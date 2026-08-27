@@ -165,6 +165,34 @@ export interface Database {
           },
         ];
       };
+      competition_participants: {
+        Row: {
+          competition_id: string;
+          user_id: string;
+          joined_at: string;
+        };
+        Insert: {
+          competition_id: string;
+          user_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "competition_participants_competition_id_fkey";
+            columns: ["competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "competition_participants_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

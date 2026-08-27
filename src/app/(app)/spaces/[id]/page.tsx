@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PredictionForm } from "./prediction-form";
+import { joinCompetition, leaveCompetition } from "./actions";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
@@ -24,6 +25,13 @@ export default async function CompetitionDetailPage({
   if (!competition) {
     notFound();
   }
+
+  const { data: participants } = await supabase
+    .from("competition_participants")
+    .select("user_id, profiles(display_name)")
+    .eq("competition_id", id);
+
+  const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
 
   const { data: matches } = await supabase
     .from("matches")
@@ -64,12 +72,39 @@ export default async function CompetitionDetailPage({
             {SPORT_LABELS[competition.sport]}
           </span>
         </div>
-        <Link
-          href={`/spaces/${competition.id}/leaderboard`}
-          className="mt-3 inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-        >
-          Žebříček →
-        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Link
+            href={`/spaces/${competition.id}/leaderboard`}
+            className="inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          >
+            Žebříček →
+          </Link>
+
+          <span className="text-xs text-black/40 dark:text-white/40">
+            {participants?.length ?? 0} hráč
+            {(participants?.length ?? 0) === 1 ? "" : "ů"} v soutěži
+          </span>
+
+          {isJoined ? (
+            <form action={leaveCompetition.bind(null, competition.id)}>
+              <button
+                type="submit"
+                className="rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              >
+                Opustit soutěž
+              </button>
+            </form>
+          ) : (
+            <form action={joinCompetition.bind(null, competition.id)}>
+              <button
+                type="submit"
+                className="rounded-lg bg-black dark:bg-white px-3 py-1.5 text-sm font-medium text-white dark:text-black hover:opacity-90 transition-opacity"
+              >
+                Chci hrát
+              </button>
+            </form>
+          )}
+        </div>
       </header>
 
       {!matches?.length && (
@@ -104,6 +139,7 @@ export default async function CompetitionDetailPage({
                       key={match.id}
                       match={match}
                       isLocked={false}
+                      isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competition.sport}
                       competitionId={competition.id}
@@ -124,6 +160,7 @@ export default async function CompetitionDetailPage({
                       key={match.id}
                       match={match}
                       isLocked={true}
+                      isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competition.sport}
                       competitionId={competition.id}
@@ -159,12 +196,14 @@ type Prediction = {
 function MatchCard({
   match,
   isLocked,
+  isJoined,
   existing,
   sport,
   competitionId,
 }: {
   match: Match;
   isLocked: boolean;
+  isJoined: boolean;
   existing: Prediction;
   sport: "hockey" | "football";
   competitionId: string;
@@ -179,6 +218,7 @@ function MatchCard({
           {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
             dateStyle: "short",
             timeStyle: "short",
+            timeZone: "Europe/Prague",
           })}
         </span>
       </div>
@@ -201,13 +241,18 @@ function MatchCard({
             <p>Nestihl(a) jste tip, zápas je zamčený.</p>
           )}
         </div>
-      ) : (
+      ) : isJoined ? (
         <PredictionForm
           sport={sport}
           competitionId={competitionId}
           matchId={match.id}
           existing={existing}
         />
+      ) : (
+        <p className="mt-2 text-xs text-black/40 dark:text-white/40">
+          Nejdřív se do soutěže musíte přihlásit tlačítkem „Chci hrát“
+          nahoře.
+        </p>
       )}
     </li>
   );

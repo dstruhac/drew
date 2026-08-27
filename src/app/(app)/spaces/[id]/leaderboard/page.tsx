@@ -18,6 +18,11 @@ export default async function LeaderboardPage({
     notFound();
   }
 
+  const { data: participants } = await supabase
+    .from("competition_participants")
+    .select("user_id, profiles(display_name)")
+    .eq("competition_id", id);
+
   const { data: matches } = await supabase
     .from("matches")
     .select("id")
@@ -41,6 +46,19 @@ export default async function LeaderboardPage({
       predictionCount: number;
     }
   >();
+
+  // Základ žebříčku jsou všichni, kdo se do soutěže přihlásili -- i s
+  // nulou tipů/bodů, ať jsou vidět jako "hraje, zatím bez skóre".
+  for (const participant of participants ?? []) {
+    const displayName = participant.profiles?.display_name ?? "Neznámý hráč";
+    totalsByUser.set(participant.user_id, {
+      userId: participant.user_id,
+      displayName,
+      totalPoints: 0,
+      scoredCount: 0,
+      predictionCount: 0,
+    });
+  }
 
   for (const prediction of predictions ?? []) {
     const displayName = prediction.profiles?.display_name ?? "Neznámý hráč";
@@ -79,7 +97,7 @@ export default async function LeaderboardPage({
 
       {standings.length === 0 && (
         <p className="text-sm text-black/60 dark:text-white/60">
-          Zatím tu nejsou žádné tipy.
+          Zatím se do soutěže nikdo nepřihlásil.
         </p>
       )}
 

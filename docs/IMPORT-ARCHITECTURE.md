@@ -3,8 +3,13 @@
 Návrh, jak se do appky budou automaticky dostávat zápasy (rozpis) a
 jejich výsledky, aby je nikdo nemusel zadávat ručně přes SQL editor.
 
-Stav: **návrh, neimplementováno.** Čeká na ověření dostupnosti lig
-u konkrétního API (viz "Co je ještě potřeba ověřit" na konci).
+Stav: **rozhodnutí o zdroji dat se od sepsání tohoto dokumentu
+změnilo.** Analýza níže (placené API jako TheSportsDB) zůstává jako
+historický záznam průzkumu, ale uživatel se 26.8.2026 vědomě rozhodl
+místo placeného API jet **scrapingem** z livesport.cz přes Playwright
+(i jako záměrný projekt na naučení se scrapingu) — viz sekce
+"Aktuálně implementováno: scraping z livesport.cz" na konci tohoto
+dokumentu, tam je aktuální stav.
 
 Sledované soutěže (odsouhlaseno s uživatelem):
 - fotbal — česká **Chance Liga**
@@ -316,3 +321,51 @@ byla pravda: `max_chars` ořezává **i cílený jq výběr**, takže při
 `max_chars=150` zmizela hledaná liga z výpisu a vypadalo to, že ji API
 nemá. Workflow proto teď u oříznutého výběru vypisuje varování.
 **U výběru, ze kterého se dělá závěr, dávej `max_chars` velkoryse.**
+
+## Aktuálně implementováno: scraping z livesport.cz (26.8.2026)
+
+Místo placeného API (závěr výše) appka od 26.8.2026 skutečně používá
+**scraping livesport.cz přes Playwright** — kód v `scripts/sync/`,
+spouští ho `.github/workflows/sync-fixtures.yml`. Klouzavé okno
+(21 dní) a upsert na `(competition_id, external_id)` popsané výše v
+tomto dokumentu platí beze změny, jen zdroj dat je jiný. Scraper je
+napsaný obecně pro sport (`scrapeLivesportFixtures(scrapePath)` v
+`scripts/sync/lib/scrape-livesport.mjs`) — funguje pro libovolnou ligu
+na livesport.cz, jen se liší `scrape_path`.
+
+**Ověřené `scrape_path` hodnoty pro obě sledované ligy** (přes
+`playwright-probe.yml`, selektor `.event__match`):
+
+| liga | `scrape_path` | ověřeno |
+|---|---|---|
+| fotbal — Chance Liga | `fotbal/cesko/chance-liga` | 26.8.2026, 116 zápasů nalezeno, reálné české týmy (Bohemians, Mladá Boleslav, Pardubice, Artis Brno, ...) |
+| hokej — Tipsport extraliga | `hokej/czech-republic/tipsport-extraliga` | 26.8.2026, 111 zápasů nalezeno, reálné české týmy (Karlovy Vary, Třinec, Kometa Brno, Sparta Praha, Mountfield HK, ...) |
+
+Selektory (`.event__stageTime .wcl-dateContent_eEChT`, `.event__homeParticipant`/`awayParticipant .wcl-name_jjfMf`, `.event__score--home`/`--away`, `id="g_<sport>_<kód>"`)
+jsou u obou lig **shodné** — hokejová verze `sync-fixtures` tedy
+nepotřebovala žádnou změnu kódu scraperu, jen zapsat `scrape_path` do
+databáze u dané competition.
+
+**Co ještě není ověřeno**: obě probnuté stránky byly `/program/`
+(nadcházející zápasy), žádný zápas na nich neměl skóre — takže formát
+skóre po prodloužení/nájezdech (`matches.overtime_flag`) není z
+reálných dat ověřený ani pro fotbal, ani pro hokej. `sync-fixtures.mjs`
+dnes `overtime_flag` vůbec nezapisuje (u žádného sportu), takže hokej
+je v tomhle na stejné úrovni jako fotbal — nejde o mezeru vzniklou
+přidáním hokeje. Ověření/doplnění přijde s `sync-results` (úloha B),
+až budou k dispozici reálná dohraná data.
+
+**Jak zapnout `sync-fixtures` pro existující competition** (SQL editor
+v Supabase):
+
+```sql
+-- Hokejová extraliga 2026/27 (competition už existuje, jen jí chybí mapování)
+update public.competitions
+set scrape_source = 'livesport',
+    scrape_path = 'hokej/czech-republic/tipsport-extraliga'
+where name = 'Hokejová extraliga 2026/27' and sport = 'hockey';
+```
+
+Pro Chance Ligu zatím žádná competition v appce nezaložená není — až
+se založí, stejným způsobem se jí nastaví `scrape_source='livesport'`,
+`scrape_path='fotbal/cesko/chance-liga'`.

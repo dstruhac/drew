@@ -1,16 +1,24 @@
-# Pomocný workflow: zavolá zadané sportovní API a vypíše odpověď do logu.
+# Pomocný workflow: zavolá zadanou URL a vypíše odpověď do logu.
 #
 # Proč existuje: Claude Code session běží v sandboxu, který blokuje
-# odchozí přístup na sportovní API (403 na CONNECT). GitHub Actions ale
+# odchozí přístup na spoustu domén (403 na CONNECT). GitHub Actions ale
 # běží s plným internetem a Claude si umí přečíst log doběhlého běhu
 # zpátky přes GitHub API. Tohle je tedy jediná cesta, jak si z chatu
-# ověřit, co konkrétní API reálně vrací, bez ručního kopírování.
+# ověřit, co konkrétní URL reálně vrací, bez ručního kopírování.
 #
 # Spouští se jen ručně (workflow_dispatch) — nic neběží samo od sebe
 # a workflow nikam nezapisuje, jen čte.
 #
 # POZOR: aby šel workflow spustit, musí být tenhle soubor už
 # smergovaný v `main` (GitHub jinak workflow_dispatch nenabídne).
+#
+# Historická poznámka (27.8.2026): dřív uměl tenhle workflow i posílat
+# autorizační hlavičku s API klíčem (secrets API_SPORTS_KEY / RAPIDAPI_KEY)
+# — používalo se to k ověřování placených sportovních API (TheSportsDB,
+# api-sports.io, SportAPI7) při hledání zdroje dat na import zápasů.
+# Appka nakonec místo placeného API jede scrapingem z livesport.cz (viz
+# docs/IMPORT-ARCHITECTURE.md), takže autorizační mechanismus i oba
+# secrets byly odstraněné jako nepoužívaná slepá cesta.
 
 name: API probe
 
@@ -18,13 +26,8 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: "Plná URL API endpointu, včetně parametrů"
+        description: "Plná URL, včetně parametrů"
         required: true
-        type: string
-      header_name:
-        description: "Název hlavičky s API klíčem (prázdné = volat bez API klíče, např. běžnou webovou stránku)"
-        required: false
-        default: "x-apisports-key"
         type: string
       max_chars:
         description: "Kolik znaků odpovědi maximálně vypsat do logu"
@@ -49,55 +52,16 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Zavolat API a vypsat odpověď
+      - name: Zavolat URL a vypsat odpověď
         env:
-          # Hodnoty se do logu nikdy nevypíšou — GitHub secrets v logu
-          # automaticky maskuje. Který z nich se použije, se pozná podle
-          # HEADER_NAME (viz níže) — repo je veřejné, takže klíč nikdy
-          # nesmí projít jako obyčejný (neskrytý) vstup workflow.
-          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
-          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           PROBE_URL: ${{ inputs.url }}
-          HEADER_NAME: ${{ inputs.header_name }}
           MAX_CHARS: ${{ inputs.max_chars }}
           FILTER: ${{ inputs.filter }}
           JQ_EXPR: ${{ inputs.jq }}
         run: |
           set -uo pipefail
 
-          # Prázdný header_name = volat bez API klíče (běžná webová
-          # stránka, žádný secret se nikam neposílá).
-          if [ -z "${HEADER_NAME}" ]; then
-            AUTH_ARGS=()
-          else
-            # Který secret patří k jaké hlavičce se pozná automaticky podle
-            # jejího názvu — žádný další vstup, kterým by šlo klíč omylem
-            # poslat jako obyčejný (nezamaskovaný) parametr.
-            case "${HEADER_NAME}" in
-              *[Rr][Aa][Pp][Ii][Dd]*) API_KEY="${RAPIDAPI_KEY}" ;;
-              *) API_KEY="${API_SPORTS_KEY}" ;;
-            esac
-
-            if [ -z "${API_KEY}" ]; then
-              echo "::warning::Odpovídající secret není nastavený (hlavička '${HEADER_NAME}') — volám bez autorizační hlavičky."
-              AUTH_ARGS=()
-            else
-              AUTH_ARGS=(-H "${HEADER_NAME}: ${API_KEY}")
-            fi
-
-            # RapidAPI navíc vyžaduje hlavičku x-rapidapi-host s hostname
-            # z URL — jinak vrací 403. Doplní se automaticky, ať se nemusí
-            # posílat jako další vstup.
-            case "${HEADER_NAME}" in
-              *[Rr][Aa][Pp][Ii][Dd]*)
-                RAPIDAPI_HOST=$(echo "${PROBE_URL}" | sed -E 's#^[a-zA-Z]+://([^/]+).*#\1#')
-                AUTH_ARGS+=(-H "x-rapidapi-host: ${RAPIDAPI_HOST}")
-                ;;
-            esac
-          fi
-
           echo "URL: ${PROBE_URL}"
-          echo "Hlavička s klíčem: ${HEADER_NAME}"
           echo "----- HTTP status a hlavičky -----"
 
           # Běžné webové stránky (ne API) často blokují/přesměrovávají
@@ -105,7 +69,6 @@ jobs:
           # posíláme vždy, u API endpointů nevadí.
           HTTP_CODE=$(curl -sSL --max-time 30 \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36" \
-            "${AUTH_ARGS[@]}" \
             -D headers.txt \
             -o body.json \
             -w '%{http_code}' \

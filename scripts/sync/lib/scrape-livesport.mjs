@@ -66,6 +66,15 @@ export async function scrapeLivesportFixtures(scrapePath, { referenceDate = new 
     const page = await browser.newPage({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36",
+      // livesport.cz zobrazuje čas výkopu podle časového pásma
+      // PROHLÍŽEČE (auto-detekce), ne pevně podle Prahy -- bez tohohle
+      // by na GitHub Actions runneru (běží v UTC) web ukazoval časy v
+      // UTC, ale pragueWallTimeToUtcIso níže by je stejně převáděl,
+      // jako by šlo o pražský čas. Výsledek: uložený kickoff_at byl
+      // systematicky o 2h posunutý (a zobrazení v appce bez explicitní
+      // časové zóny přidalo další 2h -- dohromady 4h chyba, reálně
+      // objeveno 27.8.2026 po prvním ostrém importu hokejových zápasů).
+      timezoneId: "Europe/Prague",
     });
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
 

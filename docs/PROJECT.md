@@ -55,12 +55,21 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   je jen zobrazovací flag; skutečné vynucení "nelze upravit po výkopu"
   dělá RLS porovnáním s `matches.kickoff_at` **a** `matches.status`
   (viz níže — obojí musí platit, ne jen jedno).
+- **competition_participants** — explicitní "hraju tuhle soutěž"
+  (`competition_id`, `user_id`, `joined_at`), samoobslužné
+  přihlášení/odhlášení. Bez tohohle řádku appka nedovolí zadat první
+  tip v dané competition (viz níže) a hráč se neukáže v leaderboardu.
 
 ### RLS rozhodnutí (odsouhlaseno s uživatelem)
 
 - **Viditelnost tipů**: před výkopem vidí uživatel jen svůj vlastní
   tip; po výkopu (`kickoff_at <= now()`) se odemknou tipy všech.
   Zabraňuje opisování.
+- **Přihlášení do soutěže jako podmínka pro tip** (odsouhlaseno
+  2026-08-26): uživatel musí mít v `competition_participants` řádek
+  pro danou competition, jinak mu insert do `predictions` selže na
+  RLS — nejde tedy tipovat bez explicitního "Chci hrát". Vynuceno
+  v DB, ne jen skrytím tlačítka v UI.
 - **Zakládání competitions/matches**: zatím žádná insert/update/delete
   policy pro běžné uživatele — píše se jen přes service roli / SQL
   editor ručně. Self-service založení soutěže je budoucí feature.
@@ -73,10 +82,26 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   doby to kontrolovalo jen `kickoff_at`, takže šlo tip upravit i po
   zadání výsledku.
 - **Grants**: Supabase u čerstvého projektu automaticky negrantuje
-  `authenticated` roli přístup k novým tabulkám ve `public` schématu —
-  bez explicitního `GRANT` selhávají dotazy s "permission denied for
-  table ...", ještě před vyhodnocením RLS politik. Viz
-  `supabase/migrations/20260825090000_grants.sql`.
+  přístup k novým tabulkám ve `public` schématu — bez explicitního
+  `GRANT` selhávají dotazy s "permission denied for table ...", ještě
+  před vyhodnocením RLS politik. Viz
+  `supabase/migrations/20260825090000_grants.sql` (role `authenticated`,
+  objeveno při demo testování appky) a
+  `supabase/migrations/20260827090000_service_role_grants.sql` (role
+  `service_role`, objeveno prvním ostrým během `sync-fixtures.yml`
+  27.8.2026 — stejná chyba, jen jiná role, dřív nebyl důvod ji potkat,
+  protože nic pod service role klíčem ještě neběželo).
+- **Unikátní index pro upsert zápasů**: `matches_competition_external_id_key`
+  byl původně částečný (`where external_id is not null`), aby ručně
+  vytvořené zápasy (`external_id is null`) mohly existovat vícekrát.
+  Postgres ale částečný index nepoužije jako cíl pro `ON CONFLICT
+  (competition_id, external_id)` (jen seznam sloupců, bez `WHERE`) —
+  `sync-fixtures.mjs` proto při prvním ostrém běhu (27.8.2026) padal na
+  "no unique or exclusion constraint matching". Oprava:
+  `supabase/migrations/20260827100000_fix_matches_conflict_index.sql`
+  dělá index neomezený — chování zůstává stejné, protože Postgres bere
+  každý `NULL` jako navzájem odlišný, takže víc ručních zápasů bez
+  `external_id` je pořád v pořádku.
 
 ### Vědomě NEimplementováno (ale místo v modelu na to je)
 
@@ -130,7 +155,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-25)
+## Stav (aktualizováno 2026-08-27)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -143,8 +168,11 @@ Hotovo:
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
 - [x] `/spaces/[id]` — detail soutěže se seznamem zápasů
 - [x] Formulář na tip (predictions) — upsert přes server action, disabled/readonly po zamčení (kickoff_at v minulosti)
-- [x] Leaderboard / žebříček za competition — `src/app/spaces/[id]/leaderboard/page.tsx`
+- [x] Leaderboard / žebříček za competition — `src/app/(app)/spaces/[id]/leaderboard/page.tsx`
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže
+- [x] Sdílená hlavička appky s fotečkou uživatele
+- [x] Skutečné "přihlášení" (členství) do competition
+- [x] `sync-fixtures` (import rozpisu zápasů scrapingem) běží ostře — hokejová extraliga má reálné zápasy se správným časem
 
 ## Naplánované další kroky
 
@@ -173,9 +201,8 @@ nevymýšlí za něj):
    nebyla potřeba — `predictions_select_own_or_locked` už povoluje číst
    cizí tipy, jakmile má zápas `status <> 'scheduled'` (a body existují
    jen u dohraných zápasů).
-5. [ ] Import zápasů/výsledků z externího API (hokej, fotbal) +
-   Edge Function + `pg_cron` — teprve až bude jasné, který API zdroj
-   se použije (nevybráno, nutno probrat s uživatelem).
+5. [x] Import **rozpisu** zápasů (hokej, fotbal) — hotovo, viz níže.
+   [ ] Import **výsledků** (`sync-results`) — zatím nezačato.
 
    **➡️ Podrobný návrh architektury je v
    [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md)** —
@@ -226,9 +253,45 @@ nevymýšlí za něj):
    (samotný denní import rozpisu by ji vyčerpal sám). Nemá tedy smysl
    dál ověřovat pokrytí lig u tohohle zdroje.
 
-   **Můj (Claude) doporučený výchozí bod:** TheSportsDB, protože
-   pokrývá obě ligy jedním API a je nejlevnější na rozjezd — ale
-   uživatel to zatím nepotvrdil, čeká se na finální rozhodnutí.
+   **Můj (Claude) doporučený výchozí bod byl:** TheSportsDB, protože
+   pokrývá obě ligy jedním API a je nejlevnější na rozjezd.
+
+   **Rozhodnuto jinak (26.8.2026):** uživatel se místo placeného API
+   rozhodl pro **scraping livesport.cz přes Playwright** — mj. i jako
+   záměrný projekt na naučení se scrapingu. Implementováno v
+   `scripts/sync/` (`sync-fixtures.mjs` hotovo, `sync-results` teprve
+   plánováno), spouští `.github/workflows/sync-fixtures.yml`. Detaily
+   a ověřené `scrape_path` hodnoty pro obě ligy jsou v
+   [`docs/IMPORT-ARCHITECTURE.md`](./IMPORT-ARCHITECTURE.md) v sekci
+   "Aktuálně implementováno: scraping z livesport.cz".
+
+   **[x] `sync-fixtures` běží ostře a zapisuje zápasy (27.8.2026).**
+   Uživatel spustil migrace a nastavil `SUPABASE_SERVICE_ROLE_KEY`/
+   `SUPABASE_URL` jako GitHub secrets. První ostré běhy postupně
+   odhalily a opravily tři reálné bugy (všechny zdokumentované výše u
+   RLS/datového modelu i v `IMPORT-ARCHITECTURE.md`): chybějící GRANT
+   pro `service_role`, částečný index nekompatibilní s `ON CONFLICT`,
+   a **časový posun o 4 hodiny** — livesport.cz zobrazuje čas výkopu
+   podle časového pásma prohlížeče (auto-detekce), ne napevno podle
+   Prahy; scraper běžící na GitHub Actions (UTC) tak sbíral čas už
+   lokalizovaný do UTC, který se pak mylně převáděl podruhé, jako by
+   šlo o pražský čas (-2h), a appka ho navíc zobrazovala bez explicitní
+   časové zóny podle prostředí serveru (další -2h). Opraveno nastavením
+   `timezoneId: "Europe/Prague"` u Playwright stránky
+   (`scripts/sync/lib/scrape-livesport.mjs`) a explicitním
+   `timeZone: "Europe/Prague"` při zobrazení
+   (`src/app/(app)/spaces/[id]/page.tsx`). Po opravě ověřeno reálným
+   během — 7 zápasů hokejové extraligy zapsáno se správným časem.
+
+   **Odstraněno jako nepoužívaná slepá cesta (27.8.2026):** mechanismus
+   pro volání placených sportovních API (`API_SPORTS_KEY`/`RAPIDAPI_KEY`
+   hlavičky) v `.github/workflows/api-probe.yml` — appka nakonec API
+   nepoužívá. Workflow zůstává jako obecný nástroj "zavolej URL a
+   vypiš odpověď" (pořád užitečný, viz sekce "Síťové omezení" v
+   `CLAUDE.md`), jen bez API-klíčové části. **Zbývá ruční krok
+   uživatele**: smazat GitHub secrets `RAPIDAPI_KEY` a `API_SPORTS_KEY`
+   a zrušit/odvolat samotné klíče u RapidAPI a api-sports.io (přesné
+   kroky viz odpověď v chatu z 27.8.2026).
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
@@ -263,13 +326,35 @@ nevymýšlí za něj):
     "Odhlásit se". Jednotlivé stránky teď mají v hlavičce jen svůj
     vlastní obsah (název, zpětný odkaz), duplicitní odkaz na profil a
     odhlášení se ze `/spaces` odstranily.
-12. [ ] Skutečné "přihlášení" (členství) do competition — navazuje na
-    krok 11. Uživatel navrhl (2026-08-26): leaderboard by měl
-    zobrazovat jen hráče, kteří se do dané soutěže výslovně přihlásili
-    (ne "kohokoliv, kdo kdy tipoval", jak je to dnes). Tohle je
-    varianta (b) z nápadu "participanti soutěže" níže — vyžaduje
-    novou tabulku členství a změnu v tom, jak `leaderboard/page.tsx`
-    hráče vybírá. Zatím nerozpracováno, čeká na sdílenou hlavičku.
+12. [x] Skutečné "přihlášení" (členství) do competition — navazuje na
+    krok 11. Nová tabulka `competition_participants`
+    (`supabase/migrations/20260826200000_competition_participants.sql`):
+    `(competition_id, user_id, joined_at)`, RLS: kdokoliv přihlášený
+    vidí všechny řádky (`select`), insert/delete jen svůj vlastní
+    (samoobslužné přihlášení/odhlášení). Migrace navíc **zpětně
+    doplní** participanty ze stávajících `predictions` (kdo už dřív
+    tipoval, evidentně tu soutěž hraje), ať nikomu nezmizí z
+    leaderboardu.
+
+    **Odsouhlaseno s uživatelem (2026-08-26, přes `AskUserQuestion`):**
+    přihlášení do soutěže je **podmínkou** pro první tip — ne jen
+    volitelný "opt-in" pro zobrazení v leaderboardu. Vynuceno na
+    úrovni DB, ne jen v UI: politika `predictions_insert_own_before_kickoff`
+    teď navíc vyžaduje `exists` řádek v `competition_participants` pro
+    daného uživatele a competition zápasu.
+
+    UI (`src/app/(app)/spaces/[id]/page.tsx`): v hlavičce detailu
+    soutěže je vidět počet přihlášených hráčů a tlačítko "Chci hrát" /
+    "Opustit soutěž" (`joinCompetition`/`leaveCompetition` server
+    akce v `actions.ts`, upsert-style insert s no-op na duplicitu).
+    Dokud uživatel není přihlášený, `MatchCard` u nezamčených zápasů
+    místo `PredictionForm` ukáže hint, ať se nejdřív přihlásí.
+
+    `leaderboard/page.tsx` teď staví žebříček primárně z
+    `competition_participants` (každý přihlášený se zobrazí, i s 0
+    body/tipy) a `predictions` jen doplňuje body/počet tipů nad tímhle
+    základem — dřív se žebříček stavěl jen z `predictions`, takže
+    přihlášený hráč bez tipu by se vůbec nezobrazil.
 
 ### Nápad: medaile/odznaky za vítězství (2026-08-25, nerozpracováno)
 
@@ -313,10 +398,8 @@ stávajících dat stejně jako leaderboard), nebo (b) zavádíme skutečné
 "členství" v soutěži (kdo se do ní explicitně přihlásil) — to by byla
 větší změna datového modelu.
 
-**Rozhodnuto směrem (b) (2026-08-26):** uživatel potvrdil, že chce
-skutečné členství — leaderboard má zobrazovat jen hráče, kteří se do
-soutěže přihlásili, ne kohokoliv, kdo kdy tipoval. Viz krok 12 v plánu
-výše — čeká na sdílenou hlavičku appky (krok 11), zatím nerozpracováno.
+**Rozhodnuto směrem (b) — ✅ hotovo (2026-08-26), viz krok 12 v plánu
+výše.**
 
 **2) Vlastní přezdívka — ✅ hotovo (2026-08-26), viz krok 10 v plánu
 výše.**
