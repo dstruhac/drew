@@ -26,9 +26,10 @@ describe("validateResults", () => {
     expect(errors).toEqual([]);
   });
 
-  it("does not require a valid kickoff_at (results are matched by external_id only)", () => {
-    const { ok } = validateResults([match({ kickoffAt: null })]);
-    expect(ok).toBe(true);
+  it("rejects an invalid kickoff_at (needed to safely insert a brand new match row)", () => {
+    const { ok, errors } = validateResults([match({ kickoffAt: null })]);
+    expect(ok).toBe(false);
+    expect(errors[0]).toMatch(/neplatný kickoff_at/);
   });
 
   it("rejects a match with no external_id", () => {

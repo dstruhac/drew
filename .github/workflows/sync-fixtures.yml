@@ -29,6 +29,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      # Playwright sám přeskočí stažení Chromia, když už v tomhle adresáři
+      # existuje (kešuje se podle verze z package-lock.json) — jediné, co
+      # se pak pokaždé udělá znovu, je rychlá kontrola systémových balíčků
+      # (--with-deps). Bez týhle cache se ~300 MB Chromia stahovalo úplně
+      # od začátku při každém jednom běhu.
+      - name: Cache Chromia pro Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('scripts/sync/package-lock.json') }}
 
       - name: Nainstalovat závislosti a Chromium
         run: |

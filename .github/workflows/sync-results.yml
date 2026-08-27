@@ -1,7 +1,10 @@
 # Dohledá výsledky u zápasů, kterým už uplynul výkop, ale v databázi
-# ještě nemají status='finished'. Než cokoliv scrapne, zeptá se vlastní
-# databáze (scripts/sync/results.mjs) — pokud pro danou competition
-# žádné takové zápasy nejsou, přeskočí ji bez otevření prohlížeče.
+# ještě nemají status='finished' — a pokud pro danou competition v
+# databázi zatím není vůbec žádný zápas (nová soutěž přidaná uprostřed
+# sezóny), zkusí zápasy i s výsledkem rovnou zpětně dotáhnout. Než
+# cokoliv scrapne, zeptá se vlastní databáze (scripts/sync/results.mjs)
+# — pokud ani jedno z výše uvedeného neplatí, přeskočí competition bez
+# otevření prohlížeče.
 #
 # POZOR: zatím jen `workflow_dispatch` (ruční spuštění), stejně jako
 # sync-fixtures.yml. Až se ověří, že běh v praxi funguje spolehlivě,
@@ -29,6 +32,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      # Playwright sám přeskočí stažení Chromia, když už v tomhle adresáři
+      # existuje (kešuje se podle verze z package-lock.json) — jediné, co
+      # se pak pokaždé udělá znovu, je rychlá kontrola systémových balíčků
+      # (--with-deps). Bez týhle cache se ~300 MB Chromia stahovalo úplně
+      # od začátku při každém jednom běhu.
+      - name: Cache Chromia pro Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('scripts/sync/package-lock.json') }}
 
       - name: Nainstalovat závislosti a Chromium
         run: |
