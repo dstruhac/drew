@@ -103,7 +103,12 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   (opět `service_role`, ale tentokrát `insert`/`update` na `competitions`
   — dřív měla jen `select`, protože nic pod service role klíčem do
   `competitions` nezapisovalo; objeveno 27.8.2026 při prvním běhu
-  `scripts/sync/ensure-competition.mjs`, viz níže).
+  `scripts/sync/ensure-competition.mjs`, viz níže) a
+  `supabase/migrations/20260827140000_predictions_service_role_select_grant.sql`
+  (opět `service_role`, tentokrát `select` na `predictions` — objeveno
+  27.8.2026 při prvním ostrém běhu `award-weekly-badges.mjs`, viz krok
+  13 níže; čtvrtý výskyt stejné třídy chyby, pokaždé objeven přesně ve
+  chvíli, kdy se service role klíčem poprvé sáhlo na danou tabulku).
 - **Unikátní index pro upsert zápasů**: `matches_competition_external_id_key`
   byl původně částečný (`where external_id is not null`), aby ručně
   vytvořené zápasy (`external_id is null`) mohly existovat vícekrát.
@@ -508,6 +513,17 @@ nevymýšlí za něj):
     poslední ÚPLNĚ dokončený týden, nikdy rozpracovaný aktuální).
     Idempotentní: pokud pro danou competition a týden už medaile
     existují, přeskočí se (bezpečné při opakovaném/ručním spuštění).
+
+    **Opraveno po prvním ostrém běhu (27.8.2026), dvě chyby najednou:**
+    1. `permission denied for table predictions` — `service_role`
+       neměla `select` na `predictions` (čtvrtý výskyt stejné třídy
+       chyby jako u `matches`/`competitions`, viz "Grants" výše).
+       Opraveno `20260827140000_predictions_service_role_select_grant.sql`.
+    2. GitHub label `award-weekly-badges:<uuid>` má 56 znaků, GitHub
+       limit je 50 — založení Issue s takovým štítkem tvrdě selhalo,
+       což přebilo i hlášení té první (skutečné) chyby a log pak
+       vypadal zmateně. Zkráceno na `weekly-badges:<uuid>` (přesně 50
+       znaků, stejně jako u `sync-fixtures`).
 
 ### Nápad: medaile/odznaky za vítězství — ✅ hotovo (2026-08-27), viz krok 13 v plánu výše.
 

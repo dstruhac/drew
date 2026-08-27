@@ -35,7 +35,11 @@ async function main() {
   let hadFailure = false;
 
   for (const competition of competitions) {
-    const label = `award-weekly-badges:${competition.id}`;
+    // GitHub label name má limit 50 znaků -- "award-weekly-badges:" + UUID
+    // (36 znaků) je 56 a založení Issue s takovým štítkem tvrdě selže
+    // (objeveno prvním ostrým během 27.8.2026). "weekly-badges:" + UUID
+    // je přesně na hraně (50), stejně jako u sync-fixtures.
+    const label = `weekly-badges:${competition.id}`;
 
     try {
       const { data: existing, error: existingError } = await supabase
