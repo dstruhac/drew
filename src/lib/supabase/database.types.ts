@@ -193,6 +193,38 @@ export interface Database {
           },
         ];
       };
+      weekly_badges: {
+        Row: {
+          competition_id: string;
+          week_start: string;
+          user_id: string;
+          points: number;
+          awarded_at: string;
+        };
+        Insert: {
+          competition_id: string;
+          week_start: string;
+          user_id: string;
+          points: number;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "weekly_badges_competition_id_fkey";
+            columns: ["competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "weekly_badges_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -1,0 +1,47 @@
+# Vyhodnotí uplynulý kalendářní týden (pondělí-neděle, pražský čas) za
+# každou competition a udělí "vítězi týdne" (nebo všem při shodě)
+# odznak v tabulce weekly_badges -- zobrazuje se na žebříčku soutěže.
+# Týden bez zápasů nebo bez jediného obodovaného tipu zůstává bez
+# medaile. Viz scripts/sync/award-weekly-badges.mjs.
+#
+# Na rozdíl od sync-fixtures/sync-results tenhle skript nepotřebuje
+# Playwright/prohlížeč -- jen čte a zapisuje do Supabase.
+#
+# Běží automaticky v pondělí ráno (05:00 UTC, tedy už po celém
+# uplynulém víkendu). workflow_dispatch zůstává pro ruční spuštění.
+
+name: Award weekly badges
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  award:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit award-weekly-badges
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node award-weekly-badges.mjs
