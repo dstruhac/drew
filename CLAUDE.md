@@ -123,13 +123,18 @@ do prohlížeče.
   workflow s Copilot code review, který na PR bude nechávat komentáře
   — automaticky se tak dozvím o nových komentářích/CI a budu na ně
   moct reagovat, než požádám o merge).
-- **Merge PR dělej sám, ale až po výslovném souhlasu uživatele** v
-  chatu (např. "jedeme", "mergni to", "ok") — ne automaticky hned po
-  vytvoření PR. Dokud souhlas nepřijde, jen čekej / pracuj na dalším
-  kroku, PR nech otevřený. Pokud mezitím na PR přibudou komentáře
-  (např. od Copilota), nejdřív na ně zareaguj (drobnosti oprav rovnou,
-  u větších věcí navrhni řešení v chatu) — teprve pak čekej na
-  uživatelovo "jedeme".
+- **Merge PR** — uživatel 27.8.2026 explicitně zrušil požadavek na
+  čekání na souhlas u PR, které nemění chování appky nebo datový model
+  (dokumentace, oprava bugu v už odsouhlasené featuře, úklid, drobné
+  opravy skriptů/workflow) — u těch smerguj sám, bez ptaní. U PR, které
+  mění chování appky/datový model nebo o nich panuje jakákoliv
+  nejistota, se pořád nejdřív zeptej v chatu (např. "jedeme", "mergni
+  to", "ok"), stejná logika jako u produktových rozhodnutí výše. Dokud
+  souhlas nepřijde, jen čekej / pracuj na dalším kroku, PR nech otevřený.
+  Pokud mezitím na PR přibudou komentáře (např. od Copilota), nejdřív
+  na ně zareaguj (drobnosti oprav rovnou, u větších věcí navrhni řešení
+  v chatu) — teprve pak čekej na uživatelovo "jedeme" (pokud si to
+  vůbec žádá čekání podle pravidla výše).
 - **Jakmile je PR smergovaný (ať už jím nebo uživatelem ručně na
   GitHubu), branch pro tenhle PR je "spotřebovaná".** Než na ni
   pushneš další commit, ověř přes GitHub (`pull_request_read` / `list_pull_requests`),
