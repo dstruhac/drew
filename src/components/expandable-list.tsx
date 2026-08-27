@@ -9,12 +9,9 @@ import { useState, type ReactNode } from "react";
 export function ExpandableList({
   items,
   initialCount,
-  emptyInitialHint,
 }: {
   items: ReactNode[];
   initialCount: number;
-  /** Text zobrazený místo prázdného seznamu, když initialCount === 0, ale položky existují (např. "nejbližší zápas je dál než za týden"). */
-  emptyInitialHint?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = items.length > initialCount;
@@ -22,15 +19,7 @@ export function ExpandableList({
 
   return (
     <>
-      {visible.length > 0 ? (
-        <ul className="flex flex-col gap-3">{visible}</ul>
-      ) : (
-        emptyInitialHint && (
-          <p className="text-xs text-black/40 dark:text-white/40">
-            {emptyInitialHint}
-          </p>
-        )
-      )}
+      {visible.length > 0 && <ul className="flex flex-col gap-3">{visible}</ul>}
 
       {hasMore && (
         <button
