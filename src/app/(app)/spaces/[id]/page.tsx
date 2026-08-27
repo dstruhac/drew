@@ -228,7 +228,10 @@ function MatchCard({
 }) {
   return (
     <li className="rounded-lg border border-black/10 dark:border-white/15 p-4">
-      <div className="flex items-center justify-between">
+      <Link
+        href={`/spaces/${competitionId}/matches/${match.id}`}
+        className="flex items-center justify-between hover:underline"
+      >
         <span className="font-medium">
           {match.home_team} – {match.away_team}
         </span>
@@ -239,7 +242,7 @@ function MatchCard({
             timeZone: "Europe/Prague",
           })}
         </span>
-      </div>
+      </Link>
 
       {isLocked ? (
         <div className="mt-2 text-xs text-black/40 dark:text-white/40">
