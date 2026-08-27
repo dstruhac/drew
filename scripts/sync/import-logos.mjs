@@ -17,7 +17,8 @@
 // a `convert` (imagemagick) na systémové PATH.
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSupabaseClient } from "./lib/supabase-client.mjs";
@@ -65,28 +66,12 @@ async function downloadZip(url, destDir) {
   });
   if (!res.ok) throw new Error(`Stažení ${url} selhalo: HTTP ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
+  mkdirSync(destDir, { recursive: true });
   const zipPath = join(destDir, "archive.zip");
-  await import("node:fs/promises").then((fs) => fs.writeFile(zipPath, buffer));
+  await writeFile(zipPath, buffer);
   const extractDir = join(destDir, "extracted");
   execFileSync("unzip", ["-q", "-o", zipPath, "-d", extractDir]);
   return extractDir;
-}
-
-function findFile(dir, predicate) {
-  const stack = [dir];
-  while (stack.length) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const full = join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === "__MACOSX") continue;
-        stack.push(full);
-      } else if (predicate(entry.name, full)) {
-        return full;
-      }
-    }
-  }
-  return null;
 }
 
 function findAllFiles(dir, predicate) {
