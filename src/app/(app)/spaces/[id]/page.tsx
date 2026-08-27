@@ -218,6 +218,7 @@ function MatchCard({
           {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
             dateStyle: "short",
             timeStyle: "short",
+            timeZone: "Europe/Prague",
           })}
         </span>
       </div>
