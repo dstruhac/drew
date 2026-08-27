@@ -524,16 +524,25 @@ nevymýšlí za něj):
        což přebilo i hlášení té první (skutečné) chyby a log pak
        vypadal zmateně. Zkráceno na `weekly-badges:<uuid>` (přesně 50
        znaků, stejně jako u `sync-fixtures`).
-14. [ ] Detail zápasu se seznamem tipů všech hráčů. Zadáno uživatelem
-    27.8.2026: rozkliknutím zápasu (z detailu soutěže) se dostane na
-    samostatnou stránku, kde je vidět, kdo všechno na tenhle zápas
-    tipoval a s jakým skóre. **Tipy ostatních hráčů se ukážou až po
+14. [x] Detail zápasu se seznamem tipů všech hráčů —
+    `src/app/(app)/spaces/[id]/matches/[matchId]/page.tsx`. Kartičky
+    zápasů v detailu soutěže teď na tuhle stránku vedou (proklik na
+    název + čas zápasu). **Tipy ostatních hráčů se ukážou až po
     výkopu zápasu** — do té doby vidí uživatel jen svůj vlastní tip
-    (přesně stejné pravidlo, jaké appka už dnes vynucuje na úrovni
-    databáze politikou `predictions_select_own_or_locked`, viz RLS
-    rozhodnutí výše — tahle stránka jen poprvé zobrazí data, která
-    appka už teď umí bezpečně přečíst, jen pro ně zatím nemá UI).
-    Nerozpracováno — implementace přijde, až na ni dojde řada.
+    (formulář na zadání/úpravu, stejný jako dřív na detailu soutěže) +
+    poznámku, že se ostatní odemknou po výkopu. Vynuceno stejně jako
+    jinde v appce na úrovni databáze politikou
+    `predictions_select_own_or_locked` — před výkopem dotaz na cizí
+    tipy prostě nic nevrátí, tahle stránka jen poprvé zobrazí data,
+    která appka už uměla bezpečně přečíst.
+
+    Po výkopu: seznam všech přihlášených hráčů soutěže (ne jen těch,
+    co tipovali), seřazený podle bodů získaných za tenhle konkrétní
+    zápas sestupně (při shodě abecedně podle jména) — hráč bez tipu
+    se zobrazí s poznámkou „bez tipu“. Rozsah (i bez tipu) a řazení
+    (podle bodů, ne abecedně) odsouhlaseno s uživatelem 27.8.2026 přes
+    `AskUserQuestion`, stejný vzor jako u leaderboardu (krok 4), který
+    taky staví ze všech participantů, ne jen z `predictions`.
 
 Původně navrženo 2026-08-25 jako herní prvek navíc k celkovému
 žebříčku. Otevřené otázky (perioda, co hráč dostane, řešení remíz,
