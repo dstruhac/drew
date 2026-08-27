@@ -385,6 +385,22 @@ nevymýšlí za něj):
    Nic to nestojí navíc (repo je veřejné → GitHub Actions minuty
    neomezené zdarma), jde jen o rychlost běhu.
 
+   **[x] Automatický rozvrh (27.8.2026).** Po několika úspěšných
+   ručních bězích (import rozpisu, zpětné dotažení výsledků, oprava
+   dvou bugů popsaných výše) přidán `schedule:` do obou workflow —
+   appka teď zápasy/výsledky doplňuje sama, bez ručního spouštění:
+   - `sync-fixtures`: 1×/den v 04:00 UTC.
+   - `sync-results`: každých 30 minut, **celý den** (ne jen večer, jak
+     navrhoval původní `IMPORT-ARCHITECTURE.md` z doby placeného API) —
+     u scrapingu není důvod okno omezovat (nic to nestojí) a
+     `results.mjs` se stejně nejdřív zeptá zdarma vlastní databáze, takže
+     běh mimo zápasové hodiny skončí za pár vteřin bez prohlížeče. Řeší
+     to i víkendová odpoledne a zápasy končící po půlnoci bez nutnosti
+     ručně přeposouvat cron kvůli letnímu/zimnímu času (GitHub Actions
+     cron běží vždy v UTC).
+   - `workflow_dispatch` (ruční spuštění) zůstává u obou zachované pro
+     ladění.
+
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
