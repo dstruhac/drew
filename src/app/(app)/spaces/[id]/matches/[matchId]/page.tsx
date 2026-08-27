@@ -46,7 +46,7 @@ export default async function MatchDetailPage({
 
   const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
 
-  // Před výkopem vrátí RLS (predictions_select_own_or_finished) jen vlastní
+  // Před výkopem vrátí RLS (predictions_select_own_or_locked) jen vlastní
   // řádek přihlášeného uživatele, cizí tipy prostě nepřijdou -- odemčení po
   // výkopu je tak vynucené v databázi, ne jen skrytím v UI.
   const { data: predictions } = await supabase
