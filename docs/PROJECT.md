@@ -82,10 +82,15 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   doby to kontrolovalo jen `kickoff_at`, takže šlo tip upravit i po
   zadání výsledku.
 - **Grants**: Supabase u čerstvého projektu automaticky negrantuje
-  `authenticated` roli přístup k novým tabulkám ve `public` schématu —
-  bez explicitního `GRANT` selhávají dotazy s "permission denied for
-  table ...", ještě před vyhodnocením RLS politik. Viz
-  `supabase/migrations/20260825090000_grants.sql`.
+  přístup k novým tabulkám ve `public` schématu — bez explicitního
+  `GRANT` selhávají dotazy s "permission denied for table ...", ještě
+  před vyhodnocením RLS politik. Viz
+  `supabase/migrations/20260825090000_grants.sql` (role `authenticated`,
+  objeveno při demo testování appky) a
+  `supabase/migrations/20260827090000_service_role_grants.sql` (role
+  `service_role`, objeveno prvním ostrým během `sync-fixtures.yml`
+  27.8.2026 — stejná chyba, jen jiná role, dřív nebyl důvod ji potkat,
+  protože nic pod service role klíčem ještě neběželo).
 
 ### Vědomě NEimplementováno (ale místo v modelu na to je)
 
