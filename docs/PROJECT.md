@@ -91,6 +91,17 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   `service_role`, objeveno prvním ostrým během `sync-fixtures.yml`
   27.8.2026 — stejná chyba, jen jiná role, dřív nebyl důvod ji potkat,
   protože nic pod service role klíčem ještě neběželo).
+- **Unikátní index pro upsert zápasů**: `matches_competition_external_id_key`
+  byl původně částečný (`where external_id is not null`), aby ručně
+  vytvořené zápasy (`external_id is null`) mohly existovat vícekrát.
+  Postgres ale částečný index nepoužije jako cíl pro `ON CONFLICT
+  (competition_id, external_id)` (jen seznam sloupců, bez `WHERE`) —
+  `sync-fixtures.mjs` proto při prvním ostrém běhu (27.8.2026) padal na
+  "no unique or exclusion constraint matching". Oprava:
+  `supabase/migrations/20260827100000_fix_matches_conflict_index.sql`
+  dělá index neomezený — chování zůstává stejné, protože Postgres bere
+  každý `NULL` jako navzájem odlišný, takže víc ručních zápasů bez
+  `external_id` je pořád v pořádku.
 
 ### Vědomě NEimplementováno (ale místo v modelu na to je)
 
