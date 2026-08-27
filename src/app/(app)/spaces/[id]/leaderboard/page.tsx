@@ -36,6 +36,19 @@ export default async function LeaderboardPage({
         .in("match_id", matchIds)
     : { data: [] };
 
+  const { data: badges } = await supabase
+    .from("weekly_badges")
+    .select("user_id")
+    .eq("competition_id", id);
+
+  const badgeCountByUser = new Map<string, number>();
+  for (const badge of badges ?? []) {
+    badgeCountByUser.set(
+      badge.user_id,
+      (badgeCountByUser.get(badge.user_id) ?? 0) + 1,
+    );
+  }
+
   const totalsByUser = new Map<
     string,
     {
@@ -113,6 +126,14 @@ export default async function LeaderboardPage({
                   {index + 1}.
                 </span>
                 <span className="font-medium">{entry.displayName}</span>
+                {(badgeCountByUser.get(entry.userId) ?? 0) > 0 && (
+                  <span
+                    title={`${badgeCountByUser.get(entry.userId)}× vítěz týdne`}
+                    className="text-xs text-black/60 dark:text-white/60"
+                  >
+                    🏅 {badgeCountByUser.get(entry.userId)}
+                  </span>
+                )}
               </div>
               <div className="text-right">
                 <span className="font-semibold">{entry.totalPoints} b.</span>

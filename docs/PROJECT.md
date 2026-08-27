@@ -59,6 +59,14 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   (`competition_id`, `user_id`, `joined_at`), samoobslužné
   přihlášení/odhlášení. Bez tohohle řádku appka nedovolí zadat první
   tip v dané competition (viz níže) a hráč se neukáže v leaderboardu.
+- **weekly_badges** — vizuální odznak za nejvíc bodů v kalendářním
+  týdnu, zvlášť za každou competition (`competition_id, week_start,
+  user_id, points` — všechny tři první sloupce dohromady tvoří
+  primární klíč, ne jen `user_id`, protože při remíze dostane odznak
+  víc hráčů zároveň). Zapisuje jen periodická úloha
+  `award-weekly-badges` (service role); žádná insert/update/delete
+  policy pro běžné uživatele. Podrobnosti a odůvodnění rozhodnutí viz
+  krok 13 v sekci "Naplánované další kroky".
 
 ### RLS rozhodnutí (odsouhlaseno s uživatelem)
 
@@ -160,7 +168,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-27)
+## Stav (aktualizováno 2026-08-27, medaile za vítězství týdne)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -178,6 +186,8 @@ Hotovo:
 - [x] Sdílená hlavička appky s fotečkou uživatele
 - [x] Skutečné "přihlášení" (členství) do competition
 - [x] `sync-fixtures` (import rozpisu zápasů scrapingem) běží ostře — hokejová extraliga má reálné zápasy se správným časem
+- [x] `sync-results` (import výsledků) běží ostře, automaticky, včetně zpětného dotažení
+- [x] Medaile za vítězství týdne (`weekly_badges`) — 🏅 na žebříčku soutěže
 
 ## Naplánované další kroky
 
@@ -464,33 +474,47 @@ nevymýšlí za něj):
     body/tipy) a `predictions` jen doplňuje body/počet tipů nad tímhle
     základem — dřív se žebříček stavěl jen z `predictions`, takže
     přihlášený hráč bez tipu by se vůbec nezobrazil.
+13. [x] Medaile/odznaky za vítězství týdne. **Rozhodnutí s uživatelem
+    (27.8.2026, přes `AskUserQuestion`):**
+    - **Perioda**: kalendářní týden (pondělí 00:00 – neděle 23:59,
+      pražský čas) — ne herní "kolo", protože appka kola záměrně
+      neeviduje (viz `IMPORT-ARCHITECTURE.md`).
+    - **Odměna**: jen vizuální odznak (🏅 + počet) u jména na
+      žebříčku — žádný číselný rank/level (zatím).
+    - **Remízy**: medaili dostanou všichni na první příčce daného
+      týdne, žádný tie-break.
+    - **Rozsah**: zvlášť za každou competition (ne napříč sporty).
+    - **Nulový týden**: pokud se v týdnu neodehrál žádný zápas nebo
+      nikdo nezískal žádné body, medaile se neuděluje (žádný "vítěz s
+      0 body").
+    - **Zobrazení**: zatím jen na žebříčku soutěže — profil hráče
+      (bod 3 v seznamu nápadů níže) zatím neexistuje jako stránka.
 
-### Nápad: medaile/odznaky za vítězství (2026-08-25, nerozpracováno)
+    Nová tabulka `weekly_badges` (`competition_id, week_start,
+    user_id, points`, `supabase/migrations/20260827130000_weekly_badges.sql`)
+    — `week_start` a `user_id` jsou součástí primárního klíče (ne jen
+    `user_id`), aby šlo uložit víc "vítězů" týdne při remíze. Grants
+    pro `authenticated` (select) i `service_role` (select+insert) rovnou
+    v migraci, aby se nemuselo (potřetí) čekat na "permission denied"
+    při prvním ostrém běhu.
 
-Uživatel navrhl herní prvek navíc k celkovému žebříčku: nějaká forma
-odměny (medaile/odznak/kartička, případně "rank"/level), kterou hráč
-dostane za vítězství v kratším časovém úseku — např. samostatná
-tabulka/žebříček **za daný týden**, a vítěz týdne dostane medaili nebo
-mu stoupne rank. Úmysl je zvýšit motivaci hrát pravidelně, ne jen
-sledovat jeden dlouhodobý celkový žebříček.
+    Vyhodnocuje `scripts/sync/award-weekly-badges.mjs` +
+    `.github/workflows/award-weekly-badges.yml` (pondělí 05:00 UTC,
+    žádný Playwright/prohlížeč potřeba — jen čte/zapisuje Supabase).
+    Hranice "předchozího úplného týdne" počítá čistá funkce
+    `lib/week-range.mjs` (otestováno včetně letního/zimního času,
+    sdílí `pragueWallTimeToUtcIso` se `scrape-livesport.mjs`) — funguje
+    správně i při ručním spuštění uprostřed týdne (vždy vyhodnotí
+    poslední ÚPLNĚ dokončený týden, nikdy rozpracovaný aktuální).
+    Idempotentní: pokud pro danou competition a týden už medaile
+    existují, přeskočí se (bezpečné při opakovaném/ručním spuštění).
 
-Uživatel to ještě nemá plně rozmyšlené — než se začne implementovat,
-je potřeba společně probrat aspoň:
-- **Perioda**: přesně týden (po-ne)? Herní kolo/matchday? Nebo
-  konfigurovatelné za competition?
-- **Co uživatel reálně dostane**: vizuální odznak/medaile (obrázek),
-  číselný "rank"/level, který roste, nebo obojí?
-- **Kde se to zobrazí**: u jména na leaderboardu, na nějakém profilu
-  hráče (ten zatím v appce vůbec neexistuje jako samostatná stránka),
-  obojí?
-- **Řešení remíz**: co když je na první příčce daného týdne víc hráčů
-  se stejným počtem bodů?
-- **Rozsah**: platí to napříč celou competition (viz. napříč sporty?),
-  nebo je to nezávislé pro každou competition zvlášť?
-- **Datový model**: pravděpodobně nová tabulka na "úspěchy"/odznaky
-  (např. `achievements`/`user_achievements`) + logika, která
-  periodicky (podobně jako budoucí import výsledků) vyhodnotí
-  vítěze periody. Nic z tohoto zatím neexistuje.
+### Nápad: medaile/odznaky za vítězství — ✅ hotovo (2026-08-27), viz krok 13 v plánu výše.
+
+Původně navrženo 2026-08-25 jako herní prvek navíc k celkovému
+žebříčku. Otevřené otázky (perioda, co hráč dostane, řešení remíz,
+rozsah) probrány s uživatelem 27.8.2026 přes `AskUserQuestion` —
+rozhodnutí a implementace viz krok 13.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
