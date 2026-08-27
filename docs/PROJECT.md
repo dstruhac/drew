@@ -298,8 +298,8 @@ nevymýšlí za něj):
    a zrušit/odvolat samotné klíče u RapidAPI a api-sports.io (přesné
    kroky viz odpověď v chatu z 27.8.2026).
 
-   **Fotbalová Chance Liga — rozjezd (27.8.2026, rozpracováno):**
-   competition pro ni v appce dosud neexistovala (dřív se zakládaly jen
+   **[x] Fotbalová Chance Liga — založena a naimportována (27.8.2026).**
+   Competition pro ni v appce dosud neexistovala (dřív se zakládaly jen
    ručně přes SQL editor). Místo dalšího ručního kroku pro uživatele
    přidán `scripts/sync/ensure-competition.mjs` +
    `.github/workflows/ensure-competition.yml` — idempotentně
@@ -307,12 +307,14 @@ nevymýšlí za něj):
    klíčem (PR #23). První ostrý běh narazil na stejnou třídu chyby jako
    dřív `matches` (viz "Grants" výše): `permission denied for table
    competitions`, protože `service_role` měla na `competitions` jen
-   `select`. Oprava je
+   `select`. Opraveno migrací
    `supabase/migrations/20260827110000_competitions_service_role_insert_grant.sql`
-   — **čeká na ruční spuštění uživatelem v Supabase SQL editoru**, pak
-   se `ensure-competition` (name="Chance Liga", sport="football",
-   scrape_source="livesport", scrape_path="fotbal/cesko/chance-liga")
-   a následně `sync-fixtures` spustí znovu.
+   (PR #24, spuštěno uživatelem ručně v Supabase SQL editoru). Po
+   opravě: `ensure-competition` založil "Chance Liga" (`sport=football`,
+   `scrape_source=livesport`, `scrape_path=fotbal/cesko/chance-liga`) a
+   `sync-fixtures` pro ni rovnou zapsal **28 zápasů** (zároveň
+   aktualizoval i 7 zápasů hokejové extraligy). Appka tak teď sleduje
+   obě ligy z `docs/PROJECT.md` sekce "Sledované soutěže".
 6. [ ] Loga lig — zobrazit logo soutěže (competition) na `/spaces` a
    v jejím detailu. Otevřená otázka: odkud logo bere (upload do
    Supabase Storage vs. URL sloupec u `competitions`) — probrat při
