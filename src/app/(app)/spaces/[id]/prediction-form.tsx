@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { submitPrediction, type SubmitPredictionState } from "./actions";
 import type { Sport } from "@/lib/supabase/database.types";
 
@@ -23,26 +23,67 @@ export function PredictionForm({
 }) {
   const action = submitPrediction.bind(null, sport, competitionId, matchId);
   const [state, formAction, isPending] = useActionState(action, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Signatura posledně odeslaných hodnot -- zabrání zbytečnému opakovanému
+  // ukládání (blur i klik na tlačítko krátce po sobě), když se hodnoty
+  // mezitím nezměnily.
+  const lastSubmittedRef = useRef<string | null>(null);
+
+  // Auto-save (odsouhlaseno s uživatelem 27.8.2026): tip se uloží sám,
+  // jakmile jsou vyplněná OBĚ skóre a uživatel opustí pole -- dokud je
+  // vyplněné jen jedno, nic se neděje (žádná chybová hláška, žádné
+  // odeslání). Tlačítko "Uložit tip" zůstává jako záložní/explicitní
+  // potvrzení, hlavně pro mobil, kde blur nemusí vždy spolehlivě proběhnout.
+  function maybeAutoSave() {
+    const form = formRef.current;
+    if (!form) return;
+
+    const home = form.elements.namedItem(
+      "predicted_home_score",
+    ) as HTMLInputElement;
+    const away = form.elements.namedItem(
+      "predicted_away_score",
+    ) as HTMLInputElement;
+    if (!home.value.trim() || !away.value.trim()) return;
+    if (!form.checkValidity()) return;
+
+    const overtimeEl = form.elements.namedItem(
+      "predicted_overtime_flag",
+    ) as HTMLInputElement | null;
+    const signature = `${home.value}:${away.value}:${overtimeEl?.checked ?? false}`;
+    if (signature === lastSubmittedRef.current) return;
+
+    lastSubmittedRef.current = signature;
+    form.requestSubmit();
+  }
 
   return (
-    <form action={formAction} className="mt-3 flex flex-wrap items-center gap-2">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="mt-3 flex flex-wrap items-center gap-2"
+    >
       <input
         type="number"
+        inputMode="numeric"
         name="predicted_home_score"
         min={0}
         required
         defaultValue={existing?.predicted_home_score}
         aria-label="Tip skóre domácích"
+        onBlur={maybeAutoSave}
         className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
       />
       <span className="text-black/40 dark:text-white/40">:</span>
       <input
         type="number"
+        inputMode="numeric"
         name="predicted_away_score"
         min={0}
         required
         defaultValue={existing?.predicted_away_score}
         aria-label="Tip skóre hostů"
+        onBlur={maybeAutoSave}
         className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
       />
 
@@ -52,6 +93,7 @@ export function PredictionForm({
             type="checkbox"
             name="predicted_overtime_flag"
             defaultChecked={existing?.predicted_overtime_flag ?? false}
+            onChange={maybeAutoSave}
           />
           prodloužení/nájezdy
         </label>
