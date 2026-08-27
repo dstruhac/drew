@@ -8,9 +8,11 @@ import { joinCompetition, leaveCompetition } from "./actions";
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
 // Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
-// všechny" (odsouhlaseno s uživatelem 27.8.2026).
+// všechny" (odsouhlaseno s uživatelem 27.8.2026, počet nadcházejících
+// upraven na 8 dne 27.8.2026 -- původní okno 7 dní uměl zobrazit i přes 10
+// zápasů najednou, což bylo moc).
 const PAST_VISIBLE_COUNT = 5;
-const UPCOMING_VISIBLE_WINDOW_DAYS = 7;
+const UPCOMING_VISIBLE_COUNT = 8;
 
 export default async function CompetitionDetailPage({
   params,
@@ -113,6 +115,13 @@ export default async function CompetitionDetailPage({
         </div>
       </header>
 
+      {!isJoined && (
+        <div className="rounded-lg border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm">
+          👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
+          tipovat zápasy!
+        </div>
+      )}
+
       {!matches?.length && (
         <p className="text-sm text-black/60 dark:text-white/60">
           Zatím tu nejsou žádné zápasy.
@@ -132,15 +141,6 @@ export default async function CompetitionDetailPage({
         // (jak přišly z DB), proběhlé sestupně (nejnovější výsledek první).
         past.reverse();
 
-        // Kolik nadcházejících zápasů spadá do nejbližšího okna (výchozí
-        // zobrazení) — seznam je seřazený vzestupně, takže "prvních N" je
-        // totéž jako "těch v okně" a nemusí se filtrovat zvlášť.
-        const upcomingWindowEnd =
-          Date.now() + UPCOMING_VISIBLE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-        const upcomingVisibleCount = upcoming.filter(
-          (m) => new Date(m.kickoff_at).getTime() <= upcomingWindowEnd,
-        ).length;
-
         return (
           <>
             {upcoming.length > 0 && (
@@ -149,8 +149,7 @@ export default async function CompetitionDetailPage({
                   Nadcházející
                 </h2>
                 <ExpandableList
-                  initialCount={upcomingVisibleCount}
-                  emptyInitialHint={`Nejbližší zápas je dál než za ${UPCOMING_VISIBLE_WINDOW_DAYS} dní.`}
+                  initialCount={UPCOMING_VISIBLE_COUNT}
                   items={upcoming.map((match) => (
                     <MatchCard
                       key={match.id}
@@ -167,7 +166,7 @@ export default async function CompetitionDetailPage({
             )}
 
             {past.length > 0 && (
-              <section className="flex flex-col gap-3">
+              <section className="mt-2 flex flex-col gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-4">
                 <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
                   Proběhlé
                 </h2>
@@ -227,7 +226,11 @@ function MatchCard({
   competitionId: string;
 }) {
   return (
-    <li className="rounded-lg border border-black/10 dark:border-white/15 p-4">
+    <li
+      className={`rounded-lg border border-black/10 dark:border-white/15 p-4 ${
+        isLocked ? "bg-white/70 dark:bg-white/[0.02]" : ""
+      }`}
+    >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
         className="flex items-center justify-between hover:underline"
