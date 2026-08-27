@@ -1,0 +1,100 @@
+# Pomocný workflow: přečte data z appčiny Supabase databáze přes REST API
+# a vypíše je do logu. Obdoba api-probe.yml, ale autentizovaně vůči naší
+# vlastní databázi (service role klíč obchází RLS, čte tedy úplně
+# všechno) -- na rozdíl od api-probe.yml, který je pro cizí/veřejná API.
+#
+# Proč existuje: Claude Code session běží v sandboxu bez přístupu na
+# *.supabase.co (viz CLAUDE.md, sekce "Síťové omezení"). GitHub Actions
+# ale běží s plným internetem a používá stejné SUPABASE_URL/
+# SUPABASE_SERVICE_ROLE_KEY secrets jako sync-fixtures/sync-results.
+#
+# Jen čte (GET), nikam nezapisuje. Spouští se ručně (workflow_dispatch).
+#
+# POZOR: aby šel workflow spustit, musí být tenhle soubor už smergovaný
+# v `main` (GitHub jinak workflow_dispatch nenabídne).
+
+name: DB probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      table:
+        description: "Název tabulky (nebo view) v public schématu"
+        required: true
+        type: string
+      select:
+        description: "PostgREST select= výraz, čárkou oddělené sloupce (podporuje i vnořené resources, např. 'id,name,matches(home_team)')"
+        required: false
+        default: "*"
+        type: string
+      query:
+        description: "Zbytek PostgREST query stringu bez úvodního '&', např. 'competition_id=eq.xxx&order=home_team.asc'"
+        required: false
+        default: ""
+        type: string
+      max_chars:
+        description: "Kolik znaků odpovědi maximálně vypsat do logu"
+        required: false
+        default: "40000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dotázat se Supabase REST API a vypsat odpověď
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TABLE: ${{ inputs.table }}
+          SELECT_EXPR: ${{ inputs.select }}
+          EXTRA_QUERY: ${{ inputs.query }}
+          MAX_CHARS: ${{ inputs.max_chars }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "::error::Chybí SUPABASE_URL nebo SUPABASE_SERVICE_ROLE_KEY jako GitHub secret."
+            exit 1
+          fi
+
+          URL="${SUPABASE_URL}/rest/v1/${TABLE}?select=${SELECT_EXPR}"
+          if [ -n "${EXTRA_QUERY}" ]; then
+            URL="${URL}&${EXTRA_QUERY}"
+          fi
+
+          echo "URL: ${URL}"
+          echo "----- HTTP status -----"
+
+          HTTP_CODE=$(curl -sS --max-time 30 \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -o body.json \
+            -w '%{http_code}' \
+            "${URL}") || {
+              echo "::error::curl selhal (viz výstup výše)"
+              exit 1
+            }
+
+          echo "HTTP kód: ${HTTP_CODE}"
+
+          if jq -e . body.json >/dev/null 2>&1; then
+            jq . body.json > pretty.json
+            COUNT=$(jq 'if type == "array" then length else 1 end' body.json)
+            echo "----- Počet položek: ${COUNT} -----"
+            TOTAL=$(wc -c < pretty.json)
+            echo "----- Tělo odpovědi (celkem ${TOTAL} znaků, vypisuji max ${MAX_CHARS}) -----"
+            head -c "${MAX_CHARS}" pretty.json
+            if [ "${TOTAL}" -gt "${MAX_CHARS}" ]; then
+              echo
+              echo "…(zkráceno — zvyš max_chars, pokud potřebuješ zbytek)"
+            fi
+          else
+            echo "----- Tělo odpovědi (není platný JSON, vypisuji syrově) -----"
+            head -c "${MAX_CHARS}" body.json
+          fi
+          echo
+          echo "----- Konec odpovědi -----"
