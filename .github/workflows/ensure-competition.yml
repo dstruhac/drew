@@ -1,0 +1,64 @@
+# Ručně spustitelný workflow: založí competition (pokud podle name+sport
+# ještě neexistuje) nebo jí doplní scrape_source/scrape_path (pokud
+# existuje bez nich) — viz scripts/sync/ensure-competition.mjs.
+#
+# Nahrazuje ruční krok v Supabase SQL editoru: appka zatím nemá
+# self-service zakládání competitions (jen service role / SQL editor),
+# tenhle workflow dělá totéž bezpečně a idempotentně service role
+# klíčem, který už má repo jako GitHub secret pro sync-fixtures.
+
+name: Ensure competition
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Název competition (např. \"Chance Liga\")"
+        required: true
+        type: string
+      sport:
+        description: "Sport"
+        required: true
+        type: choice
+        options:
+          - hockey
+          - football
+      scrape_source:
+        description: "Zdroj scrapingu"
+        required: true
+        type: choice
+        options:
+          - livesport
+      scrape_path:
+        description: "Cesta na livesport.cz (např. \"fotbal/cesko/chance-liga\")"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ensure:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit ensure-competition
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMPETITION_NAME: ${{ inputs.name }}
+          COMPETITION_SPORT: ${{ inputs.sport }}
+          SCRAPE_SOURCE: ${{ inputs.scrape_source }}
+          SCRAPE_PATH: ${{ inputs.scrape_path }}
+        run: node ensure-competition.mjs
