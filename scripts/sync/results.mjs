@@ -1,10 +1,19 @@
 // Entrypoint pro sync-results.yml. Pro každou competition nejdřív zjistí
 // z VLASTNÍ databáze (zdarma, bez scrapování), jestli je vůbec potřeba
-// otevírat prohlížeč — buď (a) nemá v databázi ŽÁDNÝ zápas (typicky
-// nová soutěž přidaná uprostřed sezóny — viz "zpětné dotažení" níže),
-// nebo (b) má zápas, kterému už uplynul kickoff_at, ale pořád nemá
-// status='finished'. Pokud ani jedno neplatí, competition se přeskočí
-// bez jediného otevření prohlížeče.
+// otevírat prohlížeč — buď (a) nemá v databázi ŽÁDNÝ dohraný zápas
+// (typicky nová soutěž přidaná uprostřed sezóny — viz "zpětné dotažení"
+// níže), nebo (b) má zápas, kterému už uplynul kickoff_at, ale pořád
+// nemá status='finished'. Pokud ani jedno neplatí, competition se
+// přeskočí bez jediného otevření prohlížeče.
+//
+// POZOR: podmínka (a) je záměrně "nemá ŽÁDNÝ DOHRANÝ zápas", ne "nemá
+// žádný zápas vůbec" — competition typicky v DB už zápasy má (denní
+// sync-fixtures jí naimportoval nadcházející zápasy z klouzavého okna),
+// jen žádný z nich není ten starý, který appka nestihla zachytit před
+// jeho odehráním. Původní verze (27.8.2026) kontrolovala "žádný zápas
+// vůbec" a u Chance Ligy (28 nadcházejících zápasů, ale 0 dohraných)
+// proto zpětné dotažení vůbec nespustila — objeveno hned při prvním
+// ostrém běhu po nasazení, viz PROJECT.md.
 //
 // Teprve když je potřeba, stáhne se stránka "/vysledky/" a zapíšou se
 // VŠECHNY nalezené zápasy se skóre — jak update už existujících (podle
@@ -69,17 +78,17 @@ async function main() {
       const pendingCount = (existing ?? []).filter(
         (m) => m.status !== "finished" && new Date(m.kickoff_at).getTime() <= now,
       ).length;
-      const hasAnyMatches = (existing ?? []).length > 0;
+      const finishedCount = (existing ?? []).filter((m) => m.status === "finished").length;
 
-      if (hasAnyMatches && pendingCount === 0) {
+      if (pendingCount === 0 && finishedCount > 0) {
         console.log(`${competition.name}: žádné nedohrané zápasy po výkopu, přeskakuji (0 požadavků).`);
         continue;
       }
 
       console.log(
-        hasAnyMatches
+        pendingCount > 0
           ? `----- ${competition.name}: ${pendingCount} zápasů čeká na výsledek -----`
-          : `----- ${competition.name}: v databázi zatím žádný zápas, zkouším zpětně dotáhnout ze stránky s výsledky -----`,
+          : `----- ${competition.name}: v databázi zatím žádný dohraný zápas, zkouším zpětně dotáhnout ze stránky s výsledky -----`,
       );
 
       if (competition.scrape_source !== "livesport") {

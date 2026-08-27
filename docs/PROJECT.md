@@ -350,6 +350,17 @@ nevymýšlí za něj):
    navíc vyžaduje platné `kickoff_at` (dřív ne) — nový řádek bez něj by
    spadl na NOT NULL constraint v databázi.
 
+   **Druhá chyba ve stejné opravě, nalezená hned při prvním ostrém běhu
+   PR #27 (27.8.2026):** podmínka "zkus zpětně dotáhnout" kontrolovala
+   "nemá competition v DB žádný zápas VŮBEC" — ale Chance Liga už 28
+   zápasů měla (nadcházející, z denního `sync-fixtures`), jen žádný
+   z nich nebyl ten starý dohraný. Podmínka se tak nikdy nespustila a
+   log znovu ukázal `0 požadavků`. Opraveno na správný signál: "nemá
+   competition v DB žádný **dohraný** zápas" (`finishedCount === 0`
+   místo `existing.length === 0`) — u nové soutěže se čekajícími
+   zápasy z rozpisu, ale bez jediného dohraného, se tak zpětné dotažení
+   spustí správně.
+
    **Ověřeno přes probe workflow (27.8.2026):** struktura stránky
    `/vysledky/` je shodná s `/program/` (stejné selektory) — ověřeno na
    Chance Lize, 36 dohraných zápasů se skóre. Hokejová extraliga
