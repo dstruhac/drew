@@ -8,25 +8,27 @@ export default async function LeaderboardPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: competition } = await supabase
-    .from("competitions")
-    .select("id, name")
-    .eq("id", id)
-    .single();
+  // Čtyři nezávislé dotazy najednou -- všechny filtrují rovnou podle `id`
+  // z route parametru, žádný nepotřebuje výsledek jiného (perf review
+  // 27.8.2026).
+  const [
+    { data: competition },
+    { data: participants },
+    { data: matches },
+    { data: badges },
+  ] = await Promise.all([
+    supabase.from("competitions").select("id, name").eq("id", id).single(),
+    supabase
+      .from("competition_participants")
+      .select("user_id, profiles(display_name)")
+      .eq("competition_id", id),
+    supabase.from("matches").select("id").eq("competition_id", id),
+    supabase.from("weekly_badges").select("user_id").eq("competition_id", id),
+  ]);
 
   if (!competition) {
     notFound();
   }
-
-  const { data: participants } = await supabase
-    .from("competition_participants")
-    .select("user_id, profiles(display_name)")
-    .eq("competition_id", id);
-
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("id")
-    .eq("competition_id", id);
 
   const matchIds = matches?.map((m) => m.id) ?? [];
   const { data: predictions } = matchIds.length
@@ -35,11 +37,6 @@ export default async function LeaderboardPage({
         .select("user_id, points, profiles(display_name)")
         .in("match_id", matchIds)
     : { data: [] };
-
-  const { data: badges } = await supabase
-    .from("weekly_badges")
-    .select("user_id")
-    .eq("competition_id", id);
 
   const badgeCountByUser = new Map<string, number>();
   for (const badge of badges ?? []) {
@@ -101,7 +98,7 @@ export default async function LeaderboardPage({
       <header>
         <Link
           href={`/spaces/${id}`}
-          className="text-xs text-black/40 dark:text-white/40 hover:underline"
+          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
         >
           ← {competition.name}
         </Link>

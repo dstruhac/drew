@@ -33,7 +33,7 @@ export function PredictionForm({
         required
         defaultValue={existing?.predicted_home_score}
         aria-label="Tip skóre domácích"
-        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm"
+        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
       />
       <span className="text-black/40 dark:text-white/40">:</span>
       <input
@@ -43,7 +43,7 @@ export function PredictionForm({
         required
         defaultValue={existing?.predicted_away_score}
         aria-label="Tip skóre hostů"
-        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm"
+        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
       />
 
       {sport === "hockey" && (
@@ -60,7 +60,7 @@ export function PredictionForm({
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md border border-black/10 dark:border-white/15 px-3 py-1 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
+        className="btn-press rounded-md border border-black/10 dark:border-white/15 px-3 py-1 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:active:scale-100"
       >
         {isPending ? "Ukládám…" : existing ? "Upravit tip" : "Uložit tip"}
       </button>

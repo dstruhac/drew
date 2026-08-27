@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
 
 const SPORT_LABELS: Record<Sport, string> = {
@@ -10,33 +10,34 @@ const SPORT_LABELS: Record<Sport, string> = {
 export default async function SpacesPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: competitions, error } = await supabase
-    .from("competitions")
-    .select("id, name, sport, status, points_exact, points_winner, points_total_goals")
-    .order("created_at", { ascending: false });
+  // user a competitions na sobě nezávisí, stejně tak participants a matches
+  // (obě jen filtrují podle competitionIds) -- souběžné dotazy místo
+  // sekvenčních čekání, ať appka nesčítá zbytečné síťové round-tripy do
+  // Supabase (perf review 27.8.2026).
+  const [user, { data: competitions, error }] = await Promise.all([
+    getCurrentUser(),
+    supabase
+      .from("competitions")
+      .select("id, name, sport, status, points_exact, points_winner, points_total_goals")
+      .order("created_at", { ascending: false }),
+  ]);
 
   const competitionIds = competitions?.map((c) => c.id) ?? [];
 
   // Stejný výpočet jako na /spaces/[id]/leaderboard, jen hromadně přes
   // všechny soutěže najednou (ne dotaz po dotazu) -- viz vlastní pozice
   // v žebříčku u každé karty níže.
-  const { data: participants } = competitionIds.length
-    ? await supabase
-        .from("competition_participants")
-        .select("competition_id, user_id, profiles(display_name)")
-        .in("competition_id", competitionIds)
-    : { data: [] };
-
-  const { data: matches } = competitionIds.length
-    ? await supabase
-        .from("matches")
-        .select("id, competition_id")
-        .in("competition_id", competitionIds)
-    : { data: [] };
+  const [{ data: participants }, { data: matches }] = await Promise.all([
+    competitionIds.length
+      ? supabase
+          .from("competition_participants")
+          .select("competition_id, user_id, profiles(display_name)")
+          .in("competition_id", competitionIds)
+      : Promise.resolve({ data: [] }),
+    competitionIds.length
+      ? supabase.from("matches").select("id, competition_id").in("competition_id", competitionIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const competitionIdByMatchId = new Map(
     matches?.map((m) => [m.id, m.competition_id]),
@@ -117,7 +118,7 @@ export default async function SpacesPage() {
               <li key={competition.id}>
                 <Link
                   href={`/spaces/${competition.id}`}
-                  className="block rounded-lg border border-black/10 dark:border-white/15 p-4 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="card-lift block rounded-lg border border-black/10 dark:border-white/15 p-4 hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{competition.name}</span>

@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { NicknameForm } from "./nickname-form";
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
+
+  const supabase = await createClient();
 
   const { data: profile, error } = await supabase
     .from("profiles")
@@ -24,7 +23,7 @@ export default async function ProfilePage() {
       <header>
         <Link
           href="/spaces"
-          className="text-sm underline underline-offset-2 hover:no-underline"
+          className="btn-press text-sm underline underline-offset-2 hover:no-underline"
         >
           ← Zpět na soutěže
         </Link>

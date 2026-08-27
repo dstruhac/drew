@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
 // klik na ni vede na /profil (nastavení přezdívky atd.). Stránky pod
 // (app) si pod touhle lištou dál mají svůj vlastní obsah/nadpis.
 export async function AppHeader() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return null;
+
+  const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -32,7 +31,10 @@ export async function AppHeader() {
   return (
     <div className="border-b border-black/10 dark:border-white/15">
       <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3">
-        <Link href="/spaces" className="text-sm font-semibold">
+        <Link
+          href="/spaces"
+          className="btn-press text-sm font-semibold transition-opacity hover:opacity-70"
+        >
           Drew
         </Link>
 
@@ -41,7 +43,7 @@ export async function AppHeader() {
             href="/profil"
             title="Nastavení profilu"
             aria-label="Nastavení profilu"
-            className="block h-8 w-8 overflow-hidden rounded-full border border-black/10 dark:border-white/15"
+            className="btn-press block h-8 w-8 overflow-hidden rounded-full border border-black/10 transition-opacity hover:opacity-80 dark:border-white/15"
           >
             {profile?.avatar_url ? (
               // Malá ikona z externí URL (Google) — obyčejný <img>, ať
@@ -61,7 +63,7 @@ export async function AppHeader() {
           <form action={signOut}>
             <button
               type="submit"
-              className="text-xs underline underline-offset-2 hover:no-underline"
+              className="btn-press text-xs underline underline-offset-2 hover:no-underline"
             >
               Odhlásit se
             </button>
