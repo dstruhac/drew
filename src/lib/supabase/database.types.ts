@@ -39,6 +39,7 @@ export interface Database {
           points_total_goals: number;
           scrape_source: string | null;
           scrape_path: string | null;
+          logo_url: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -53,6 +54,7 @@ export interface Database {
           points_total_goals?: number;
           scrape_source?: string | null;
           scrape_path?: string | null;
+          logo_url?: string | null;
           created_by?: string | null;
         };
         Update: {
@@ -64,6 +66,7 @@ export interface Database {
           points_total_goals?: number;
           scrape_source?: string | null;
           scrape_path?: string | null;
+          logo_url?: string | null;
         };
         Relationships: [
           {
@@ -221,6 +224,30 @@ export interface Database {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      team_logos: {
+        Row: {
+          competition_id: string;
+          team_name: string;
+          logo_url: string;
+        };
+        Insert: {
+          competition_id: string;
+          team_name: string;
+          logo_url: string;
+        };
+        Update: {
+          logo_url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "team_logos_competition_id_fkey";
+            columns: ["competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
             referencedColumns: ["id"];
           },
         ];
