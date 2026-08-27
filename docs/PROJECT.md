@@ -524,8 +524,16 @@ nevymýšlí za něj):
        což přebilo i hlášení té první (skutečné) chyby a log pak
        vypadal zmateně. Zkráceno na `weekly-badges:<uuid>` (přesně 50
        znaků, stejně jako u `sync-fixtures`).
-
-### Nápad: medaile/odznaky za vítězství — ✅ hotovo (2026-08-27), viz krok 13 v plánu výše.
+14. [ ] Detail zápasu se seznamem tipů všech hráčů. Zadáno uživatelem
+    27.8.2026: rozkliknutím zápasu (z detailu soutěže) se dostane na
+    samostatnou stránku, kde je vidět, kdo všechno na tenhle zápas
+    tipoval a s jakým skóre. **Tipy ostatních hráčů se ukážou až po
+    výkopu zápasu** — do té doby vidí uživatel jen svůj vlastní tip
+    (přesně stejné pravidlo, jaké appka už dnes vynucuje na úrovni
+    databáze politikou `predictions_select_own_or_locked`, viz RLS
+    rozhodnutí výše — tahle stránka jen poprvé zobrazí data, která
+    appka už teď umí bezpečně přečíst, jen pro ně zatím nemá UI).
+    Nerozpracováno — implementace přijde, až na ni dojde řada.
 
 Původně navrženo 2026-08-25 jako herní prvek navíc k celkovému
 žebříčku. Otevřené otázky (perioda, co hráč dostane, řešení remíz,
