@@ -6,15 +6,23 @@
 # — pokud ani jedno z výše uvedeného neplatí, přeskočí competition bez
 # otevření prohlížeče.
 #
-# POZOR: zatím jen `workflow_dispatch` (ruční spuštění), stejně jako
-# sync-fixtures.yml. Až se ověří, že běh v praxi funguje spolehlivě,
-# přidá se `schedule:` (podle návrhu v docs/IMPORT-ARCHITECTURE.md
-# každých ~30 minut ve večerním okně, kdy se hraje).
+# Běží automaticky každých 30 minut, celý den (ne jen večer). Původní
+# návrh v docs/IMPORT-ARCHITECTURE.md počítal s večerním oknem — to
+# dávalo smysl u placeného API, kde se šetřily požadavky. Tady žádný
+# důvod okno omezovat není: scraping nic nestojí (veřejné repo →
+# GitHub Actions minuty zdarma) a `results.mjs` se stejně nejdřív zeptá
+# vlastní databáze zdarma, takže běh mimo zápasové hodiny skončí za
+# pár vteřin bez otevření prohlížeče. Běh po celý den navíc řeší i
+# víkendové odpolední zápasy a zápasy končící po půlnoci, aniž by se
+# musel cron ručně přeposouvat kvůli letnímu/zimnímu času (GitHub
+# Actions cron běží vždy v UTC, ne v pražském čase).
 
 name: Sync results
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "*/30 * * * *"
 
 permissions:
   contents: read

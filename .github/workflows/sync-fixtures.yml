@@ -5,13 +5,17 @@
 # změnil layout), nic se nezapíše a založí/aktualizuje se GitHub Issue
 # místo tichého zapsání špatných dat.
 #
-# POZOR: zatím jen `workflow_dispatch` (ruční spuštění). Až se ověří,
-# že běh v praxi funguje spolehlivě, přidá se `schedule:` na 1×/den.
+# Běží automaticky 1×/den v 04:00 UTC (~5-6 ráno českého času podle
+# letního/zimního času) — v tuhle dobu nikdo netipuje ani se nehraje,
+# takže i kdyby běh trval déle, nikomu to nevadí. `workflow_dispatch`
+# zůstává zachovaný pro ruční spuštění/ladění.
 
 name: Sync fixtures
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 4 * * *"
 
 permissions:
   contents: read
