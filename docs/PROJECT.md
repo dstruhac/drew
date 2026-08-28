@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, barva kartičky zápasu podle tipu)
+## Stav (aktualizováno 2026-08-28, úklid testovacích dat)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -213,6 +213,21 @@ Hotovo:
   6+7 níže pro detaily architektury i importu
 - [x] Barevné odlišení kartičky zápasu podle úspěšnosti vlastního tipu
   (zelená/žlutá/šedá) — viz krok 8 níže
+- [x] Úklid testovacích dat (28.8.2026) — smazána testovací competition
+  "Fotbalová liga 2026/27" (vymyšlené týmy, nikdy nebyla v appce
+  dokumentovaná jako sledovaná) a 3 ručně založené demo zápasy uvnitř
+  "Hokejová extraliga 2026/27" (Třinec–Sparta, Kometa Brno–Bílí Tygři
+  Liberec, Mountfield HK–Dynamo Pardubice), které z prvních dnů vývoje
+  zůstaly v databázi bez `external_id`, takže by je `sync-results`
+  nikdy nedotáhl k výsledku. Provedeno přes jednorázový GitHub Actions
+  workflow (service role klíč, `on delete cascade` smazal i navázané
+  tipy) — `service_role` nejdřív potřebovalo doplnit GRANT DELETE na
+  `matches`/`competitions`
+  (`supabase/migrations/20260828070000_matches_competitions_service_role_delete_grant.sql`,
+  pátý výskyt stejné třídy chyby jako předchozí granty výše). Workflow
+  po použití smazán ze souborového stromu, ať v repu nezůstává trvalá
+  schopnost mazat data. V appce teď zůstávají jen dvě reálně sledované
+  soutěže: Hokejová extraliga 2026/27 a Chance Liga.
 
 ## Naplánované další kroky
 
