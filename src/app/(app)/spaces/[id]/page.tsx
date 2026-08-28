@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
-import { joinCompetition, leaveCompetition } from "./actions";
+import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
@@ -41,7 +41,7 @@ export default async function CompetitionDetailPage({
     supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name)")
+      .select("user_id, profiles(display_name), email_reminders_enabled")
       .eq("competition_id", id),
     supabase
       .from("matches")
@@ -65,7 +65,9 @@ export default async function CompetitionDetailPage({
 
   const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
 
-  const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
+  const ownParticipant = participants?.find((p) => p.user_id === user?.id);
+  const isJoined = ownParticipant !== undefined;
+  const emailRemindersEnabled = ownParticipant?.email_reminders_enabled ?? false;
 
   const ownPredictionByMatch = new Map(
     predictions
@@ -127,6 +129,17 @@ export default async function CompetitionDetailPage({
                 className="btn-press rounded-lg bg-black dark:bg-white px-3 py-1.5 text-sm font-medium text-white dark:text-black hover:opacity-90"
               >
                 Chci hrát
+              </button>
+            </form>
+          )}
+
+          {isJoined && (
+            <form action={setEmailReminders.bind(null, competition.id, !emailRemindersEnabled)}>
+              <button
+                type="submit"
+                className="btn-press rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                {emailRemindersEnabled ? "🔕 Nechci upozornit" : "🔔 Chci upozornit"}
               </button>
             </form>
           )}
