@@ -830,6 +830,20 @@ neposílá se pod osobní adresou uživatele. Není potřeba řešit teď.
    `predict-reminders.yml` a ověří reálné odeslání, teprve pak přidá
    `schedule` pro automatický běh po hodině.
 
+**První ostrý běh (28.8.2026) skutečně spadl, ale ne na Gmailu —
+sedmý výskyt stejné třídy chyby jako u matches/competitions/
+predictions/weekly_badges (viz "Grants" výše):**
+`permission denied for table competition_participants`. Migrace
+`20260828160000_competition_participants_service_role_select_grant.sql`
+existovala v repu od začátku PR #57, ale migrace se v tomhle projektu
+neaplikují automaticky — čekají na ruční spuštění uživatelem v
+Supabase SQL editoru (**supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr**
+→ SQL Editor), stejně jako všechny předchozí. Tenhle konkrétní krok
+předtím chyběl v seznamu ručních kroků výše — doplněno teď, ať se
+příště nezapomene: **před ručním spuštěním `predict-reminders.yml`
+je vždy potřeba mít v Supabase aplikované všechny migrace z téhle PR**,
+ne jen ty dvě z kroků 1–3.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
