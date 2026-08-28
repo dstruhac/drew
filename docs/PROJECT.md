@@ -732,14 +732,27 @@ rozhodnutí a implementace viz krok 13.
     netipnuté zápasy — u anglické Premier League (běžně 10 zápasů za
     víkend, oproti 8 u české ligy) se tak mohl netipnutý zápas
     "vytlačit" mimo výchozí zobrazení za tipnuté starší. Řešení
-    (odsouhlaseno přes `AskUserQuestion`): "Ještě netipováno" ukazuje
-    VŽDY úplně všechny zápasy bez tipu, bez limitu — jakmile hráč zadá
-    tip, zápas se sám přesune do sbalené sekce "Už tipnuto" (limit 5,
-    stejný vzor jako "Proběhlé"). Řeší to obecně libovolný počet
-    zápasů v kole u libovolné budoucí ligy, ne jen tenhle konkrétní
-    případ. Když má hráč vyplněné úplně všechny nadcházející zápasy,
+    (odsouhlaseno přes `AskUserQuestion`): "Ještě netipováno" je
+    samostatná sekce, oddělená od "Už tipnuto" (limit 5, stejný vzor
+    jako "Proběhlé") — jakmile hráč zadá tip, zápas se sám přesune
+    dolů. Když má hráč vyplněné úplně všechny nadcházející zápasy,
     zobrazí se místo prázdné sekce potvrzující hláška "✅ Máš vyplněné
     tipy na všechny nadcházející zápasy."
+
+    **Výchozí počet zobrazených netipovaných zápasů = jedno kolo,
+    dopřesněno uživatelem 28.8.2026** ("8 pro českou ligu, 10 pro
+    Premier League"). Místo natvrdo zadrátovaných čísel podle názvu
+    soutěže se počítá obecně z reálných dat: kolo odehraje každý tým
+    jednou, takže počet zápasů v kole = počet týmů v soutěži ÷ 2.
+    Ověřeno přes `db-probe.yml` (počet distinct `home_team`/`away_team`
+    v `matches`): Chance Liga 16 týmů → 8 zápasů/kolo, Premier League
+    20 týmů → 10, hokejová extraliga 14 týmů → 7 — přesně odpovídá
+    zadání uživatele u prvních dvou lig, hokej dopočítán stejnou
+    logikou. Řeší to obecně libovolný počet týmů/zápasů v kole
+    u libovolné budoucí ligy bez zásahu do kódu. Zůstává `ExpandableList`
+    (tlačítko "Zobrazit všechny") — kolo je jen výchozí zobrazení,
+    nic se natrvalo neschovává, i kdyby hráč zaostal o víc než jedno
+    kolo.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 

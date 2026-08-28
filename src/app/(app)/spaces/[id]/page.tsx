@@ -79,6 +79,18 @@ export default async function CompetitionDetailPage({
       .map((p) => [p.match_id, p]),
   );
 
+  // Výchozí počet zobrazených netipovaných zápasů = jedno kolo. Kolo
+  // odehraje každý tým jednou, takže počet zápasů v kole je polovina
+  // počtu týmů v soutěži -- počítáno z reálných dat (ne natvrdo podle
+  // názvu soutěže), ať to funguje i pro budoucí ligy bez zásahu do kódu.
+  // Ověřeno 28.8.2026 přes db-probe.yml: Chance Liga 16 týmů (8
+  // zápasů/kolo), Premier League 20 týmů (10), hokejová extraliga 14
+  // týmů (7).
+  const teamCount = new Set(
+    (matches ?? []).flatMap((m) => [m.home_team, m.away_team]),
+  ).size;
+  const roundSize = teamCount > 1 ? Math.round(teamCount / 2) : UPCOMING_PREDICTED_VISIBLE_COUNT;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10">
       <header>
@@ -194,8 +206,9 @@ export default async function CompetitionDetailPage({
                 </h2>
 
                 {upcomingMissing.length > 0 ? (
-                  <ul className="flex flex-col gap-3">
-                    {upcomingMissing.map((match) => (
+                  <ExpandableList
+                    initialCount={roundSize}
+                    items={upcomingMissing.map((match) => (
                       <MatchCard
                         key={match.id}
                         match={match}
@@ -207,7 +220,7 @@ export default async function CompetitionDetailPage({
                         logoUrlByTeam={logoUrlByTeam}
                       />
                     ))}
-                  </ul>
+                  />
                 ) : (
                   isJoined && (
                     <p className="text-sm text-black/50 dark:text-white/50">
