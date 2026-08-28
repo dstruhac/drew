@@ -30,7 +30,11 @@ const LABEL = "predict-reminders";
 
 function createMailer() {
   const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
+  // Google zobrazuje heslo pro aplikace s mezerami ("abcd efgh ijkl
+  // mnop") jen kvůli čitelnosti -- řada SMTP klientů heslo s mezerami
+  // odmítne, takže je tu odstraňujeme bez ohledu na to, jestli je
+  // uživatel do GitHub secretu zkopíroval s nimi, nebo bez nich.
+  const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
   if (!user || !pass) {
     throw new Error("Chybí GMAIL_USER nebo GMAIL_APP_PASSWORD v prostředí -- nastav je jako GitHub secrets.");
   }
