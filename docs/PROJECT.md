@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, veřejný profil hráče)
+## Stav (aktualizováno 2026-08-28, přidána Premier League)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -234,6 +234,11 @@ Hotovo:
   žebříčku, detailu zápasu a z vlastního nastavení profilu. Podrobnosti
   a odůvodnění rozhodnutí (veřejný vs. soukromý, rozsah obsahu) viz
   nápad č. 3 v sekci "Naplánované další kroky".
+- [x] Přidána anglická **Premier League** jako třetí sledovaná soutěž
+  (28.8.2026, na žádost uživatele) — scraping z livesport.cz stejným
+  mechanismem jako Chance Liga, žádná změna kódu. 30 zápasů v rozpisu,
+  10 zpětně dotažených výsledků. Podrobnosti (ověření `scrape_path`,
+  volba názvu) viz sekce "Sledované soutěže" u kroku 5 výše.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -338,6 +343,25 @@ nevymýšlí za něj):
    hokejová **Tipsport extraliga**, fotbal = česká **Chance Liga**.
    Tohle je důležité, protože dostupnost/cena API se dost liší podle
    toho, jde-li o velkou mezinárodní ligu, nebo lokální českou soutěž.
+
+   **Přidána anglická Premier League (28.8.2026, na žádost uživatele).**
+   Stejný postup jako u Chance Ligy: `scrape_path` ověřen přes
+   `playwright-probe.yml` (`fotbal/anglie/premier-league`, 120 zápasů
+   nalezeno na `/program/`, reálné anglické týmy — Crystal Palace,
+   Manchester City, Liverpool, ...). Založeno přes `ensure-competition.yml`
+   (název "Premier League", bez sezóny v názvu — stejná konvence jako
+   "Chance Liga", na rozdíl od domácí "Hokejová extraliga 2026/27" nemá
+   anglická liga potřebu ročníku v UI). `sync-fixtures` rovnou zapsal
+   30 zápasů. `sync-results` ověřen na reálném datu — zpětně dotáhl
+   10 už odehraných zápasů se skóre, čímž se zároveň poprvé reálně
+   ověřilo (dřív jen teoreticky), že `sync-results` funguje i na
+   soutěž přidanou uprostřed sezóny se scrapovacím zdrojem shodným s
+   už fungujícími ligami. Žádná změna kódu ani nová migrace nebyla
+   potřeba — appka je od začátku napsaná obecně pro libovolnou ligu na
+   livesport.cz, jen se liší `scrape_path`. Appka teď automaticky
+   (stejný denní/30minutový rozvrh jako u ostatních dvou soutěží)
+   sleduje tři ligy: Hokejová extraliga 2026/27, Chance Liga, Premier
+   League.
 
    **Průzkum API zdrojů (2026-08-25, nevybráno, k rozhodnutí s
    uživatelem):**
