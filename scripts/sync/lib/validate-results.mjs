@@ -9,8 +9,14 @@
 // vůbec neexistuje, typicky zpětné dotažení zápasů z doby předtím, než
 // appka danou soutěž začala sledovat), a nový řádek bez kickoff_at by
 // spadl na NOT NULL constraint v databázi.
+//
+// requireKickoffAt: false se používá pro živě probíhající zápasy
+// (scrapeLivesportLiveMatches) — ty se v databázi jen UPDATEují podle
+// external_id (nikdy nezakládají nový řádek, viz results.mjs), takže
+// kickoff_at u nich validovat nemá smysl -- livesport.cz ho navíc u
+// živého zápasu vůbec nevrací (místo data ukazuje běžící minutu).
 
-export function validateResults(matches) {
+export function validateResults(matches, { requireKickoffAt = true } = {}) {
   const errors = [];
 
   const seenIds = new Set();
@@ -26,7 +32,7 @@ export function validateResults(matches) {
       errors.push(`${where}: domácí a hosté vyšli stejně ("${m.homeTeam}") — parser je asi rozbitý`);
     }
 
-    if (!m.kickoffAt || Number.isNaN(new Date(m.kickoffAt).getTime())) {
+    if (requireKickoffAt && (!m.kickoffAt || Number.isNaN(new Date(m.kickoffAt).getTime()))) {
       errors.push(`${where}: neplatný kickoff_at ("${m.kickoffAt}")`);
     }
 

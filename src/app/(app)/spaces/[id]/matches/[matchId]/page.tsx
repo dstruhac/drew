@@ -124,6 +124,18 @@ export default async function MatchDetailPage({
             Konečný výsledek: {match.home_score}:{match.away_score}
           </p>
         )}
+        {match.status === "live" && (
+          <p className="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
+            {match.home_score !== null && match.away_score !== null
+              ? `🔴 Právě se hraje: ${match.home_score}:${match.away_score}`
+              : "🔴 Právě se hraje"}
+          </p>
+        )}
+        {match.status === "scheduled" && new Date(match.kickoff_at) <= new Date() && (
+          <p className="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
+            🔴 Zápas právě začal, čekáme na aktuální skóre
+          </p>
+        )}
       </header>
 
       <section>
