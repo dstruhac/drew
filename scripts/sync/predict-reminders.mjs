@@ -3,6 +3,12 @@
 // upozornění -- ale teprve 2 hodiny před PRVNÍM chybějícím zápasem
 // dne, ne hned ráno (odsouhlaseno s uživatelem 28.8.2026).
 //
+// Upozornění je OPT-IN za každou soutěž zvlášť -- hráč si ho zapíná
+// tlačítkem "🔔 Chci upozornit" na stránce soutěže
+// (competition_participants.email_reminders_enabled, výchozí false).
+// Skript proto rovnou čte jen participanty, kteří mají zapnuto, a
+// zápasy z nezapnutých soutěží mu do souhrnu vůbec nepřijdou.
+//
 // I když hráč hraje víc soutěží najednou a chybí mu víc tipů, pošle se
 // jen JEDEN souhrnný e-mail za den -- hlídá prediction_reminders_sent
 // (viz supabase/migrations/20260828150000_prediction_reminders_sent.sql).
@@ -76,7 +82,10 @@ async function main() {
     { data: matches, error: matchesError },
     { data: alreadySent, error: alreadySentError },
   ] = await Promise.all([
-    supabase.from("competition_participants").select("user_id, competition_id"),
+    supabase
+      .from("competition_participants")
+      .select("user_id, competition_id")
+      .eq("email_reminders_enabled", true),
     supabase
       .from("matches")
       .select("id, competition_id, home_team, away_team, kickoff_at")

@@ -173,12 +173,16 @@ export interface Database {
           competition_id: string;
           user_id: string;
           joined_at: string;
+          email_reminders_enabled: boolean;
         };
         Insert: {
           competition_id: string;
           user_id: string;
+          email_reminders_enabled?: boolean;
         };
-        Update: Record<string, never>;
+        Update: {
+          email_reminders_enabled?: boolean;
+        };
         Relationships: [
           {
             foreignKeyName: "competition_participants_competition_id_fkey";

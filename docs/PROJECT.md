@@ -773,6 +773,12 @@ ruční dokončení uživatelem.** Rozhodnuto s uživatelem přes chat +
   návrhu).
 - **Souhrn**: i při víc chybějících tipech napříč soutěžemi jen JEDEN
   e-mail za den, ne jeden per zápas/soutěž.
+- **Zapínání (doplněno 28.8.2026, na žádost uživatele)**: opt-in
+  tlačítkem **"🔔 Chci upozornit"** přímo na stránce soutěže (vedle
+  "Chci hrát"/"Opustit soutěž"), ne globálně v `/profil` — a **za
+  každou soutěž zvlášť**, ne jedním přepínačem pro celou appku. Nový
+  participant má upozornění ve výchozím stavu **vypnuté** — appka
+  nikomu nic nepošle, dokud si o to sám neřekne.
 
 **Technická volba e-mailové služby (moje, vysvětleno v chatu):**
 zvažován Resend (moje původní představa), ale webovým vyhledáváním
@@ -815,6 +821,19 @@ neposílá se pod osobní adresou uživatele. Není potřeba řešit teď.
   `workflow_dispatch`** (ruční spuštění), stejná opatrná konvence jako
   dřív u `sync-fixtures`/`sync-results`: hodinový `schedule` se přidá
   až po ověřeném ručním běhu s reálnými přihlašovacími údaji.
+- `supabase/migrations/20260828170000_competition_participants_email_reminders.sql`
+  — nový sloupec `competition_participants.email_reminders_enabled`
+  (`boolean`, výchozí `false`) + `update` policy/grant pro
+  `authenticated` (dosud šlo jen insert/delete, na přepínač je
+  potřeba update vlastního řádku). `predict-reminders.mjs` teď při
+  čtení participantů rovnou filtruje `.eq("email_reminders_enabled",
+  true)` — zápasy z nezapnutých soutěží se do souhrnného e-mailu vůbec
+  nedostanou, žádná změna nebyla potřeba v `computeMissingByUser`.
+- `src/app/(app)/spaces/[id]/actions.ts` (`setEmailReminders`) +
+  `src/app/(app)/spaces/[id]/page.tsx` — tlačítko "🔔 Chci upozornit" /
+  "🔕 Nechci upozornit" v hlavičce detailu soutěže, viditelné jen když
+  je hráč v soutěži přihlášený (stejná podmínka jako u
+  "Opustit soutěž").
 
 **Zbývá ruční krok uživatele, než půjde reálně vyzkoušet:**
 1. V Google účtu (tom, ze kterého se mají e-maily posílat) zapnout
@@ -826,7 +845,16 @@ neposílá se pod osobní adresou uživatele. Není potřeba řešit teď.
 3. V GitHubu repozitáře **github.com/dstruhac/drew/settings/secrets/actions**
    přidat dva nové "Repository secrets": `GMAIL_USER` (e-mailová adresa
    toho účtu) a `GMAIL_APP_PASSWORD` (vygenerované heslo z kroku 2).
-4. Po nastavení dá vědět Claude Code session, ta ručně spustí
+4. V Supabase SQL editoru (**supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr**
+   → SQL Editor) spustit **VŠECHNY dosud neaplikované migrace** ze
+   složky `supabase/migrations/` v pořadí podle názvu/data — v tuhle
+   chvíli jde o `20260828150000_prediction_reminders_sent.sql`,
+   `20260828160000_..._select_grant.sql` a
+   `20260828170000_competition_participants_email_reminders.sql`.
+5. Na stránce každé soutěže, kterou chce sledovat, kliknout na
+   "🔔 Chci upozornit" — bez toho appka nikomu nic nepošle (opt-in,
+   viz rozhodnutí výše).
+6. Po nastavení dá vědět Claude Code session, ta ručně spustí
    `predict-reminders.yml` a ověří reálné odeslání, teprve pak přidá
    `schedule` pro automatický běh po hodině.
 
@@ -843,6 +871,20 @@ předtím chyběl v seznamu ručních kroků výše — doplněno teď, ať se
 příště nezapomene: **před ručním spuštěním `predict-reminders.yml`
 je vždy potřeba mít v Supabase aplikované všechny migrace z téhle PR**,
 ne jen ty dvě z kroků 1–3.
+
+**Druhý pokus spadl na stejné příčině, jen jinou tabulkou:** po
+doplnění grantu chybělo ještě `create table
+prediction_reminders_sent` samotné (`20260828150000_..._sent.sql`) —
+instrukce v chatu 28.8.2026 uživateli omylem řekla spustit jen ten
+jeden grant, ne obě dvě migrace z PR #57 najednou. Poučení stejné jako
+výše: dát uživateli rovnou VŠECHNY nespuštěné migrace naráz, ne po
+jedné podle toho, na co appka zrovna narazí.
+
+**Zapínání upozornění po soutěžích (28.8.2026):** po dvou opravených
+migracích výše přibyla ještě jedna
+(`20260828170000_competition_participants_email_reminders.sql`, viz
+"Implementace" výše) — než půjde `predict-reminders.yml` znovu
+zkoušet, musí být aplikovaná v Supabase i tahle.
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 

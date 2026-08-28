@@ -47,6 +47,25 @@ export async function leaveCompetition(competitionId: string) {
   revalidatePath("/spaces");
 }
 
+export async function setEmailReminders(competitionId: string, enabled: boolean) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .update({ email_reminders_enabled: enabled })
+    .eq("competition_id", competitionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Nastavení upozornění se nepodařilo: ${error.message}`);
+  }
+
+  revalidatePath(`/spaces/${competitionId}`);
+}
+
 export async function submitPrediction(
   sport: Sport,
   competitionId: string,
