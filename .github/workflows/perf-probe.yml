@@ -74,13 +74,29 @@ jobs:
           # IP region neprozradí. Přímý databázový hostname (db.<ref>...)
           # ale míří rovnou na AWS -- z něj region zjistíme.
           DB_HOST="db.${SUPA_HOST}"
+          # POZOR: `|| true` je nutné -- krok běží pod `bash -e` a getent
+          # vrací nenulový kód, když hostname neexistuje (db.* už novější
+          # Supabase projekty nemají). Bez toho spadne celý běh.
           # Hostname obsahuje ID projektu, do logu ho nedáváme.
-          SUPA_IP=$(timeout 10 getent ahostsv4 "${DB_HOST}" | head -1 | awk '{print $1}')
+          SUPA_IP=$( (timeout 10 getent ahostsv4 "${DB_HOST}" || true) | head -1 | awk '{print $1}')
           if [ -z "${SUPA_IP}" ]; then
-            echo "(db.* hostname se nepodařilo přeložit, zkouším REST hostname)"
-            SUPA_IP=$(timeout 10 getent ahostsv4 "${SUPA_HOST}" | head -1 | awk '{print $1}')
+            echo "(db.* hostname neexistuje, zkouším REST hostname)"
+            SUPA_IP=$( (timeout 10 getent ahostsv4 "${SUPA_HOST}" || true) | head -1 | awk '{print $1}')
           fi
           echo "IP: ${SUPA_IP:-(nezjištěno)}"
+
+          # Region bývá i v hlavičkách odpovědi (Supabase/Fly/Cloudflare
+          # je tam někdy posílají) -- vypíšeme je všechny, ať se dá region
+          # určit i když IP patří Cloudflare.
+          echo "--- hlavičky odpovědi Supabase ---"
+          timeout 15 curl -sS -o /dev/null -D sh.txt --max-time 10 \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/matches?select=id&limit=1" || true
+          # apikey/token se v hlavičkách odpovědi nevrací, ale pro jistotu
+          # filtrujeme jen na neutrální informační hlavičky.
+          grep -iE '^(cf-ray|x-sb|sb-|server|via|x-served|fly-|x-region|report-to)' sh.txt \
+            | cut -c1-200 || echo "(žádné hlavičky s regionem)"
           if [ -n "${SUPA_IP}" ] && timeout 25 curl -sS --max-time 20 -o aws.json \
                https://ip-ranges.amazonaws.com/ip-ranges.json; then
             # Jednořádkový Python schválně: víceřádkový skript zarovnaný
