@@ -316,23 +316,49 @@ function MatchCard({
       ? "border-black/10 bg-white/70 dark:border-white/15 dark:bg-white/[0.02]"
       : "border-black/10 dark:border-white/15";
 
+  const pointsToneClass =
+    tone === "exact"
+      ? "text-green-600 dark:text-green-400"
+      : tone === "partial"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-black/50 dark:text-white/50";
+
   return (
     <li className={`rounded-lg border p-4 ${cardToneClass}`}>
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
-        className="btn-press -mx-2 -my-1 flex items-center justify-between rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="btn-press -mx-2 -my-1 flex items-center justify-between gap-3 rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
       >
         <span className="flex items-center gap-1.5 font-medium">
           <TeamLogo url={logoUrlByTeam.get(match.home_team)} />
           {match.home_team} – {match.away_team}
           <TeamLogo url={logoUrlByTeam.get(match.away_team)} />
         </span>
-        <span className="text-xs text-black/40 dark:text-white/40">
-          {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
-            dateStyle: "short",
-            timeStyle: "short",
-            timeZone: "Europe/Prague",
-          })}
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          {isLocked
+            ? existing?.points !== null &&
+              existing?.points !== undefined && (
+                <span
+                  className={`text-lg font-bold leading-none ${pointsToneClass}`}
+                >
+                  {existing.points} b.
+                </span>
+              )
+            : (
+                <span
+                  className="text-base leading-none"
+                  title={existing ? "Tip zadán" : "Tip zatím nezadán"}
+                >
+                  {existing ? "✅" : "⚪"}
+                </span>
+              )}
+          <span className="text-xs text-black/40 dark:text-white/40">
+            {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
+              dateStyle: "short",
+              timeStyle: "short",
+              timeZone: "Europe/Prague",
+            })}
+          </span>
         </span>
       </Link>
 
@@ -347,8 +373,6 @@ function MatchCard({
             <p>
               Váš tip: {existing.predicted_home_score}:
               {existing.predicted_away_score}
-              {existing.points !== null &&
-                ` — získal(a) jste ${existing.points} b.`}
             </p>
           ) : (
             <p>Nestihl(a) jste tip, zápas je zamčený.</p>
