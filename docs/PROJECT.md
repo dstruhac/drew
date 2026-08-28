@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-27, loga soutěže a klubů)
+## Stav (aktualizováno 2026-08-28, barva kartičky zápasu podle tipu)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -211,6 +211,8 @@ Hotovo:
   `.card-lift` v `globals.css`)
 - [x] Loga soutěže a klubů (Chance Liga) — zdroj lfafotbal.cz, viz kroky
   6+7 níže pro detaily architektury i importu
+- [x] Barevné odlišení kartičky zápasu podle úspěšnosti vlastního tipu
+  (zelená/žlutá/šedá) — viz krok 8 níže
 
 ## Naplánované další kroky
 
@@ -478,11 +480,18 @@ nevymýšlí za něj):
    (`src/app/(app)/spaces/[id]/page.tsx`) a na stránce detailu zápasu.
    Logo se vykresluje na bílém "chipu" (`bg-white p-*`), aby bylo
    čitelné i v dark módu bez ohledu na barvu loga.
-8. [ ] Barevné odlišení kartičky zápasu podle skóre. **Otevřená otázka
-   (2026-08-25, vědomě odloženo):** není určeno, jestli barva má
-   odrážet body získané za vlastní tip uživatele (zelená/žlutá/šedá
-   podle úspěšnosti tipu), nebo výsledek zápasu samotného (výhra
-   domácích/hostů/remíza). Rozhodnout s uživatelem před implementací.
+8. [x] Barevné odlišení kartičky zápasu podle skóre. **Rozhodnuto
+   s uživatelem 28.8.2026 přes `AskUserQuestion`:** barva ukazuje
+   úspěšnost VLASTNÍHO tipu uživatele, ne výsledek zápasu samotného —
+   🟢 zelená = přesně trefené skóre, 🟡 žlutá = trefený výherce/remíza
+   NEBO součet gólů (ne nutně obojí), ⚪ šedá = netrefeno nic. Platí
+   jen pro dohrané zápasy, kde má hráč vlastní tip.
+   `getResultTone()` v `src/app/(app)/spaces/[id]/page.tsx` — logika
+   kopíruje pravidla z `calculate_match_points()`
+   (`supabase/migrations/20260825100000_scoring_trigger.sql`), ale
+   počítá se přímo z predikovaného/skutečného skóre, ne z uložených
+   bodů, aby fungovalo správně bez ohledu na per-competition
+   nastavení bodování. Beze změny datového modelu.
 9. [x] Rozdělení zápasů v detailu soutěže do sekcí "Nadcházející" a
    "Proběhlé" — `src/app/spaces/[id]/page.tsx`. Zápas patří do
    "Proběhlé", jakmile je zamčený (stejná podmínka jako dřívější
