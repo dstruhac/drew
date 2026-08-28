@@ -70,8 +70,16 @@ jobs:
           echo
           echo "=== 2. REGION SUPABASE (IP -> AWS region) ==="
           SUPA_HOST=$(echo "${SUPABASE_URL}" | sed -E 's#^https?://##; s#/.*##')
+          # REST/Auth hostname schovává Supabase za Cloudflare, takže jeho
+          # IP region neprozradí. Přímý databázový hostname (db.<ref>...)
+          # ale míří rovnou na AWS -- z něj region zjistíme.
+          DB_HOST="db.${SUPA_HOST}"
           # Hostname obsahuje ID projektu, do logu ho nedáváme.
-          SUPA_IP=$(timeout 10 getent ahostsv4 "${SUPA_HOST}" | head -1 | awk '{print $1}')
+          SUPA_IP=$(timeout 10 getent ahostsv4 "${DB_HOST}" | head -1 | awk '{print $1}')
+          if [ -z "${SUPA_IP}" ]; then
+            echo "(db.* hostname se nepodařilo přeložit, zkouším REST hostname)"
+            SUPA_IP=$(timeout 10 getent ahostsv4 "${SUPA_HOST}" | head -1 | awk '{print $1}')
+          fi
           echo "IP: ${SUPA_IP:-(nezjištěno)}"
           if [ -n "${SUPA_IP}" ] && timeout 25 curl -sS --max-time 20 -o aws.json \
                https://ip-ranges.amazonaws.com/ip-ranges.json; then
