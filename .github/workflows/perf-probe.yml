@@ -7,13 +7,19 @@
 #
 # Zjišťuje hlavně DVĚ věci, na kterých stojí analýza pomalé odezvy:
 #   1. v jakém REGIONU běží Vercel funkce (hlavička x-vercel-id) a kde
-#      leží Supabase (IP adresa -> AWS region) -- když jsou daleko od
-#      sebe, každý dotaz do databáze platí desítky ms navíc, a appka
-#      jich dělá na jedno načtení stránky několik za sebou
-#   2. kolik stojí jedno ověření přihlášení (GET /auth/v1/user) a jeden
-#      obyčejný dotaz do databáze (GET /rest/v1/...)
+#      leží Supabase (IP -> AWS region) -- když jsou daleko od sebe,
+#      každý dotaz do databáze platí desítky ms navíc, a appka jich
+#      dělá na jedno načtení stránky několik za sebou
+#   2. kolik stojí jedno ověření přihlášení (/auth/v1/user) a jeden
+#      obyčejný dotaz do databáze (/rest/v1/...)
 #
 # Jen čte (GET), nikam nezapisuje. Spouští se ručně (workflow_dispatch).
+#
+# POZOR (poučení z 28.8.2026): každý krok musí mít TVRDÝ timeout.
+# První verze používala `whois` (visí bez odpovědi na runneru) a dlouhé
+# `--max-time 30` u pěti opakování tří měření -- běh se dvakrát zasekl
+# a musel se ručně rušit. Proto: `timeout` kolem všeho, krátké limity
+# a `timeout-minutes` na jobu jako pojistka.
 
 name: Perf probe
 
@@ -37,8 +43,10 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Změřit odezvy
+        timeout-minutes: 4
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -47,84 +55,56 @@ jobs:
         run: |
           set -uo pipefail
 
-          TIMING_FMT='dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s http=%{http_code}'
+          FMT='dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} total=%{time_total} http=%{http_code}\n'
 
-          echo "=========================================="
-          echo " 1. KDE BĚŽÍ VERCEL (region funkce)"
-          echo "=========================================="
-          # x-vercel-id vypadá jako "iad1::abc123" -- prefix je kód
-          # datacentra (iad1 = Washington DC, fra1 = Frankfurt, ...).
-          curl -sS -o /dev/null -D vercel_headers.txt --max-time 30 "${APP_URL}/login" || true
-          grep -iE '^(x-vercel-id|x-vercel-cache|server|age)' vercel_headers.txt || echo "(hlavičky nenalezeny)"
+          # Každé volání má krátký limit a je navíc obalené `timeout`,
+          # aby nic nemohlo zaseknout celý běh (viz poznámka nahoře).
+          measure() {
+            timeout 15 curl -sS -o /dev/null --max-time 10 -w "${FMT}" "$@" || echo "(timeout/chyba)"
+          }
+
+          echo "=== 1. REGION VERCELU (x-vercel-id) ==="
+          timeout 20 curl -sS -o /dev/null -D h.txt --max-time 15 "${APP_URL}/login" || true
+          grep -iE '^(x-vercel-id|x-matched-path|server)' h.txt || echo "(hlavičky nenalezeny)"
 
           echo
-          echo "=========================================="
-          echo " 2. KDE BĚŽÍ SUPABASE (IP -> region)"
-          echo "=========================================="
+          echo "=== 2. REGION SUPABASE (IP -> AWS region) ==="
           SUPA_HOST=$(echo "${SUPABASE_URL}" | sed -E 's#^https?://##; s#/.*##')
-          # Hostname sám o sobě je citlivý (je v něm ID projektu), takže
-          # ho do logu nevypisujeme -- zajímá nás jen IP a region.
-          getent hosts "${SUPA_HOST}" | awk '{print "IP: " $1}' || echo "(DNS se nepodařilo)"
-          SUPA_IP=$(getent hosts "${SUPA_HOST}" | head -1 | awk '{print $1}')
-          if [ -n "${SUPA_IP}" ]; then
-            # POZOR: žádný whois -- na GitHub runneru umí viset bez
-            # odpovědi a shodit tím celý běh (stalo se 28.8.2026).
-            # Region se dá spolehlivě zjistit z veřejného seznamu IP
-            # rozsahů AWS, což je obyčejné stažení JSONu s timeoutem.
-            echo "--- region podle AWS IP rozsahů ---"
-            curl -sS --max-time 20 https://ip-ranges.amazonaws.com/ip-ranges.json -o aws-ranges.json \
-              && python3 - "${SUPA_IP}" <<'PY' || echo "(region se nepodařilo určit)"
-          import ipaddress, json, sys
-          ip = ipaddress.ip_address(sys.argv[1])
-          best = None
-          for p in json.load(open("aws-ranges.json"))["prefixes"]:
-              net = ipaddress.ip_network(p["ip_prefix"])
-              if ip in net and (best is None or net.prefixlen > best[0].prefixlen):
-                  best = (net, p)
-          print(f"region: {best[1]['region']}  (rozsah {best[0]}, služba {best[1]['service']})" if best else "IP není v AWS rozsazích")
-          PY
+          # Hostname obsahuje ID projektu, do logu ho nedáváme.
+          SUPA_IP=$(timeout 10 getent ahostsv4 "${SUPA_HOST}" | head -1 | awk '{print $1}')
+          echo "IP: ${SUPA_IP:-(nezjištěno)}"
+          if [ -n "${SUPA_IP}" ] && timeout 25 curl -sS --max-time 20 -o aws.json \
+               https://ip-ranges.amazonaws.com/ip-ranges.json; then
+            # Jednořádkový Python schválně: víceřádkový skript zarovnaný
+            # na začátek řádku rozbije YAML blok `run: |` (ověřeno).
+            timeout 30 python3 -c "import ipaddress,json,sys; ip=ipaddress.ip_address(sys.argv[1]); m=sorted([(ipaddress.ip_network(p['ip_prefix']),p) for p in json.load(open('aws.json'))['prefixes'] if ip in ipaddress.ip_network(p['ip_prefix'])], key=lambda x: -x[0].prefixlen); print('AWS region:', m[0][1]['region'] if m else 'IP mimo AWS rozsahy')" "${SUPA_IP}" \
+              || echo "(region se nepodařilo určit)"
           fi
 
           echo
-          echo "=========================================="
-          echo " 3. CENA JEDNOHO OVĚŘENÍ PŘIHLÁŠENÍ"
-          echo "    GET /auth/v1/user -- tohle appka volá"
-          echo "    v proxy.ts na KAŽDÝ požadavek"
-          echo "=========================================="
+          echo "=== 3. OVĚŘENÍ PŘIHLÁŠENÍ (/auth/v1/user) ==="
+          echo "    appka tohle volá v proxy.ts na KAŽDÝ požadavek"
           for i in $(seq 1 "${REPEATS}"); do
             printf 'pokus %s: ' "$i"
-            curl -sS -o /dev/null --max-time 30 \
-              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -w "${TIMING_FMT}\n" \
-              "${SUPABASE_URL}/auth/v1/user" || true
+            measure -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+                    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+                    "${SUPABASE_URL}/auth/v1/user"
           done
 
           echo
-          echo "=========================================="
-          echo " 4. CENA JEDNOHO DOTAZU DO DATABÁZE"
-          echo "    (zápasy jedné soutěže -- to, co appka"
-          echo "     reálně načítá na detailu soutěže)"
-          echo "=========================================="
+          echo "=== 4. BĚŽNÝ DOTAZ DO DATABÁZE (/rest/v1/matches) ==="
           for i in $(seq 1 "${REPEATS}"); do
             printf 'pokus %s: ' "$i"
-            curl -sS -o /dev/null --max-time 30 \
-              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -w "${TIMING_FMT}\n" \
-              "${SUPABASE_URL}/rest/v1/matches?select=id,home_team,away_team,kickoff_at,status&competition_id=eq.71f47a2e-ca2a-4902-a51a-fd8a07a01cc2" || true
+            measure -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+                    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+                    "${SUPABASE_URL}/rest/v1/matches?select=id,home_team,away_team&limit=50"
           done
 
           echo
-          echo "=========================================="
-          echo " 5. ODEZVA PRODUKČNÍ APPKY (/login)"
-          echo "    první pokus = studený start funkce"
-          echo "=========================================="
+          echo "=== 5. ODEZVA PRODUKČNÍ APPKY (/login) ==="
           for i in $(seq 1 "${REPEATS}"); do
             printf 'pokus %s: ' "$i"
-            curl -sS -o /dev/null --max-time 30 \
-              -w "${TIMING_FMT}\n" \
-              "${APP_URL}/login" || true
+            measure "${APP_URL}/login"
           done
 
           echo
