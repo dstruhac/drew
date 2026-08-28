@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, upozornění na nevyplněný tip)
+## Stav (aktualizováno 2026-08-28, přidána Premier League a upozornění na nevyplněný tip)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
