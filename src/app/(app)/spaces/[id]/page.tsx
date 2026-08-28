@@ -20,17 +20,22 @@ export default async function CompetitionDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Pět nezávislých dotazů najednou -- žádný z nich nepotřebuje výsledek
-  // dalšího (competition/participants/matches/team_logos filtrují rovnou
-  // podle `id` z route parametru, ne podle competition.id z předchozího
-  // dotazu), takže souběžně ušetří tolik síťových cest, kolik jich je
-  // (perf review 27.8.2026).
+  // Všech šest dotazů najednou v JEDNÉ vlně.
+  //
+  // Tipy (predictions) se dřív načítaly až v druhé vlně, protože se
+  // filtrovaly seznamem ID zápasů z předchozího dotazu -- appka tedy
+  // musela počkat na jedno kolo navíc. Teď se filtrují přes napojenou
+  // tabulku zápasů (`matches!inner(...)` = jen tipy, jejichž zápas patří
+  // do téhle soutěže), takže na nic čekat nemusí. Ušetří to celé jedno
+  // kolo čekání na databázi při každém načtení stránky (perf analýza
+  // 28.8.2026 -- jedno kolo stálo ~0,38 s).
   const [
     user,
     { data: competition },
     { data: participants },
     { data: matches },
     { data: teamLogos },
+    { data: predictions },
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
@@ -46,6 +51,12 @@ export default async function CompetitionDetailPage({
       .eq("competition_id", id)
       .order("kickoff_at", { ascending: true }),
     supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
+    supabase
+      .from("predictions")
+      .select(
+        "match_id, user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, matches!inner(competition_id)",
+      )
+      .eq("matches.competition_id", id),
   ]);
 
   if (!competition) {
@@ -55,16 +66,6 @@ export default async function CompetitionDetailPage({
   const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
 
   const isJoined = participants?.some((p) => p.user_id === user?.id) ?? false;
-
-  const matchIds = matches?.map((m) => m.id) ?? [];
-  const { data: predictions } = matchIds.length
-    ? await supabase
-        .from("predictions")
-        .select(
-          "match_id, user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points",
-        )
-        .in("match_id", matchIds)
-    : { data: [] };
 
   const ownPredictionByMatch = new Map(
     predictions

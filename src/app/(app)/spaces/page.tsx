@@ -10,8 +10,7 @@ const SPORT_LABELS: Record<Sport, string> = {
 export default async function SpacesPage() {
   const supabase = await createClient();
 
-  // user a competitions na sobě nezávisí, stejně tak participants a matches
-  // (obě jen filtrují podle competitionIds) -- souběžné dotazy místo
+  // user a competitions na sobě nezávisí -- souběžné dotazy místo
   // sekvenčních čekání, ať appka nesčítá zbytečné síťové round-tripy do
   // Supabase (perf review 27.8.2026).
   const [user, { data: competitions, error }] = await Promise.all([
@@ -27,7 +26,13 @@ export default async function SpacesPage() {
   // Stejný výpočet jako na /spaces/[id]/leaderboard, jen hromadně přes
   // všechny soutěže najednou (ne dotaz po dotazu) -- viz vlastní pozice
   // v žebříčku u každé karty níže.
-  const [{ data: participants }, { data: matches }] = await Promise.all([
+  //
+  // Tipy se dřív načítaly až ve třetí vlně (filtrovaly se seznamem ID
+  // zápasů z druhé vlny) a kvůli tomu se musely nejdřív načíst všechny
+  // zápasy jen proto, aby se zjistilo, do které soutěže tip patří. Teď
+  // si tip tuhle informaci nese s sebou z napojené tabulky zápasů, takže
+  // vlna i celý dotaz na zápasy odpadly (perf analýza 28.8.2026).
+  const [{ data: participants }, { data: predictions }] = await Promise.all([
     competitionIds.length
       ? supabase
           .from("competition_participants")
@@ -35,21 +40,12 @@ export default async function SpacesPage() {
           .in("competition_id", competitionIds)
       : Promise.resolve({ data: [] }),
     competitionIds.length
-      ? supabase.from("matches").select("id, competition_id").in("competition_id", competitionIds)
+      ? supabase
+          .from("predictions")
+          .select("user_id, points, matches!inner(competition_id)")
+          .in("matches.competition_id", competitionIds)
       : Promise.resolve({ data: [] }),
   ]);
-
-  const competitionIdByMatchId = new Map(
-    matches?.map((m) => [m.id, m.competition_id]),
-  );
-  const matchIds = matches?.map((m) => m.id) ?? [];
-
-  const { data: predictions } = matchIds.length
-    ? await supabase
-        .from("predictions")
-        .select("user_id, points, match_id")
-        .in("match_id", matchIds)
-    : { data: [] };
 
   const standingsByCompetition = new Map<
     string,
@@ -68,7 +64,7 @@ export default async function SpacesPage() {
 
   for (const prediction of predictions ?? []) {
     if (prediction.points === null) continue;
-    const competitionId = competitionIdByMatchId.get(prediction.match_id);
+    const competitionId = prediction.matches?.competition_id;
     if (!competitionId) continue;
     const entry = standingsByCompetition
       .get(competitionId)

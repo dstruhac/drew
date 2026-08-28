@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, úklid testovacích dat)
+## Stav (aktualizováno 2026-08-28, výkonová analýza a optimalizace)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -228,6 +228,60 @@ Hotovo:
   po použití smazán ze souborového stromu, ať v repu nezůstává trvalá
   schopnost mazat data. V appce teď zůstávají jen dvě reálně sledované
   soutěže: Hokejová extraliga 2026/27 a Chance Liga.
+
+### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
+
+Uživatel nahlásil dlouhé odezvy. Naměřeno přes `.github/workflows/perf-probe.yml`
+(GitHub Actions, protože tenhle sandbox na Supabase/Vercel nedosáhne):
+
+| co | rozehřátá Supabase | studená Supabase |
+|---|---|---|
+| ověření přihlášení (`/auth/v1/user`) | ~0,15 s | **až 3,6 s** |
+| jeden dotaz do DB (`/rest/v1/...`) | ~0,38 s | až 1,9 s |
+| vykreslení stránky na Vercelu (`/login`) | ~0,13–0,19 s | — |
+
+**Appka sama rychlá je** — pomalé bylo čekání na databázi, a to hlavně ze
+tří důvodů, které se násobily:
+
+1. **Vercel běžel v USA, databáze v Irsku.** Ověřeno z hlavičky
+   `x-vercel-id` (`iad1` = Washington, `cle1` = Cleveland); region
+   Supabase (`eu-west-1`) potvrdil uživatel z dashboardu. Provoz tedy
+   putoval Česko → USA → Irsko → USA → Česko, a to u každého dotazu.
+   Proto ~0,38 s i na triviální dotaz (na stejném kontinentu 30–50 ms).
+2. **Dotazy se dělaly ve vlnách za sebou.** Detail soutěže měl tři vlny
+   (proxy ověří přihlášení → stránka se zeptá znovu + načte data →
+   teprve pak tipy, protože potřebovaly ID zápasů z předchozí vlny).
+   Uložení tipu mělo vln 5–6, proto působilo nejpomaleji.
+3. **Ověření přihlášení šlo pokaždé po síti**, a to dvakrát na požadavek
+   (jednou v `proxy.ts`, jednou ve stránce).
+
+**Provedená opatření:**
+
+- **`vercel.json` → `regions: ["dub1"]`** (Dublin = `eu-west-1`, stejné
+  místo jako databáze). Zkracuje každý dotaz do DB a zároveň i cestu od
+  českého uživatele k appce. Pozn.: bezplatný tarif Vercelu dovoluje
+  právě jeden region, což tahle konfigurace splňuje.
+- **`getClaims()` místo `getUser()`** v `src/lib/supabase/server.ts` i
+  `src/lib/supabase/middleware.ts` — ověří podpis tokenu lokálně přes
+  WebCrypto, bez síťového dotazu. Funguje jen u projektů s asymetrickými
+  podpisovými klíči; ověřeno, že tenhle projekt je má (endpoint
+  `/auth/v1/.well-known/jwks.json` vrací klíč **ES256**). U symetrického
+  klíče by se knihovna sama vrátila k síťovému dotazu, takže je to
+  bezpečné i do budoucna. **Není to `getSession()`** (kterému se věřit
+  nesmí) — podpis se kryptograficky ověřuje a autorizace dat navíc pořád
+  stojí na RLS.
+- **Zrušená sekvenční vlna na tipy** na `/spaces`, `/spaces/[id]` a
+  `/spaces/[id]/leaderboard`. Tipy se dřív filtrovaly seznamem ID zápasů
+  z předchozí vlny; teď se filtrují přes napojenou tabulku
+  (`matches!inner(competition_id)`), takže jdou v jedné vlně se zbytkem.
+  Na `/spaces` tím odpadl i celý dotaz na zápasy — tip si informaci
+  o soutěži nese s sebou.
+- Server akce (`spaces/[id]/actions.ts`, `profil/actions.ts`) používají
+  sdílený `getCurrentUser()` místo vlastního `auth.getUser()`.
+
+**Vědomě neuděláno:** samostatná úloha na „udržování Supabase
+rozehřáté" — `sync-results` už běží každých 30 minut a databáze se tím
+udržuje v provozu sama.
 
 ## Naplánované další kroky
 
