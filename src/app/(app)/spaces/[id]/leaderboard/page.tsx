@@ -183,7 +183,12 @@ export default async function LeaderboardPage({
                   <span className="w-5 text-sm text-black/40 dark:text-white/40">
                     {index + 1}.
                   </span>
-                  <span className="font-medium">{entry.displayName}</span>
+                  <Link
+                    href={`/profil/${entry.userId}`}
+                    className="font-medium hover:underline"
+                  >
+                    {entry.displayName}
+                  </Link>
                   {(badgeCountByUser.get(entry.userId) ?? 0) > 0 && (
                     <span
                       title={`${badgeCountByUser.get(entry.userId)}× vítěz týdne`}
@@ -232,7 +237,12 @@ export default async function LeaderboardPage({
                   <span className="w-5 text-sm text-black/40 dark:text-white/40">
                     {index + 1}.
                   </span>
-                  <span className="font-medium">{entry.displayName}</span>
+                  <Link
+                    href={`/profil/${entry.userId}`}
+                    className="font-medium hover:underline"
+                  >
+                    {entry.displayName}
+                  </Link>
                 </div>
                 <span className="font-semibold">{entry.points} b.</span>
               </li>
