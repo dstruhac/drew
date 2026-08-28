@@ -29,6 +29,12 @@ export default async function ProfilePage() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold">Nastavení profilu</h1>
         <p className="text-xs text-black/40 dark:text-white/40">{user.email}</p>
+        <Link
+          href={`/profil/${user.id}`}
+          className="mt-1 inline-block text-xs text-black/40 underline underline-offset-2 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+        >
+          Zobrazit veřejný profil →
+        </Link>
       </header>
 
       {error && (

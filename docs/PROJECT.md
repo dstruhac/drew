@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, výkonová analýza a optimalizace)
+## Stav (aktualizováno 2026-08-28, veřejný profil hráče)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -228,6 +228,12 @@ Hotovo:
   po použití smazán ze souborového stromu, ať v repu nezůstává trvalá
   schopnost mazat data. V appce teď zůstávají jen dvě reálně sledované
   soutěže: Hokejová extraliga 2026/27 a Chance Liga.
+- [x] Veřejný profil hráče — `/profil/[userId]` (28.8.2026). Seznam
+  soutěží, které hráč hraje, s pozicí v žebříčku, celkovými body,
+  počtem přesných tipů a medailí za vítězství týdne. Odkazy přidány ze
+  žebříčku, detailu zápasu a z vlastního nastavení profilu. Podrobnosti
+  a odůvodnění rozhodnutí (veřejný vs. soukromý, rozsah obsahu) viz
+  nápad č. 3 v sekci "Naplánované další kroky".
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -709,10 +715,24 @@ výše.**
 **2) Vlastní přezdívka — ✅ hotovo (2026-08-26), viz krok 10 v plánu
 výše.**
 
-**3) Detail/profil uživatele** — nová stránka, která by u daného
-hráče ukázala, kterých soutěží se účastní. Otevřené otázky: má to být
-veřejné (kdokoliv přihlášený vidí cizí profil), nebo jen svůj vlastní?
-Ukazovat jen seznam soutěží, nebo i statistiky/historii tipů?
+**3) Detail/profil uživatele — ✅ hotovo (28.8.2026).**
+`src/app/(app)/profil/[userId]/page.tsx`. Rozhodnuto s uživatelem přes
+`AskUserQuestion`:
+- **Veřejný** — kdokoliv přihlášený si může prokliknout cizí profil
+  (ze žebříčku, z detailu zápasu). Konzistentní s tím, jak appka
+  funguje už dnes (cizí tipy se taky zveřejní po výkopu). Beze změny
+  RLS — `profiles`/`competition_participants`/`weekly_badges` už byly
+  čitelné pro kohokoliv přihlášeného.
+- **Seznam soutěží + statistiky** — u každé soutěže, kterou hráč hraje:
+  pozice v žebříčku (X. místo z Y), celkové body, kolik zápasů je
+  vyhodnoceno, počet přesných tipů, počet medailí za vítězství týdne.
+  Stejný výpočet jako na `/spaces/[id]/leaderboard`, jen scoped na
+  jednoho hráče napříč všemi jeho soutěžemi.
+
+Odkazy na `/profil/[userId]` přidány ze žebříčku (celkový i týdenní),
+z detailu zápasu (seznam tipů všech hráčů) a z `/profil` (vlastní
+nastavení má nově odkaz "Zobrazit veřejný profil →"). Původní `/profil`
+zůstává beze změny — soukromá stránka na úpravu přezdívky.
 
 **4) Upozornění na nevyplněný den** — např. e-mail (uživatel má
 mail z Google OAuth) cca 2 hodiny před prvním zápasem daného dne v

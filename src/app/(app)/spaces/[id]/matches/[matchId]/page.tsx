@@ -178,7 +178,12 @@ export default async function MatchDetailPage({
                     <span className="w-5 text-sm text-black/40 dark:text-white/40">
                       {index + 1}.
                     </span>
-                    <span className="font-medium">{entry.displayName}</span>
+                    <Link
+                      href={`/profil/${entry.userId}`}
+                      className="font-medium hover:underline"
+                    >
+                      {entry.displayName}
+                    </Link>
                   </div>
                   <div className="text-right text-sm">
                     {entry.hasPrediction ? (
