@@ -917,6 +917,36 @@ migracích výše přibyla ještě jedna
 "Implementace" výše) — než půjde `predict-reminders.yml` znovu
 zkoušet, musí být aplikovaná v Supabase i tahle.
 
+### Nápad: udržet hráče ve hře (retention) — týdenní série + víc gamifikace (2026-08-28, nerozpracováno)
+
+Uživatel chce appku pro hráče "návykovější", aby se vraceli i po
+skončení POC dema. Zadání zatím jen zapsané, nic se neimplementuje —
+**potřeba probrat s uživatelem**, jak přesně na to.
+
+- **Série týdnů za sebou ("streak")**: chceme vidět, kolik týdnů po
+  sobě hráč hrál (tipoval), a **tohle číslo má být veřejné** — vidí ho
+  všichni, ne jen sám hráč. Zatím nerozhodnuto/technicky nepromyšlené:
+  - co přesně znamená "hrál daný týden" — zadal aspoň jeden tip? na
+    všechny zápasy toho týdne? stačí být přihlášený (participant)?
+  - kde se série zobrazí (žebříček? profil? obojí?) a jak vizuálně
+    (číslo, plamínek 🔥, odznak?)
+  - co se stane, když hráč týden vynechá — série se zlomí na 0, nebo
+    existuje nějaká tolerance?
+  - vztah k existujícím `weekly_badges` (medaile za vítězství týdne,
+    krok 13 výše) — jde o jinou metriku (účast, ne výhra), ale mohou
+    se doplňovat.
+- **Víc gamifikačních prvků obecně** — zatím jen otevřený brainstorm,
+  žádné rozhodnutí: možné směry k probrání jsou např. odznaky za
+  milníky (první tip, 10 tipů, celá sezóna bez vynechání), porovnání
+  s kamarády/rivalita, notifikace/připomínky navázané na sérii
+  ("neztrať svoji sérii!"), žebříček podle nejdelší série napříč
+  historií apod. — žádné z toho není odsouhlasené, jen nápady k
+  rozhovoru.
+
+**Další krok**: probrat s uživatelem přes chat/`AskUserQuestion` —
+definici "odehraného týdne", chování při vynechání, co všechno z
+gamifikace do appky skutečně chceme, než se začne cokoliv stavět.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
