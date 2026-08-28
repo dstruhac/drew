@@ -9,14 +9,19 @@ export default async function LeaderboardPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Čtyři nezávislé dotazy najednou -- všechny filtrují rovnou podle `id`
-  // z route parametru, žádný nepotřebuje výsledek jiného (perf review
-  // 27.8.2026).
+  // Pět nezávislých dotazů v JEDNÉ vlně -- všechny filtrují rovnou podle
+  // `id` z route parametru, žádný nepotřebuje výsledek jiného.
+  //
+  // Tipy (predictions) se dřív načítaly až v druhé vlně, protože se
+  // filtrovaly seznamem ID zápasů z první -- teď se filtrují přes
+  // napojenou tabulku zápasů, takže na nic čekat nemusí a ušetří se celé
+  // jedno kolo čekání na databázi (perf analýza 28.8.2026).
   const [
     { data: competition },
     { data: participants },
     { data: matches },
     { data: badges },
+    { data: predictions },
   ] = await Promise.all([
     supabase.from("competitions").select("id, name").eq("id", id).single(),
     supabase
@@ -28,6 +33,12 @@ export default async function LeaderboardPage({
       .select("id, kickoff_at, home_score, away_score")
       .eq("competition_id", id),
     supabase.from("weekly_badges").select("user_id").eq("competition_id", id),
+    supabase
+      .from("predictions")
+      .select(
+        "match_id, user_id, points, predicted_home_score, predicted_away_score, profiles(display_name), matches!inner(competition_id)",
+      )
+      .eq("matches.competition_id", id),
   ]);
 
   if (!competition) {
@@ -35,15 +46,6 @@ export default async function LeaderboardPage({
   }
 
   const matchById = new Map((matches ?? []).map((m) => [m.id, m]));
-  const matchIds = matches?.map((m) => m.id) ?? [];
-  const { data: predictions } = matchIds.length
-    ? await supabase
-        .from("predictions")
-        .select(
-          "match_id, user_id, points, predicted_home_score, predicted_away_score, profiles(display_name)",
-        )
-        .in("match_id", matchIds)
-    : { data: [] };
 
   const badgeCountByUser = new Map<string, number>();
   for (const badge of badges ?? []) {

@@ -30,17 +30,37 @@ export async function createClient() {
   );
 }
 
-// supabase.auth.getUser() re-validates the token against the Supabase Auth
-// server on every call -- it's a real network round trip, not a local cookie
-// read. AppHeader (rendered on every signed-in page) and the page below it
-// each used to call it separately, tripling that round trip per request.
-// React's cache() dedupes repeated calls to the same function within one
-// request, so wrapping it here means only the first caller actually pays
-// for it (found during perf review 27.8.2026).
-export const getCurrentUser = cache(async () => {
+export type CurrentUser = { id: string; email: string | null };
+
+// Ověření přihlášeného uživatele BEZ síťového dotazu na Supabase.
+//
+// Dřív se tu volalo `supabase.auth.getUser()`, což je pokaždé skutečný
+// síťový round trip na Auth server. Při měření 28.8.2026 stál 0,15 s
+// (rozehřátá Supabase) až 3,6 s (studená) -- a appka ho platila dvakrát
+// na každé načtení stránky (jednou v proxy.ts, jednou tady).
+//
+// `getClaims()` místo toho ověří podpis tokenu lokálně přes WebCrypto.
+// Funguje to jen u projektů s asymetrickými podpisovými klíči -- ověřeno
+// 28.8.2026, že tenhle projekt je má (endpoint .well-known/jwks.json
+// vrací klíč ES256). U symetrického klíče by se knihovna sama vrátila
+// k síťovému dotazu, takže je to bezpečné i kdyby se to v budoucnu
+// změnilo, jen by to bylo zase pomalejší.
+//
+// Bezpečnost: tohle NENÍ `getSession()` (které se nesmí věřit, protože
+// jen přečte cookie). `getClaims()` kryptograficky ověří podpis, takže
+// `sub` z tokenu je důvěryhodná identita uživatele. Skutečná autorizace
+// dat navíc pořád stojí na RLS politikách v databázi.
+//
+// React `cache()` navíc zajistí, že se to v rámci jednoho requestu
+// spočítá jen jednou, i když si o uživatele řekne víc komponent.
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data, error } = await supabase.auth.getClaims();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.claims.sub,
+    email: data.claims.email ?? null,
+  };
 });

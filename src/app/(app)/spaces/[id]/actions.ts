@@ -1,16 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
 
 export type SubmitPredictionState = { error: string | null };
 
 export async function joinCompetition(competitionId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return;
 
@@ -30,9 +28,7 @@ export async function joinCompetition(competitionId: string) {
 
 export async function leaveCompetition(competitionId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return;
 
@@ -60,9 +56,7 @@ export async function submitPrediction(
 ): Promise<SubmitPredictionState> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { error: "Nejste přihlášen." };

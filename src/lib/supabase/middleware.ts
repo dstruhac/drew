@@ -37,10 +37,15 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not remove: triggers a token refresh if the session is expired.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Ověření tokenu lokálně (podpis přes WebCrypto), ne síťovým dotazem na
+  // Auth server -- viz podrobné vysvětlení u getCurrentUser() v server.ts.
+  // Tenhle kód běží na KAŽDÝ požadavek, takže ušetřený round trip (0,15 s
+  // rozehřátá Supabase, až 3,6 s studená) je znát pokaždé.
+  //
+  // Neodstraňovat: getClaims() zároveň obnoví session, když se token blíží
+  // vypršení -- stejně jako to dřív dělalo getUser().
+  const { data, error } = await supabase.auth.getClaims();
+  const user = error ? null : data?.claims;
 
   const { pathname } = request.nextUrl;
 
