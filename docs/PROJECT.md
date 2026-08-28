@@ -197,7 +197,8 @@ Hotovo:
   tabulka)
 - [x] Detail zápasu se seznamem tipů všech hráčů — `/spaces/[id]/matches/[matchId]`
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže — "Proběhlé" ve
-  vlastní šedé kartě, "Nadcházející" omezeno na 8 zápasů výchozně
+  vlastní šedé kartě, "Nadcházející" dál dělené na "Ještě netipováno"
+  (vždy všechny, bez limitu) a sbalené "Už tipnuto" — viz krok 15
 - [x] Sdílená hlavička appky s fotečkou uživatele
 - [x] Skutečné "přihlášení" (členství) do competition — nepřihlášenému
   hráči appka hned pod hlavičkou soutěže navrhne kliknout na "Chci hrát"
@@ -725,6 +726,20 @@ Původně navrženo 2026-08-25 jako herní prvek navíc k celkovému
 žebříčku. Otevřené otázky (perioda, co hráč dostane, řešení remíz,
 rozsah) probrány s uživatelem 27.8.2026 přes `AskUserQuestion` —
 rozhodnutí a implementace viz krok 13.
+15. [x] Rozdělení "Nadcházející" na "Ještě netipováno"/"Už tipnuto" —
+    `src/app/(app)/spaces/[id]/page.tsx` (28.8.2026, na žádost
+    uživatele). Původně pevný limit 8 zápasů mísil dohromady tipnuté i
+    netipnuté zápasy — u anglické Premier League (běžně 10 zápasů za
+    víkend, oproti 8 u české ligy) se tak mohl netipnutý zápas
+    "vytlačit" mimo výchozí zobrazení za tipnuté starší. Řešení
+    (odsouhlaseno přes `AskUserQuestion`): "Ještě netipováno" ukazuje
+    VŽDY úplně všechny zápasy bez tipu, bez limitu — jakmile hráč zadá
+    tip, zápas se sám přesune do sbalené sekce "Už tipnuto" (limit 5,
+    stejný vzor jako "Proběhlé"). Řeší to obecně libovolný počet
+    zápasů v kole u libovolné budoucí ligy, ne jen tenhle konkrétní
+    případ. Když má hráč vyplněné úplně všechny nadcházející zápasy,
+    zobrazí se místo prázdné sekce potvrzující hláška "✅ Máš vyplněné
+    tipy na všechny nadcházející zápasy."
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 

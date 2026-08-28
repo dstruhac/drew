@@ -8,11 +8,15 @@ import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions"
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
 // Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
-// všechny" (odsouhlaseno s uživatelem 27.8.2026, počet nadcházejících
-// upraven na 8 dne 27.8.2026 -- původní okno 7 dní uměl zobrazit i přes 10
-// zápasů najednou, což bylo moc).
+// všechny" (odsouhlaseno s uživatelem 27.8.2026).
+//
+// "Nadcházející" se dál dělí na netipované (vždy VŠECHNY, bez limitu --
+// to jsou zápasy, které hráč potřebuje vyplnit) a už tipnuté (sbalené
+// jako "Proběhlé", limit níže) -- odsouhlaseno s uživatelem 28.8.2026,
+// protože pevný limit (dřív 8) míchal obojí dohromady a u anglických
+// lig s 10 zápasy za víkend uřezával i netipované zápasy z pohledu.
 const PAST_VISIBLE_COUNT = 5;
-const UPCOMING_VISIBLE_COUNT = 8;
+const UPCOMING_PREDICTED_VISIBLE_COUNT = 5;
 
 export default async function CompetitionDetailPage({
   params,
@@ -160,40 +164,80 @@ export default async function CompetitionDetailPage({
       )}
 
       {(() => {
-        const upcoming: Match[] = [];
+        const upcomingMissing: Match[] = [];
+        const upcomingPredicted: Match[] = [];
         const past: Match[] = [];
         for (const match of matches ?? []) {
           const isLocked =
             match.status !== "scheduled" ||
             new Date(match.kickoff_at) <= new Date();
-          (isLocked ? past : upcoming).push(match);
+          if (isLocked) {
+            past.push(match);
+          } else if (ownPredictionByMatch.has(match.id)) {
+            upcomingPredicted.push(match);
+          } else {
+            upcomingMissing.push(match);
+          }
         }
         // Nejbližší zápas nahoře v obou sekcích: nadcházející vzestupně
         // (jak přišly z DB), proběhlé sestupně (nejnovější výsledek první).
         past.reverse();
 
+        const hasUpcoming = upcomingMissing.length > 0 || upcomingPredicted.length > 0;
+
         return (
           <>
-            {upcoming.length > 0 && (
+            {hasUpcoming && (
               <section className="flex flex-col gap-3">
                 <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
                   Nadcházející
                 </h2>
-                <ExpandableList
-                  initialCount={UPCOMING_VISIBLE_COUNT}
-                  items={upcoming.map((match) => (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      isLocked={false}
-                      isJoined={isJoined}
-                      existing={ownPredictionByMatch.get(match.id) ?? null}
-                      sport={competition.sport}
-                      competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+
+                {upcomingMissing.length > 0 ? (
+                  <ul className="flex flex-col gap-3">
+                    {upcomingMissing.map((match) => (
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        isLocked={false}
+                        isJoined={isJoined}
+                        existing={null}
+                        sport={competition.sport}
+                        competitionId={competition.id}
+                        logoUrlByTeam={logoUrlByTeam}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  isJoined && (
+                    <p className="text-sm text-black/50 dark:text-white/50">
+                      ✅ Máš vyplněné tipy na všechny nadcházející zápasy.
+                    </p>
+                  )
+                )}
+
+                {upcomingPredicted.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-3">
+                    <h3 className="text-xs font-semibold text-black/40 dark:text-white/40">
+                      Už tipnuto
+                    </h3>
+                    <ExpandableList
+                      initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
+                      items={upcomingPredicted.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          isLocked={false}
+                          isJoined={isJoined}
+                          existing={ownPredictionByMatch.get(match.id) ?? null}
+                          sport={competition.sport}
+                          competitionId={competition.id}
+                          logoUrlByTeam={logoUrlByTeam}
+                        />
+                      ))}
                     />
-                  ))}
-                />
+                  </div>
+                )}
               </section>
             )}
 
