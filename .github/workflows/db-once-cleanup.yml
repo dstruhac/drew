@@ -1,0 +1,86 @@
+# Jednorázový úklid testovacích dat (28.8.2026, odsouhlaseno s uživatelem):
+# - smaže celou testovací competition "Fotbalová liga 2026/27" (vymyšlené
+#   týmy, žádné tipy)
+# - smaže tři ručně založené demo zápasy uvnitř "Hokejová extraliga
+#   2026/27" (Třinec–Sparta, Kometa Brno–Bílí Tygři Liberec, Mountfield
+#   HK–Dynamo Pardubice) -- díky "on delete cascade" na cizích klíčích se
+#   spolu s nimi smažou i navázané tipy/účastníci/odznaky.
+#
+# ID jsou natvrdo zapsaná (žádné vstupní parametry) -- tenhle workflow je
+# určený k jednomu spuštění a pak ke smazání ze souborového stromu, ne
+# jako trvalý nástroj (na rozdíl od db-probe.yml, který je jen pro čtení).
+#
+# Vyžaduje migraci 20260828070000_matches_competitions_service_role_delete_grant.sql
+# spuštěnou v Supabase SQL editoru -- service_role dosud nemělo DELETE na
+# matches/competitions.
+
+name: DB once cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Napiš přesně "DELETE" pro potvrzení'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smazat testovací competition a demo zápasy
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -uo pipefail
+
+          if [ "${CONFIRM}" != "DELETE" ]; then
+            echo "::error::Potvrzení nesouhlasí (napiš přesně 'DELETE'), končím bez zásahu."
+            exit 1
+          fi
+
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "::error::Chybí SUPABASE_URL nebo SUPABASE_SERVICE_ROLE_KEY jako GitHub secret."
+            exit 1
+          fi
+
+          delete_and_check() {
+            local desc="$1"
+            local url="$2"
+            echo "----- ${desc} -----"
+            echo "DELETE ${url}"
+            HTTP_CODE=$(curl -sS --max-time 30 -X DELETE \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Prefer: return=representation" \
+              -o body.json \
+              -w '%{http_code}' \
+              "${url}") || {
+                echo "::error::curl selhal (viz výstup výše)"
+                exit 1
+              }
+            echo "HTTP kód: ${HTTP_CODE}"
+            cat body.json
+            echo
+            if [ "${HTTP_CODE}" -ge 300 ]; then
+              echo "::error::Nečekaný HTTP kód ${HTTP_CODE}, přerušuji."
+              exit 1
+            fi
+          }
+
+          # 1) Celá testovací competition "Fotbalová liga 2026/27" --
+          #    cascade smaže i její 3 zápasy (žádné tipy na ně nejsou).
+          delete_and_check "Mazání competition 'Fotbalová liga 2026/27'" \
+            "${SUPABASE_URL}/rest/v1/competitions?id=eq.01254d79-4fbb-4f7d-aa2c-d7521916f21e"
+
+          # 2) Tři ručně založené demo zápasy uvnitř "Hokejová extraliga
+          #    2026/27" -- cascade smaže i jejich tipy.
+          delete_and_check "Mazání 3 demo zápasů v Hokejové extralize" \
+            "${SUPABASE_URL}/rest/v1/matches?id=in.(4168db20-907a-4669-9e05-985c3fa5896f,8572c74c-f9fa-4c9d-8e62-703e061922a9,afcec6cf-d152-4a1c-ac9f-32ad201fa528)"
+
+          echo "----- Hotovo -----"
