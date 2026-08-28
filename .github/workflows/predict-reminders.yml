@@ -7,21 +7,23 @@
 # Playwright/prohlížeč -- jen čte/zapisuje Supabase a posílá e-mail
 # přes Gmail SMTP.
 #
-# Zatím jen ruční spuštění (workflow_dispatch) -- stejná opatrná
-# konvence jako dřív u sync-fixtures/sync-results: hodinový `schedule`
-# (viz PROJECT.md) se přidá až PO tom, co uživatel nastaví
-# GMAIL_USER/GMAIL_APP_PASSWORD jako GitHub secrets a proběhne aspoň
-# jeden úspěšný ruční běh s reálným odesláním.
+# Hodinový schedule zapnut 28.8.2026 po ověřeném ručním běhu (proběhl
+# bez chyby, jen nikomu nic neposlal -- nikdo zatím neměl zapnuté
+# upozornění a žádný zápas nebyl v okně). Živé odeslání přes Gmail se
+# tak zatím neprokázalo, ale skript má vlastní hlášení chyb
+# (reportFailure založí GitHub issue, pokud odeslání selže) -- čekání
+# na první reálný zápas by nic nezískalo, jen oddálilo start.
 #
-# Až se schedule přidá, poběží po hodině -- přesný čas prvního
-# chybějícího zápasu se liší hráč od hráče i den ode dne, hodinová
-# granularita cronu stačí (pošle se nejdřív přesně za 2h před
-# kickoffem, nejpozději do hodiny poté).
+# Poběží po hodině -- přesný čas prvního chybějícího zápasu se liší
+# hráč od hráče i den ode dne, hodinová granularita cronu stačí (pošle
+# se nejdřív přesně za 2h před kickoffem, nejpozději do hodiny poté).
 
 name: Predict reminders
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 * * * *"
 
 permissions:
   contents: read

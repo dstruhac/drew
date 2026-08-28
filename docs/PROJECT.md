@@ -239,11 +239,14 @@ Hotovo:
   mechanismem jako Chance Liga, žádná změna kódu. 30 zápasů v rozpisu,
   10 zpětně dotažených výsledků. Podrobnosti (ověření `scrape_path`,
   volba názvu) viz sekce "Sledované soutěže" u kroku 5 výše.
-- [~] Upozornění na nevyplněný tip e-mailem — kód hotový (`predict-reminders.mjs`
-  + nová tabulka `prediction_reminders_sent`), čeká na ruční nastavení
-  Gmail App Password uživatelem, teprve pak reálné ověření a zapnutí
-  hodinového rozvrhu. Podrobnosti a odůvodnění rozhodnutí (kanál,
-  časování, souhrn) viz nápad č. 4 v sekci "Naplánované další kroky".
+- [x] Upozornění na nevyplněný tip e-mailem — `predict-reminders.mjs`
+  běží automaticky po hodině, opt-in tlačítkem "🔔 Chci upozornit" na
+  stránce soutěže (za každou soutěž zvlášť, výchozí vypnuto). Živé
+  odeslání e-mailu se zatím reálně neprokázalo (do 28.8.2026 nebyl
+  žádný zápas v okně) — sleduje se přes vlastní hlášení chyb skriptu
+  (GitHub issue při selhání). Podrobnosti a odůvodnění rozhodnutí
+  (kanál, časování, souhrn, opt-in) viz nápad č. 4 v sekci
+  "Naplánované další kroky".
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -835,28 +838,28 @@ neposílá se pod osobní adresou uživatele. Není potřeba řešit teď.
   je hráč v soutěži přihlášený (stejná podmínka jako u
   "Opustit soutěž").
 
-**Zbývá ruční krok uživatele, než půjde reálně vyzkoušet:**
-1. V Google účtu (tom, ze kterého se mají e-maily posílat) zapnout
-   dvoufázové ověření, pokud ještě není: **myaccount.google.com/security**
-   → "Dvoufázové ověření".
-2. Tamtéž vygenerovat "Heslo pro aplikace":
-   **myaccount.google.com/apppasswords** → zvolit libovolný název
-   (např. "Drew") → Google vygeneruje 16znakové heslo.
-3. V GitHubu repozitáře **github.com/dstruhac/drew/settings/secrets/actions**
-   přidat dva nové "Repository secrets": `GMAIL_USER` (e-mailová adresa
-   toho účtu) a `GMAIL_APP_PASSWORD` (vygenerované heslo z kroku 2).
-4. V Supabase SQL editoru (**supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr**
-   → SQL Editor) spustit **VŠECHNY dosud neaplikované migrace** ze
-   složky `supabase/migrations/` v pořadí podle názvu/data — v tuhle
-   chvíli jde o `20260828150000_prediction_reminders_sent.sql`,
-   `20260828160000_..._select_grant.sql` a
-   `20260828170000_competition_participants_email_reminders.sql`.
-5. Na stránce každé soutěže, kterou chce sledovat, kliknout na
-   "🔔 Chci upozornit" — bez toho appka nikomu nic nepošle (opt-in,
-   viz rozhodnutí výše).
-6. Po nastavení dá vědět Claude Code session, ta ručně spustí
-   `predict-reminders.yml` a ověří reálné odeslání, teprve pak přidá
-   `schedule` pro automatický běh po hodině.
+**Ruční kroky uživatele (28.8.2026, hotovo):**
+1. Zapnuté dvoufázové ověření v Google účtu a vygenerované "Heslo pro
+   aplikace" (**myaccount.google.com/apppasswords**).
+2. GitHub secrets `GMAIL_USER`/`GMAIL_APP_PASSWORD` nastavené.
+3. Všechny migrace z PR #57–#59 spuštěné v Supabase SQL editoru
+   (`prediction_reminders_sent`, grant na `competition_participants`,
+   `email_reminders_enabled`).
+
+Zbývá jen uživatelsky: na stránce každé soutěže, kterou chce sledovat,
+kliknout na "🔔 Chci upozornit" — bez toho appka nikomu nic nepošle
+(opt-in, viz rozhodnutí výše).
+
+**Rozhodnutí zapnout `schedule` bez živého ověření odeslání (28.8.2026,
+moje, vysvětleno v chatu):** ruční běh po nastavení proběhl bez chyby
+(Supabase i kód v pořádku), ale nikomu nic neposlal — do 28.8.2026
+nebyl žádný sledovaný zápas v okně 2 hodiny před výkopem (ověřeno přes
+`db-probe.yml`, nejbližší byl až 29.8. odpoledne), takže se samotné
+odeslání přes Gmail ještě reálně neprokázalo. Místo čekání na první
+skutečný zápas jsem hodinový `schedule` zapnul rovnou — skript má
+vlastní hlášení chyb (`reportFailure` založí GitHub issue, pokud
+odeslání selže), takže případný problém se zjistí sám, ne tichým
+selháním.
 
 **První ostrý běh (28.8.2026) skutečně spadl, ale ne na Gmailu —
 sedmý výskyt stejné třídy chyby jako u matches/competitions/
