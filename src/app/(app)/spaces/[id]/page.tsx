@@ -229,6 +229,61 @@ type Prediction = {
   points: number | null;
 } | null;
 
+// Krok 8 (odsouhlaseno 28.8.2026): barva kartičky ukazuje úspěšnost
+// VLASTNÍHO tipu, ne výsledek zápasu -- zelená = přesné skóre, žlutá =
+// aspoň výherce/remíza nebo součet gólů sedí, šedá = netrefil nic.
+// Stejná pravidla jako `calculate_match_points()`
+// (supabase/migrations/20260825100000_scoring_trigger.sql), jen bez
+// závislosti na bodové hodnotě (ta je per-competition nastavitelná).
+function getResultTone(
+  match: Match,
+  existing: Prediction,
+): "exact" | "partial" | "miss" | null {
+  if (
+    match.status !== "finished" ||
+    match.home_score === null ||
+    match.away_score === null ||
+    !existing
+  ) {
+    return null;
+  }
+
+  if (
+    existing.predicted_home_score === match.home_score &&
+    existing.predicted_away_score === match.away_score
+  ) {
+    return "exact";
+  }
+
+  const actualOutcome =
+    match.home_score > match.away_score
+      ? "home"
+      : match.away_score > match.home_score
+        ? "away"
+        : "draw";
+  const predictedOutcome =
+    existing.predicted_home_score > existing.predicted_away_score
+      ? "home"
+      : existing.predicted_away_score > existing.predicted_home_score
+        ? "away"
+        : "draw";
+
+  const winnerMatches = predictedOutcome === actualOutcome;
+  const goalsMatch =
+    existing.predicted_home_score + existing.predicted_away_score ===
+    match.home_score + match.away_score;
+
+  return winnerMatches || goalsMatch ? "partial" : "miss";
+}
+
+const RESULT_TONE_CLASSES = {
+  exact:
+    "border-green-500/40 bg-green-50 dark:border-green-500/30 dark:bg-green-500/10",
+  partial:
+    "border-amber-500/40 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10",
+  miss: "border-black/10 bg-black/[0.04] dark:border-white/15 dark:bg-white/[0.04]",
+} as const;
+
 function TeamLogo({ url }: { url: string | undefined }) {
   if (!url) return null;
   return (
@@ -254,12 +309,15 @@ function MatchCard({
   competitionId: string;
   logoUrlByTeam: Map<string, string>;
 }) {
+  const tone = getResultTone(match, existing);
+  const cardToneClass = tone
+    ? RESULT_TONE_CLASSES[tone]
+    : isLocked
+      ? "border-black/10 bg-white/70 dark:border-white/15 dark:bg-white/[0.02]"
+      : "border-black/10 dark:border-white/15";
+
   return (
-    <li
-      className={`rounded-lg border border-black/10 dark:border-white/15 p-4 ${
-        isLocked ? "bg-white/70 dark:bg-white/[0.02]" : ""
-      }`}
-    >
+    <li className={`rounded-lg border p-4 ${cardToneClass}`}>
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
         className="btn-press -mx-2 -my-1 flex items-center justify-between rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
