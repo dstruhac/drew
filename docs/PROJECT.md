@@ -243,11 +243,20 @@ Uživatel nahlásil dlouhé odezvy. Naměřeno přes `.github/workflows/perf-pro
 **Appka sama rychlá je** — pomalé bylo čekání na databázi, a to hlavně ze
 tří důvodů, které se násobily:
 
-1. **Vercel běžel v USA, databáze v Irsku.** Ověřeno z hlavičky
-   `x-vercel-id` (`iad1` = Washington, `cle1` = Cleveland); region
-   Supabase (`eu-west-1`) potvrdil uživatel z dashboardu. Provoz tedy
-   putoval Česko → USA → Irsko → USA → Česko, a to u každého dotazu.
-   Proto ~0,38 s i na triviální dotaz (na stejném kontinentu 30–50 ms).
+1. **Vercel běžel mimo Evropu, databáze je v Irsku.** Region Supabase
+   (`eu-west-1`) potvrdil uživatel z dashboardu. Hlavní důkaz o vzdálenosti
+   je naměřená latence: ~0,38–0,55 s na úplně triviální dotaz (na stejném
+   kontinentu 30–50 ms), přičemž samotné navázání spojení trvá jen ~40 ms
+   — čas se tedy tráví cestou k databázi, ne připojováním. Provoz putoval
+   Česko → USA → Irsko → USA → Česko, a to u každého dotazu.
+
+   **Pozor na měření regionu (chyba, na kterou jsme narazili 28.8.2026):**
+   `x-vercel-id` u **statické** stránky (`/login`) ukazuje jen nejbližší
+   CDN uzel, ne region serverových funkcí — mění se podle toho, odkud se
+   ptáte (`iad1`, `cle1`, `sfo1`…). Region funkcí se pozná jen na
+   **dynamické** route (v build outputu značená `ƒ`), kde má `x-vercel-id`
+   dvě části: `<CDN uzel>::<region funkce>`. Po nasazení opravy vrací
+   `/auth/callback` hodnotu `sfo1::dub1::…`, tedy funkce běží v Dublinu.
 2. **Dotazy se dělaly ve vlnách za sebou.** Detail soutěže měl tři vlny
    (proxy ověří přihlášení → stránka se zeptá znovu + načte data →
    teprve pak tipy, protože potřebovaly ID zápasů z předchozí vlny).
