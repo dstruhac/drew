@@ -12,6 +12,38 @@
 
 import { pragueWallTimeToUtcIso } from "./scrape-livesport.mjs";
 
+// Hranice AKTUÁLNÍHO kalendářního dne (00:00 -- příští den 00:00,
+// pražský čas) vzhledem k referenceDate. Používá predict-reminders pro
+// "zápasy dnešního dne, na které ještě nemám tip" -- stejný Intl trik
+// jako getPreviousWeekRange výše, jen pro den místo týdne.
+export function getTodayRange(referenceDate = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(referenceDate);
+  const get = (type) => Number(parts.find((p) => p.type === type).value);
+  const year = get("year");
+  const month = get("month");
+  const day = get("day");
+
+  const todayStart = pragueWallTimeToUtcIso(year, month, day, 0, 0);
+
+  const tomorrowMidnightUtcCalendar = new Date(Date.UTC(year, month - 1, day) + 86400000);
+  const todayEnd = pragueWallTimeToUtcIso(
+    tomorrowMidnightUtcCalendar.getUTCFullYear(),
+    tomorrowMidnightUtcCalendar.getUTCMonth() + 1,
+    tomorrowMidnightUtcCalendar.getUTCDate(),
+    0,
+    0,
+  );
+
+  const dateString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  return { dateString, todayStart, todayEnd };
+}
+
 export function getPreviousWeekRange(referenceDate = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Prague",

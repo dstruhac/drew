@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, přidána Premier League)
+## Stav (aktualizováno 2026-08-28, upozornění na nevyplněný tip)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -239,6 +239,11 @@ Hotovo:
   mechanismem jako Chance Liga, žádná změna kódu. 30 zápasů v rozpisu,
   10 zpětně dotažených výsledků. Podrobnosti (ověření `scrape_path`,
   volba názvu) viz sekce "Sledované soutěže" u kroku 5 výše.
+- [~] Upozornění na nevyplněný tip e-mailem — kód hotový (`predict-reminders.mjs`
+  + nová tabulka `prediction_reminders_sent`), čeká na ruční nastavení
+  Gmail App Password uživatelem, teprve pak reálné ověření a zapnutí
+  hodinového rozvrhu. Podrobnosti a odůvodnění rozhodnutí (kanál,
+  časování, souhrn) viz nápad č. 4 v sekci "Naplánované další kroky".
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -758,15 +763,66 @@ z detailu zápasu (seznam tipů všech hráčů) a z `/profil` (vlastní
 nastavení má nově odkaz "Zobrazit veřejný profil →"). Původní `/profil`
 zůstává beze změny — soukromá stránka na úpravu přezdívky.
 
-**4) Upozornění na nevyplněný den** — např. e-mail (uživatel má
-mail z Google OAuth) cca 2 hodiny před prvním zápasem daného dne v
-dané soutěži, pokud na ten den ještě nemá tip. Technicky pravděpodobně
-sdílí infrastrukturu s budoucím importem výsledků (krok 5 v plánu) —
-periodická úloha (`pg_cron` + Supabase Edge Function), která by
-kontrolovala nadcházející zápasy a chybějící tipy a přes nějakou
-e-mailovou službu (např. Resend) poslala zprávu s odkazem zpět do
-appky. Otevřené otázky: e-mail vs. jiný kanál, přesné časování, jestli
-se posílá jednou za den souhrnně, nebo per zápas.
+**4) Upozornění na nevyplněný den — implementováno (28.8.2026), čeká na
+ruční dokončení uživatelem.** Rozhodnuto s uživatelem přes chat +
+`AskUserQuestion`:
+- **Kanál**: e-mail.
+- **Časování**: 2 hodiny před PRVNÍM zápasem dne, na který hráč ještě
+  nemá tip — napříč VŠEMI soutěžemi, které hraje (ne fixní čas jako
+  9:00, uživatel to explicitně upřesnil coby oprava mého původního
+  návrhu).
+- **Souhrn**: i při víc chybějících tipech napříč soutěžemi jen JEDEN
+  e-mail za den, ne jeden per zápas/soutěž.
+
+**Technická volba e-mailové služby (moje, vysvětleno v chatu):**
+zvažován Resend (moje původní představa), ale webovým vyhledáváním
+28.8.2026 ověřeno, že bez vlastní ověřené domény (DNS záznamy) umí
+poslat jen zpátky na účet, kterým se u něj appka zaregistrovala — ne
+kamarádům. Místo placené služby a vlastní domény appka posílá přes
+**Gmail SMTP** z uživatelova vlastního účtu (`nodemailer`, ověřeno
+webovým vyhledáváním: osobní Gmail zvládne 500 e-mailů/den, na
+appku s hrstkou hráčů bohatě stačí). Vyžaduje jen "heslo pro aplikace"
+vygenerované v Google účtu (2FA musí být zapnuté), žádná doména,
+žádný nový placený účet.
+
+**Implementace:**
+- `supabase/migrations/20260828150000_prediction_reminders_sent.sql` —
+  nová tabulka `prediction_reminders_sent` (user_id, reminder_date),
+  čistě interní evidence "komu už dnes bylo posláno", žádná policy pro
+  `authenticated` (appka ji nikde nezobrazuje).
+- `supabase/migrations/20260828160000_competition_participants_service_role_select_grant.sql`
+  — `service_role` dosud nemělo SELECT na `competition_participants`
+  (šestý výskyt stejné třídy chyby jako u matches/competitions/
+  predictions/weekly_badges, viz "Grants" výše) — doplněno rovnou
+  předem, ne až po prvním pádu ostrého běhu.
+- `scripts/sync/lib/reminder-logic.mjs` — čistá, otestovaná logika
+  (`computeMissingByUser`, `shouldSendNow`, `buildReminderEmail`),
+  žádné I/O. `scripts/sync/lib/week-range.mjs` doplněn o `getTodayRange`
+  (hranice dnešního pražského kalendářního dne, stejný Intl trik jako
+  `getPreviousWeekRange`).
+- `scripts/sync/predict-reminders.mjs` — orchestrace: načte
+  participanty/zápasy dneška/tipy/evidenci odeslaného, spočítá komu a
+  co chybí, e-mail adresu dohledá přes Supabase Admin API
+  (`auth.admin.listUsers` — appka e-maily nikde v `profiles`
+  neukládá), pošle a zapíše do evidence.
+- `.github/workflows/predict-reminders.yml` — **zatím jen
+  `workflow_dispatch`** (ruční spuštění), stejná opatrná konvence jako
+  dřív u `sync-fixtures`/`sync-results`: hodinový `schedule` se přidá
+  až po ověřeném ručním běhu s reálnými přihlašovacími údaji.
+
+**Zbývá ruční krok uživatele, než půjde reálně vyzkoušet:**
+1. V Google účtu (tom, ze kterého se mají e-maily posílat) zapnout
+   dvoufázové ověření, pokud ještě není: **myaccount.google.com/security**
+   → "Dvoufázové ověření".
+2. Tamtéž vygenerovat "Heslo pro aplikace":
+   **myaccount.google.com/apppasswords** → zvolit libovolný název
+   (např. "Drew") → Google vygeneruje 16znakové heslo.
+3. V GitHubu repozitáře **github.com/dstruhac/drew/settings/secrets/actions**
+   přidat dva nové "Repository secrets": `GMAIL_USER` (e-mailová adresa
+   toho účtu) a `GMAIL_APP_PASSWORD` (vygenerované heslo z kroku 2).
+4. Po nastavení dá vědět Claude Code session, ta ručně spustí
+   `predict-reminders.yml` a ověří reálné odeslání, teprve pak přidá
+   `schedule` pro automatický běh po hodině.
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
