@@ -1,0 +1,120 @@
+# Pomocný workflow: změří reálné odezvy produkční appky a Supabase.
+#
+# Proč existuje: Claude Code session běží v sandboxu bez přístupu na
+# *.supabase.co i na vercel.app (viz CLAUDE.md, sekce "Síťové omezení"),
+# takže odsud nejde změřit, jak dlouho co trvá. GitHub Actions běží
+# s plným internetem.
+#
+# Zjišťuje hlavně DVĚ věci, na kterých stojí analýza pomalé odezvy:
+#   1. v jakém REGIONU běží Vercel funkce (hlavička x-vercel-id) a kde
+#      leží Supabase (IP adresa -> AWS region) -- když jsou daleko od
+#      sebe, každý dotaz do databáze platí desítky ms navíc, a appka
+#      jich dělá na jedno načtení stránky několik za sebou
+#   2. kolik stojí jedno ověření přihlášení (GET /auth/v1/user) a jeden
+#      obyčejný dotaz do databáze (GET /rest/v1/...)
+#
+# Jen čte (GET), nikam nezapisuje. Spouští se ručně (workflow_dispatch).
+
+name: Perf probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "URL produkční appky"
+        required: false
+        default: "https://drew-pink.vercel.app"
+        type: string
+      repeats:
+        description: "Kolik měření udělat po sobě (první bývá pomalejší kvůli studenému startu)"
+        required: false
+        default: "5"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Změřit odezvy
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APP_URL: ${{ inputs.app_url }}
+          REPEATS: ${{ inputs.repeats }}
+        run: |
+          set -uo pipefail
+
+          TIMING_FMT='dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s http=%{http_code}'
+
+          echo "=========================================="
+          echo " 1. KDE BĚŽÍ VERCEL (region funkce)"
+          echo "=========================================="
+          # x-vercel-id vypadá jako "iad1::abc123" -- prefix je kód
+          # datacentra (iad1 = Washington DC, fra1 = Frankfurt, ...).
+          curl -sS -o /dev/null -D vercel_headers.txt --max-time 30 "${APP_URL}/login" || true
+          grep -iE '^(x-vercel-id|x-vercel-cache|server|age)' vercel_headers.txt || echo "(hlavičky nenalezeny)"
+
+          echo
+          echo "=========================================="
+          echo " 2. KDE BĚŽÍ SUPABASE (IP -> region)"
+          echo "=========================================="
+          SUPA_HOST=$(echo "${SUPABASE_URL}" | sed -E 's#^https?://##; s#/.*##')
+          # Hostname sám o sobě je citlivý (je v něm ID projektu), takže
+          # ho do logu nevypisujeme -- zajímá nás jen IP a region.
+          getent hosts "${SUPA_HOST}" | awk '{print "IP: " $1}' || echo "(DNS se nepodařilo)"
+          SUPA_IP=$(getent hosts "${SUPA_HOST}" | head -1 | awk '{print $1}')
+          if [ -n "${SUPA_IP}" ]; then
+            echo "--- reverzní DNS (často obsahuje kód regionu) ---"
+            getent hosts "${SUPA_IP}" || true
+            host "${SUPA_IP}" 2>/dev/null || true
+            echo "--- whois (hledám region) ---"
+            whois "${SUPA_IP}" 2>/dev/null | grep -iE 'region|country|netname|orgname|descr' | head -10 || echo "(whois nedostupný)"
+          fi
+
+          echo
+          echo "=========================================="
+          echo " 3. CENA JEDNOHO OVĚŘENÍ PŘIHLÁŠENÍ"
+          echo "    GET /auth/v1/user -- tohle appka volá"
+          echo "    v proxy.ts na KAŽDÝ požadavek"
+          echo "=========================================="
+          for i in $(seq 1 "${REPEATS}"); do
+            printf 'pokus %s: ' "$i"
+            curl -sS -o /dev/null --max-time 30 \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -w "${TIMING_FMT}\n" \
+              "${SUPABASE_URL}/auth/v1/user" || true
+          done
+
+          echo
+          echo "=========================================="
+          echo " 4. CENA JEDNOHO DOTAZU DO DATABÁZE"
+          echo "    (zápasy jedné soutěže -- to, co appka"
+          echo "     reálně načítá na detailu soutěže)"
+          echo "=========================================="
+          for i in $(seq 1 "${REPEATS}"); do
+            printf 'pokus %s: ' "$i"
+            curl -sS -o /dev/null --max-time 30 \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -w "${TIMING_FMT}\n" \
+              "${SUPABASE_URL}/rest/v1/matches?select=id,home_team,away_team,kickoff_at,status&competition_id=eq.71f47a2e-ca2a-4902-a51a-fd8a07a01cc2" || true
+          done
+
+          echo
+          echo "=========================================="
+          echo " 5. ODEZVA PRODUKČNÍ APPKY (/login)"
+          echo "    první pokus = studený start funkce"
+          echo "=========================================="
+          for i in $(seq 1 "${REPEATS}"); do
+            printf 'pokus %s: ' "$i"
+            curl -sS -o /dev/null --max-time 30 \
+              -w "${TIMING_FMT}\n" \
+              "${APP_URL}/login" || true
+          done
+
+          echo
+          echo "----- Konec měření -----"
