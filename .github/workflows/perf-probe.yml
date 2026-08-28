@@ -67,11 +67,22 @@ jobs:
           getent hosts "${SUPA_HOST}" | awk '{print "IP: " $1}' || echo "(DNS se nepodařilo)"
           SUPA_IP=$(getent hosts "${SUPA_HOST}" | head -1 | awk '{print $1}')
           if [ -n "${SUPA_IP}" ]; then
-            echo "--- reverzní DNS (často obsahuje kód regionu) ---"
-            getent hosts "${SUPA_IP}" || true
-            host "${SUPA_IP}" 2>/dev/null || true
-            echo "--- whois (hledám region) ---"
-            whois "${SUPA_IP}" 2>/dev/null | grep -iE 'region|country|netname|orgname|descr' | head -10 || echo "(whois nedostupný)"
+            # POZOR: žádný whois -- na GitHub runneru umí viset bez
+            # odpovědi a shodit tím celý běh (stalo se 28.8.2026).
+            # Region se dá spolehlivě zjistit z veřejného seznamu IP
+            # rozsahů AWS, což je obyčejné stažení JSONu s timeoutem.
+            echo "--- region podle AWS IP rozsahů ---"
+            curl -sS --max-time 20 https://ip-ranges.amazonaws.com/ip-ranges.json -o aws-ranges.json \
+              && python3 - "${SUPA_IP}" <<'PY' || echo "(region se nepodařilo určit)"
+          import ipaddress, json, sys
+          ip = ipaddress.ip_address(sys.argv[1])
+          best = None
+          for p in json.load(open("aws-ranges.json"))["prefixes"]:
+              net = ipaddress.ip_network(p["ip_prefix"])
+              if ip in net and (best is None or net.prefixlen > best[0].prefixlen):
+                  best = (net, p)
+          print(f"region: {best[1]['region']}  (rozsah {best[0]}, služba {best[1]['service']})" if best else "IP není v AWS rozsazích")
+          PY
           fi
 
           echo
