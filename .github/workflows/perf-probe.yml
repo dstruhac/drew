@@ -64,8 +64,25 @@ jobs:
           }
 
           echo "=== 1. REGION VERCELU (x-vercel-id) ==="
-          timeout 20 curl -sS -o /dev/null -D h.txt --max-time 15 "${APP_URL}/login" || true
+          # POZOR (poučení z 28.8.2026): NESMÍ se měřit na /login.
+          # /login je staticky předgenerovaná stránka, kterou vrací
+          # nejbližší CDN uzel -- x-vercel-id pak ukazuje jen ten uzel
+          # (mění se podle toho, odkud se ptáme: iad1, cle1, sfo1...),
+          # NE region, ve kterém běží serverové funkce. Na tom se dá
+          # snadno postavit špatný závěr (a stalo se).
+          #
+          # /auth/callback je naopak skutečná funkce (v build outputu
+          # označená "ƒ"). Bez parametru `code` jen přesměruje na /login,
+          # takže volání nic nemění. U funkce má x-vercel-id DVĚ části
+          # oddělené "::" -- první je CDN uzel, druhá region funkce,
+          # tedy to, co nás zajímá (má být dub1 = Dublin = eu-west-1,
+          # stejné místo jako databáze).
+          echo "(měřeno na /auth/callback -- skutečná funkce, ne statická stránka)"
+          timeout 20 curl -sS -o /dev/null -D h.txt --max-time 15 "${APP_URL}/auth/callback" || true
           grep -iE '^(x-vercel-id|x-matched-path|server)' h.txt || echo "(hlavičky nenalezeny)"
+          echo "--- pro srovnání statická /login (ukazuje jen CDN uzel) ---"
+          timeout 20 curl -sS -o /dev/null -D h2.txt --max-time 15 "${APP_URL}/login" || true
+          grep -iE '^x-vercel-id' h2.txt || true
 
           echo
           echo "=== 2. REGION SUPABASE (IP -> AWS region) ==="
