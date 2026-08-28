@@ -785,6 +785,12 @@ appku s hrstkou hráčů bohatě stačí). Vyžaduje jen "heslo pro aplikace"
 vygenerované v Google účtu (2FA musí být zapnuté), žádná doména,
 žádný nový placený účet.
 
+**Poznámka pro budoucnost (uživatel 28.8.2026):** vlastní doména a
+hosting se plánují, ale zatím neurčeno kdy. Až budou, stojí za to
+zvážit přechod z Gmail SMTP zpátky na pořádnou e-mailovou službu
+(např. Resend s ověřenou doménou) — spolehlivější doručování,
+neposílá se pod osobní adresou uživatele. Není potřeba řešit teď.
+
 **Implementace:**
 - `supabase/migrations/20260828150000_prediction_reminders_sent.sql` —
   nová tabulka `prediction_reminders_sent` (user_id, reminder_date),
