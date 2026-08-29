@@ -4,7 +4,7 @@
 
 export type Sport = "hockey" | "football";
 export type CompetitionStatus = "active" | "archived";
-export type MatchStatus = "scheduled" | "live" | "finished";
+export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
 
 export interface Database {
   public: {

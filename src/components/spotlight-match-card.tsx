@@ -13,7 +13,7 @@ export type Match = {
   home_team: string;
   away_team: string;
   kickoff_at: string;
-  status: "scheduled" | "live" | "finished";
+  status: "scheduled" | "live" | "finished" | "postponed";
   home_score: number | null;
   away_score: number | null;
 };

@@ -8,6 +8,7 @@ import {
   BellOff,
   Circle,
   Radio,
+  CalendarOff,
 } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
@@ -228,12 +229,20 @@ export default async function CompetitionDetailPage({
         const upcomingMissing: Match[] = [];
         const upcomingPredicted: Match[] = [];
         const live: Match[] = [];
+        const postponed: Match[] = [];
         const past: Match[] = [];
         for (const match of matches ?? []) {
           const isLocked =
             match.status !== "scheduled" ||
             new Date(match.kickoff_at) <= new Date();
-          if (match.status === "finished") {
+          if (match.status === "postponed") {
+            // Vlastní sekce, ne "Probíhající" -- livesport.cz odložený
+            // zápas vynechá jak z rozpisu, tak z výsledků, dokud
+            // nevyhlásí nový termín (viz results.mjs), takže appka o
+            // něm neví o nic víc než "zatím se neděje" -- na rozdíl od
+            // "Probíhající" tam proto nemá smysl čekat na skóre.
+            postponed.push(match);
+          } else if (match.status === "finished") {
             past.push(match);
           } else if (isLocked) {
             // Buď appka výslovně ví, že zápas právě běží
@@ -354,6 +363,29 @@ export default async function CompetitionDetailPage({
                 </h2>
                 <ul className={MATCH_GRID_CLASSNAME}>
                   {live.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      isLocked={true}
+                      isJoined={isJoined}
+                      existing={ownPredictionByMatch.get(match.id) ?? null}
+                      sport={competition.sport}
+                      competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {postponed.length > 0 && (
+              <section className="flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning/[0.06] p-4">
+                <h2 className="flex items-center gap-1.5 text-sm font-bold text-warning">
+                  <CalendarOff className="h-4 w-4" strokeWidth={2.4} />
+                  Odloženo
+                </h2>
+                <ul className={MATCH_GRID_CLASSNAME}>
+                  {postponed.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -491,7 +523,12 @@ function MatchCard({
   logoUrlByTeam: Map<string, string>;
 }) {
   const tone = getResultTone(match, existing);
-  const cardToneClass = tone ? RESULT_TONE_CLASSES[tone] : "border-border-subtle bg-surface";
+  const cardToneClass =
+    match.status === "postponed"
+      ? "border-warning/40 bg-warning/10"
+      : tone
+        ? RESULT_TONE_CLASSES[tone]
+        : "border-border-subtle bg-surface";
 
   const pointsToneClass =
     tone === "exact" ? "text-success" : tone === "partial" ? "text-warning" : "text-muted-foreground";
@@ -564,11 +601,18 @@ function MatchCard({
               Zápas právě začal, čekáme na aktuální skóre
             </p>
           )}
+          {match.status === "postponed" && (
+            <p className="font-bold text-warning">
+              Zápas je odložen, nový termín zatím není znám
+            </p>
+          )}
           {existing ? (
             <p>
               Váš tip: {existing.predicted_home_score}:
               {existing.predicted_away_score}
             </p>
+          ) : match.status === "postponed" ? (
+            <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
           ) : (
             <p>Nestihl(a) jste tip, zápas je zamčený.</p>
           )}
