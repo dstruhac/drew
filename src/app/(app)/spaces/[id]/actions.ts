@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
 
@@ -45,6 +46,8 @@ export async function leaveCompetition(competitionId: string) {
   revalidatePath(`/spaces/${competitionId}`);
   revalidatePath(`/spaces/${competitionId}/leaderboard`);
   revalidatePath("/spaces");
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
 }
 
 export async function setEmailReminders(competitionId: string, enabled: boolean) {
