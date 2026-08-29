@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -31,32 +32,35 @@ export default function LoginPage() {
     <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-10%,rgba(0,0,0,0.06),transparent_60%)] dark:bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,0.08),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-10%,color-mix(in_srgb,var(--accent)_18%,transparent),transparent_60%)]"
       />
 
-      <div className="w-full max-w-sm rounded-2xl border border-black/10 dark:border-white/15 bg-white/70 dark:bg-white/[0.03] p-8 text-center shadow-sm backdrop-blur-sm">
-        <h1 className="text-4xl font-bold tracking-tight">Drew</h1>
-        <p className="mt-2 text-sm font-medium italic text-black/50 dark:text-white/50">
+      <div className="w-full max-w-sm rounded-[28px] border border-border-subtle bg-surface/80 p-8 text-center shadow-[var(--shadow-card)] backdrop-blur-sm">
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
+          <ChevronDown className="h-6 w-6 text-accent-foreground" strokeWidth={2.6} />
+        </div>
+        <h1 className="text-4xl font-extrabold tracking-tight">Drew</h1>
+        <p className="mt-2 text-sm font-semibold italic text-muted-foreground">
           Tipuj. Boduj. Chečruj kamarády.
         </p>
-        <p className="mt-4 text-sm text-black/60 dark:text-white/60">
+        <p className="mt-4 text-sm font-medium text-muted-foreground">
           Tipovací hra na sportovní zápasy
         </p>
 
-        <div className="mt-8 border-t border-black/10 dark:border-white/10" />
+        <div className="mt-8 border-t border-border-subtle" />
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="btn-press mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-black/10 dark:border-white/15 px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-press mt-8 flex w-full items-center justify-center gap-3 rounded-full border border-border-subtle px-4 py-3 text-sm font-bold hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {isLoading ? "Přesměrovávám…" : "Přihlásit se přes Google"}
         </button>
 
         {error && (
-          <p className="mt-4 text-xs text-red-600 dark:text-red-400">
+          <p className="mt-4 text-xs font-semibold text-danger">
             {error}
           </p>
         )}

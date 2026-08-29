@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { NicknameForm } from "./nickname-form";
 
@@ -23,22 +24,23 @@ export default async function ProfilePage() {
       <header>
         <Link
           href="/spaces"
-          className="btn-press text-sm underline underline-offset-2 hover:no-underline"
+          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
         >
-          ← Zpět na soutěže
+          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+          Zpět na soutěže
         </Link>
-        <h1 className="mt-2 text-xl font-semibold">Nastavení profilu</h1>
-        <p className="text-xs text-black/40 dark:text-white/40">{user.email}</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Nastavení profilu</h1>
+        <p className="text-xs font-semibold text-faint-foreground">{user.email}</p>
         <Link
           href={`/profil/${user.id}`}
-          className="mt-1 inline-block text-xs text-black/40 underline underline-offset-2 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+          className="mt-1 inline-block text-xs font-bold text-accent hover:underline"
         >
           Zobrazit veřejný profil →
         </Link>
       </header>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-sm font-semibold text-danger">
           Profil se nepodařilo načíst: {error.message}
         </p>
       )}
