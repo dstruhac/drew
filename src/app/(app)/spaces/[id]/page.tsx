@@ -7,7 +7,6 @@ import {
   Bell,
   BellOff,
   Clock,
-  CircleCheck,
   Circle,
   Radio,
 } from "lucide-react";
@@ -21,15 +20,20 @@ import { formatRelativeKickoff } from "@/lib/format-kickoff";
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
 // Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
-// všechny" (odsouhlaseno s uživatelem 27.8.2026).
+// všechny" (odsouhlaseno s uživatelem 27.8.2026, přeladěno 29.8.2026).
 //
-// "Nadcházející" se dál dělí na netipované (vždy VŠECHNY, bez limitu --
-// to jsou zápasy, které hráč potřebuje vyplnit) a už tipnuté (sbalené
-// jako "Proběhlé", limit níže) -- odsouhlaseno s uživatelem 28.8.2026,
-// protože pevný limit (dřív 8) míchal obojí dohromady a u anglických
-// lig s 10 zápasy za víkend uřezával i netipované zápasy z pohledu.
+// "Nadcházející" se dál dělí na netipované (vysvícená kartička +
+// pár dalších) a už tipnuté (sbalené jako "Proběhlé", limit níže) --
+// odsouhlaseno s uživatelem 28.8.2026, protože pevný limit (dřív 8)
+// míchal obojí dohromady a u anglických lig s 10 zápasy za víkend
+// uřezával i netipované zápasy z pohledu.
 const PAST_VISIBLE_COUNT = 5;
-const UPCOMING_PREDICTED_VISIBLE_COUNT = 5;
+const UPCOMING_PREDICTED_VISIBLE_COUNT = 3;
+// Kolik dalších netipovaných zápasů appka ukáže VEDLE vysvícené
+// kartičky, než se musí kliknout na "Zobrazit všechny" (odsouhlaseno
+// s uživatelem 29.8.2026 -- dřív se počítalo z velikosti kola, což na
+// širších obrazovkách stejně zabíralo hodně místa).
+const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 
 // Sekce zápasů se na širších obrazovkách zobrazují jako mřížka místo
 // jednoho úzkého sloupce -- redesign 29.8.2026, řeší reálný problém
@@ -96,18 +100,6 @@ export default async function CompetitionDetailPage({
       ?.filter((p) => p.user_id === user?.id)
       .map((p) => [p.match_id, p]),
   );
-
-  // Výchozí počet zobrazených netipovaných zápasů = jedno kolo. Kolo
-  // odehraje každý tým jednou, takže počet zápasů v kole je polovina
-  // počtu týmů v soutěži -- počítáno z reálných dat (ne natvrdo podle
-  // názvu soutěže), ať to funguje i pro budoucí ligy bez zásahu do kódu.
-  // Ověřeno 28.8.2026 přes db-probe.yml: Chance Liga 16 týmů (8
-  // zápasů/kolo), Premier League 20 týmů (10), hokejová extraliga 14
-  // týmů (7).
-  const teamCount = new Set(
-    (matches ?? []).flatMap((m) => [m.home_team, m.away_team]),
-  ).size;
-  const roundSize = teamCount > 1 ? Math.round(teamCount / 2) : UPCOMING_PREDICTED_VISIBLE_COUNT;
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
@@ -263,7 +255,7 @@ export default async function CompetitionDetailPage({
             {hasUpcoming && (
               <section className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-muted-foreground">
-                  Nadcházející
+                  Nadcházející ({upcomingMissing.length + upcomingPredicted.length})
                 </h2>
 
                 {spotlight ? (
@@ -277,7 +269,7 @@ export default async function CompetitionDetailPage({
                     />
                     {restMissing.length > 0 && (
                       <ExpandableList
-                        initialCount={Math.max(roundSize - 1, 1)}
+                        initialCount={UPCOMING_MISSING_EXTRA_VISIBLE_COUNT}
                         listClassName={MATCH_GRID_CLASSNAME}
                         items={restMissing.map((match) => (
                           <MatchCard
@@ -305,7 +297,7 @@ export default async function CompetitionDetailPage({
                 {upcomingPredicted.length > 0 && (
                   <div className="mt-1 flex flex-col gap-3">
                     <h3 className="text-xs font-bold text-faint-foreground">
-                      Už tipnuto
+                      Už tipnuto ({upcomingPredicted.length})
                     </h3>
                     <ExpandableList
                       initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
@@ -513,8 +505,11 @@ function SpotlightMatchCard({
             hour: "2-digit",
             minute: "2-digit",
             timeZone: "Europe/Prague",
-          })}{" "}
-          · {formatRelativeKickoff(match.kickoff_at)}
+          })}
+          {" · "}
+          <span className="font-bold text-accent">
+            {formatRelativeKickoff(match.kickoff_at)}
+          </span>
         </span>
       </div>
 
@@ -604,7 +599,9 @@ function MatchCard({
                 </span>
               ))
             : existing ? (
-                <CircleCheck className="h-[18px] w-[18px] text-success" strokeWidth={2.2} />
+                <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                  Tipnuto
+                </span>
               ) : (
                 <Circle className="h-[18px] w-[18px] text-border-strong" strokeWidth={2.2} />
               )}
