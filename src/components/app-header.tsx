@@ -33,7 +33,7 @@ export async function AppHeader() {
     <div className="border-b border-border-subtle">
       <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3 sm:max-w-5xl sm:px-10">
         <Link
-          href="/spaces"
+          href="/dashboard"
           className="btn-press flex items-center gap-2 transition-opacity hover:opacity-80"
         >
           <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-accent">
