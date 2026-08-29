@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Radio } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
 
 export default async function MatchDetailPage({
@@ -120,6 +121,12 @@ export default async function MatchDetailPage({
             timeStyle: "short",
             timeZone: "Europe/Prague",
           })}
+          {!isLocked && (
+            <span className="font-bold text-accent">
+              {" · "}
+              {formatRelativeKickoff(match.kickoff_at)}
+            </span>
+          )}
         </p>
         {match.status === "finished" && (
           <p className="mt-2 text-lg font-extrabold">

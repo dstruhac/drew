@@ -62,6 +62,20 @@ export function PredictionForm({
     form.requestSubmit();
   }
 
+  // Auto-přeskok na pole hostů (odsouhlaseno s uživatelem 29.8.2026):
+  // hned po zadání PRVNÍ číslice do pole domácích se fokus přesune na
+  // pole hostů -- na mobilu tak jde zadat celý tip bez jediného ťuknutí
+  // navíc. Vědomý kompromis: u vzácného dvouciferného skóre (10+) je
+  // potřeba se po přeskoku ťuknutím vrátit zpátky a dopsat druhou
+  // číslici -- pole hostů samo nikam dál needskakuje.
+  function focusAwayOnFirstDigit(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.value.length !== 1) return;
+    const away = e.target.form?.elements.namedItem(
+      "predicted_away_score",
+    ) as HTMLInputElement | null;
+    away?.focus();
+  }
+
   if (variant === "spotlight") {
     return (
       <form
@@ -78,6 +92,7 @@ export function PredictionForm({
             required
             defaultValue={existing?.predicted_home_score}
             aria-label="Tip skóre domácích"
+            onChange={focusAwayOnFirstDigit}
             onBlur={maybeAutoSave}
             className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
           />
@@ -138,6 +153,7 @@ export function PredictionForm({
         required
         defaultValue={existing?.predicted_home_score}
         aria-label="Tip skóre domácích"
+        onChange={focusAwayOnFirstDigit}
         onBlur={maybeAutoSave}
         className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
