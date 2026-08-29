@@ -901,21 +901,38 @@ rozhodnutí a implementace viz krok 13.
     zobrazuje mezi "Nadcházející" a "Proběhlé" v detailu soutěže i jako
     doplněk hlavičky na detailu zápasu.
 17. [x] Dashboard jako vstupní stránka po přihlášení — viz "Stav" výše.
-18. [ ] **Veřejná marketingová stránka** (odsouhlaseno s uživatelem
-    29.8.2026 přes `AskUserQuestion`) — samostatná stránka, ne jen
-    rozšíření dnešní `/login`. Až bude appka na vlastní doméně
-    (v chatu vybráno `klopi.app`, 29.8.2026 — ještě nekoupená) a bude
-    mít logo, přejde appka i na produkční Google OAuth mód (`AskUserQuestion`
-    29.8.2026 potvrdilo, že appka díky žádosti jen o základní scope
-    nepotřebuje formální Google verifikaci) — Google ale i tak
-    vyžaduje veřejně dostupnou domovskou stránku s popisem appky a
-    odkazem na Zásady ochrany osobních údajů v nastavení OAuth
-    consent screenu. Tahle marketingová stránka má tenhle požadavek
-    splnit zároveň s tím, že appku pořádně představí. **Obsah/copy/
-    vizuál zatím nenavržen** — potřebuje samostatnou konverzaci s
-    uživatelem (možná využít `design` skill na vizuální návrh), než se
-    začne stavět. Zásady ochrany osobních údajů (samostatná stránka)
-    se řeší spolu s tímhle bodem.
+18. [x] **Veřejná marketingová stránka (29.8.2026).** Nejdřív navržena
+    jako klikací design canvas přes `design` skill
+    (https://claude.ai/code/artifact/02038569-751b-4306-a335-6b1cd8641366,
+    desktop + mobilní pohled, stejné barvy/font/zaoblení jako zbytek
+    appky), uživatel návrh schválil beze změn. Implementace:
+    - `src/app/page.tsx` — nová veřejná úvodní stránka (dřív jen
+      přesměrování na `/spaces`, pak na `/dashboard`). Hero s mottem
+      appky, sekce "Co zrovna sledujeme" (reálné tři sledované ligy) a
+      "Jak to funguje" (3 kroky bodování), patička s odkazem na Zásady
+      ochrany osobních údajů. Tlačítka vedou na `/login` — tahle
+      stránka nemá vlastní OAuth logiku, tu má pořád jen `/login`.
+    - `src/app/soukromi/page.tsx` — nová stránka se Zásadami ochrany
+      osobních údajů (Google vyžaduje odkaz na ni v OAuth consent
+      screenu). **Obsahuje placeholder `[KONTAKTNÍ E-MAIL]`** na dvou
+      místech (výmaz/úprava údajů) — appka nemá firemní e-mail, jen
+      uživatelův osobní účet, a jestli ho chce mít veřejně na stránce,
+      je to jeho rozhodnutí. **Čeká na doplnění, než půjde appka do
+      produkčního Google OAuth módu.**
+    - `src/lib/supabase/middleware.ts` — `/` a `/soukromi` přidány do
+      `PUBLIC_PATHS` (dřív jen `/login`+`/auth/callback`). Přihlášený
+      uživatel je z `/` (stejně jako z `/login`) rovnou přesměrován na
+      `/dashboard` — landing stránku tedy reálně uvidí jen nikdy
+      nepřihlášený návštěvník, přesně podle zadání.
+    - `src/components/google-icon.tsx` — vícebarevné Google "G" logo
+      přesunuto sem z `/login`, ať ho sdílí i nová landing stránka.
+
+    **Vědomě odloženo:** appka zatím zůstává v Google OAuth "Testing"
+    módu (viz sekce POC demo výše) — přepnutí na produkční mód je
+    ruční krok v Google Cloud Console, na koupi domény `klopi.app` a
+    na doplnění kontaktního e-mailu do Zásad ochrany osobních údajů.
+    Uživatel avizoval, že se na obsah/vzhled týhle stránky ještě vrátí
+    a bude ji ladit za běhu.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
