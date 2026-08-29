@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
@@ -29,13 +30,16 @@ export async function AppHeader() {
   const initial = profile?.display_name?.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3">
+    <div className="border-b border-border-subtle">
+      <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3 sm:max-w-5xl sm:px-10">
         <Link
           href="/spaces"
-          className="btn-press text-sm font-semibold transition-opacity hover:opacity-70"
+          className="btn-press flex items-center gap-2 transition-opacity hover:opacity-80"
         >
-          Drew
+          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-accent">
+            <ChevronDown className="h-4 w-4 text-accent-foreground" strokeWidth={2.6} />
+          </span>
+          <span className="text-[18px] font-extrabold tracking-tight">Drew</span>
         </Link>
 
         <div className="flex items-center gap-3">
@@ -43,7 +47,7 @@ export async function AppHeader() {
             href="/profil"
             title="Nastavení profilu"
             aria-label="Nastavení profilu"
-            className="btn-press block h-8 w-8 overflow-hidden rounded-full border border-black/10 transition-opacity hover:opacity-80 dark:border-white/15"
+            className="btn-press block h-9 w-9 overflow-hidden rounded-full border border-border-subtle transition-opacity hover:opacity-80"
           >
             {profile?.avatar_url ? (
               // Malá ikona z externí URL (Google) — obyčejný <img>, ať
@@ -55,7 +59,7 @@ export async function AppHeader() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="flex h-full w-full items-center justify-center bg-black/5 text-xs font-medium dark:bg-white/10">
+              <span className="flex h-full w-full items-center justify-center bg-surface-hover text-sm font-bold text-muted-foreground">
                 {initial}
               </span>
             )}
@@ -63,7 +67,7 @@ export async function AppHeader() {
           <form action={signOut}>
             <button
               type="submit"
-              className="btn-press text-xs underline underline-offset-2 hover:no-underline"
+              className="btn-press text-xs font-semibold text-muted-foreground underline underline-offset-2 hover:no-underline"
             >
               Odhlásit se
             </button>
