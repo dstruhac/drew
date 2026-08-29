@@ -1,5 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  ChevronLeft,
+  Trophy,
+  Users,
+  Bell,
+  BellOff,
+  Clock,
+  CircleCheck,
+  Circle,
+  Radio,
+} from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
@@ -17,6 +28,11 @@ const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 // lig s 10 zápasy za víkend uřezával i netipované zápasy z pohledu.
 const PAST_VISIBLE_COUNT = 5;
 const UPCOMING_PREDICTED_VISIBLE_COUNT = 5;
+
+// Sekce zápasů se na širších obrazovkách zobrazují jako mřížka místo
+// jednoho úzkého sloupce -- redesign 29.8.2026, řeší reálný problém
+// nahlášený uživatelem ("hodně zápasů zabírá hodně místa").
+const MATCH_GRID_CLASSNAME = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
 export default async function CompetitionDetailPage({
   params,
@@ -92,48 +108,56 @@ export default async function CompetitionDetailPage({
   const roundSize = teamCount > 1 ? Math.round(teamCount / 2) : UPCOMING_PREDICTED_VISIBLE_COUNT;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
       <header>
         <Link
           href="/spaces"
-          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
+          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
         >
-          ← Soutěže
+          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+          Soutěže
         </Link>
-        <div className="mt-1 flex items-center justify-between">
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            {competition.logo_url && (
+
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10">
+            {competition.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={competition.logo_url}
                 alt=""
-                className="h-8 w-8 rounded bg-white object-contain p-1"
+                className="h-7 w-7 object-contain"
               />
+            ) : (
+              <Trophy className="h-5 w-5 text-accent" strokeWidth={2} />
             )}
-            {competition.name}
-          </h1>
-          <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
+          </span>
+          <h1 className="text-2xl font-extrabold tracking-tight">{competition.name}</h1>
+        </div>
+
+        <div className="mt-2 flex items-center gap-4 pl-[52px] text-xs font-semibold text-muted-foreground">
+          <span className="rounded-full border border-border-subtle px-2 py-0.5">
             {SPORT_LABELS[competition.sport]}
           </span>
+          <span className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" strokeWidth={2.2} />
+            {participants?.length ?? 0} hráč
+            {(participants?.length ?? 0) === 1 ? "" : "ů"}
+          </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
             href={`/spaces/${competition.id}/leaderboard`}
-            className="btn-press inline-block rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
+            className="btn-press rounded-full border border-border-subtle px-4 py-2 text-xs font-bold hover:bg-surface-hover"
           >
             Žebříček →
           </Link>
-
-          <span className="text-xs text-black/40 dark:text-white/40">
-            {participants?.length ?? 0} hráč
-            {(participants?.length ?? 0) === 1 ? "" : "ů"} v soutěži
-          </span>
 
           {isJoined ? (
             <form action={leaveCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
-                className="btn-press rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10"
+                className="btn-press rounded-full border border-border-subtle px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-surface-hover"
               >
                 Opustit soutěž
               </button>
@@ -142,7 +166,7 @@ export default async function CompetitionDetailPage({
             <form action={joinCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
-                className="btn-press rounded-lg bg-black dark:bg-white px-3 py-1.5 text-sm font-medium text-white dark:text-black hover:opacity-90"
+                className="btn-press rounded-full bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
               >
                 Chci hrát
               </button>
@@ -153,9 +177,14 @@ export default async function CompetitionDetailPage({
             <form action={setEmailReminders.bind(null, competition.id, !emailRemindersEnabled)}>
               <button
                 type="submit"
-                className="btn-press rounded-lg border border-black/10 dark:border-white/15 px-3 py-1.5 text-sm font-medium text-black/60 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/10"
+                className="btn-press flex items-center gap-1.5 rounded-full border border-border-subtle px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-surface-hover"
               >
-                {emailRemindersEnabled ? "🔕 Nechci upozornit" : "🔔 Chci upozornit"}
+                {emailRemindersEnabled ? (
+                  <BellOff className="h-3.5 w-3.5" strokeWidth={2.2} />
+                ) : (
+                  <Bell className="h-3.5 w-3.5" strokeWidth={2.2} />
+                )}
+                {emailRemindersEnabled ? "Nechci upozornit" : "Chci upozornit"}
               </button>
             </form>
           )}
@@ -163,14 +192,14 @@ export default async function CompetitionDetailPage({
       </header>
 
       {!isJoined && (
-        <div className="rounded-lg border border-black/10 dark:border-white/15 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
           👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
           tipovat zápasy!
         </div>
       )}
 
       {!matches?.length && (
-        <p className="text-sm text-black/60 dark:text-white/60">
+        <p className="text-sm text-muted-foreground">
           Zatím tu nejsou žádné zápasy.
         </p>
       )}
@@ -205,35 +234,67 @@ export default async function CompetitionDetailPage({
         // (nejnovější výsledek první).
         past.reverse();
 
+        // "Vysvícený" nejbližší zápas (odsouhlaseno s uživatelem
+        // 29.8.2026, viz vizuální návrh): vždy chronologicky nejbližší
+        // netipovaný zápas, zvýrazněný jako velká karta nahoře -- po
+        // zadání tipu se sám přesune do "Už tipnuto" a vysvítí se
+        // další, protože je to prostě první položka už seřazeného
+        // seznamu "Ještě netipováno". Při shodě přesného času výkopu
+        // (víc zápasů začíná úplně stejně) se vybírá náhodně -- appka
+        // je server-rendered, náhoda se tedy spočítá jednou na serveru
+        // při načtení stránky, ne opakovaně v prohlížeči.
+        let spotlight: Match | null = null;
+        let restMissing = upcomingMissing;
+        if (upcomingMissing.length > 0) {
+          const earliestKickoff = upcomingMissing[0].kickoff_at;
+          const candidates = upcomingMissing.filter(
+            (m) => m.kickoff_at === earliestKickoff,
+          );
+          spotlight = candidates[Math.floor(Math.random() * candidates.length)];
+          restMissing = upcomingMissing.filter((m) => m.id !== spotlight!.id);
+        }
+
         const hasUpcoming = upcomingMissing.length > 0 || upcomingPredicted.length > 0;
 
         return (
           <>
             {hasUpcoming && (
-              <section className="flex flex-col gap-3">
-                <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+              <section className="flex flex-col gap-4">
+                <h2 className="text-sm font-bold text-muted-foreground">
                   Nadcházející
                 </h2>
 
-                {upcomingMissing.length > 0 ? (
-                  <ExpandableList
-                    initialCount={roundSize}
-                    items={upcomingMissing.map((match) => (
-                      <MatchCard
-                        key={match.id}
-                        match={match}
-                        isLocked={false}
-                        isJoined={isJoined}
-                        existing={null}
-                        sport={competition.sport}
-                        competitionId={competition.id}
-                        logoUrlByTeam={logoUrlByTeam}
+                {spotlight ? (
+                  <>
+                    <SpotlightMatchCard
+                      match={spotlight}
+                      isJoined={isJoined}
+                      sport={competition.sport}
+                      competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
+                    />
+                    {restMissing.length > 0 && (
+                      <ExpandableList
+                        initialCount={Math.max(roundSize - 1, 1)}
+                        listClassName={MATCH_GRID_CLASSNAME}
+                        items={restMissing.map((match) => (
+                          <MatchCard
+                            key={match.id}
+                            match={match}
+                            isLocked={false}
+                            isJoined={isJoined}
+                            existing={null}
+                            sport={competition.sport}
+                            competitionId={competition.id}
+                            logoUrlByTeam={logoUrlByTeam}
+                          />
+                        ))}
                       />
-                    ))}
-                  />
+                    )}
+                  </>
                 ) : (
                   isJoined && (
-                    <p className="text-sm text-black/50 dark:text-white/50">
+                    <p className="text-sm font-medium text-muted-foreground">
                       ✅ Máš vyplněné tipy na všechny nadcházející zápasy.
                     </p>
                   )
@@ -241,11 +302,12 @@ export default async function CompetitionDetailPage({
 
                 {upcomingPredicted.length > 0 && (
                   <div className="mt-1 flex flex-col gap-3">
-                    <h3 className="text-xs font-semibold text-black/40 dark:text-white/40">
+                    <h3 className="text-xs font-bold text-faint-foreground">
                       Už tipnuto
                     </h3>
                     <ExpandableList
                       initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
+                      listClassName={MATCH_GRID_CLASSNAME}
                       items={upcomingPredicted.map((match) => (
                         <MatchCard
                           key={match.id}
@@ -265,11 +327,12 @@ export default async function CompetitionDetailPage({
             )}
 
             {live.length > 0 && (
-              <section className="flex flex-col gap-3 rounded-xl border border-red-500/30 bg-red-50/60 p-4 dark:border-red-500/20 dark:bg-red-500/[0.06]">
-                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-red-700 dark:text-red-400">
-                  🔴 Probíhající
+              <section className="flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger/[0.06] p-4">
+                <h2 className="flex items-center gap-1.5 text-sm font-bold text-danger">
+                  <Radio className="h-4 w-4" strokeWidth={2.4} />
+                  Probíhající
                 </h2>
-                <ul className="flex flex-col gap-3">
+                <ul className={MATCH_GRID_CLASSNAME}>
                   {live.map((match) => (
                     <MatchCard
                       key={match.id}
@@ -287,12 +350,13 @@ export default async function CompetitionDetailPage({
             )}
 
             {past.length > 0 && (
-              <section className="mt-2 flex flex-col gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-4">
-                <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+              <section className="mt-2 flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-hover p-4">
+                <h2 className="text-sm font-bold text-muted-foreground">
                   Proběhlé
                 </h2>
                 <ExpandableList
                   initialCount={PAST_VISIBLE_COUNT}
+                  listClassName={MATCH_GRID_CLASSNAME}
                   items={past.map((match) => (
                     <MatchCard
                       key={match.id}
@@ -380,18 +444,125 @@ function getResultTone(
 }
 
 const RESULT_TONE_CLASSES = {
-  exact:
-    "border-green-500/40 bg-green-50 dark:border-green-500/30 dark:bg-green-500/10",
-  partial:
-    "border-amber-500/40 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10",
-  miss: "border-black/10 bg-black/[0.04] dark:border-white/15 dark:bg-white/[0.04]",
+  exact: "border-success/40 bg-success/10",
+  partial: "border-warning/40 bg-warning/10",
+  miss: "border-border-subtle bg-surface",
 } as const;
+
+// Krátký, hrubý odhad "za jak dlouho" pro vysvícenou kartičku --
+// appka záměrně neřeší přesné české skloňování ("den"/"dny"/"dní"),
+// stačí orientační odhad.
+function formatRelativeKickoff(kickoffAt: string): string {
+  const diffMs = new Date(kickoffAt).getTime() - Date.now();
+  const diffHours = diffMs / 3_600_000;
+  if (diffHours < 1) return "za chvíli";
+  if (diffHours < 24) return `za ${Math.max(1, Math.round(diffHours))} h`;
+  const diffDays = Math.round(diffHours / 24);
+  return diffDays === 1 ? "zítra" : `za ${diffDays} dní`;
+}
 
 function TeamLogo({ url }: { url: string | undefined }) {
   if (!url) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={url} alt="" className="h-4 w-4 shrink-0 rounded-sm bg-white object-contain p-0.5" />
+  );
+}
+
+function TeamBadge({ url, name }: { url: string | undefined; name: string }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 text-sm font-extrabold text-white">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-8 w-8 object-contain" />
+      ) : (
+        initials
+      )}
+    </span>
+  );
+}
+
+// Vysvícená karta pro chronologicky nejbližší netipovaný zápas --
+// vždy nápadně tmavá bez ohledu na světlý/tmavý režim appky (stejný
+// princip jako červeně laděná sekce "Probíhající"), ať vždy vynikne
+// nad zbytkem stránky.
+function SpotlightMatchCard({
+  match,
+  isJoined,
+  sport,
+  competitionId,
+  logoUrlByTeam,
+}: {
+  match: Match;
+  isJoined: boolean;
+  sport: "hockey" | "football";
+  competitionId: string;
+  logoUrlByTeam: Map<string, string>;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-[26px] bg-[#15171c] p-6 sm:p-8">
+      <div className="pointer-events-none absolute -top-10 -right-10 h-36 w-36 rounded-full bg-accent/25" />
+
+      <div className="relative flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-extrabold tracking-wide text-accent uppercase sm:justify-between">
+        <span className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" strokeWidth={2.4} />
+          Nejbližší zápas
+        </span>
+        <span className="font-semibold text-white/40 normal-case">
+          {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
+            weekday: "short",
+            day: "numeric",
+            month: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Europe/Prague",
+          })}{" "}
+          · {formatRelativeKickoff(match.kickoff_at)}
+        </span>
+      </div>
+
+      <Link
+        href={`/spaces/${competitionId}/matches/${match.id}`}
+        className="relative mt-5 flex items-center justify-center gap-4 sm:gap-10"
+      >
+        <div className="flex flex-col items-center gap-2">
+          <TeamBadge url={logoUrlByTeam.get(match.home_team)} name={match.home_team} />
+          <span className="max-w-[92px] text-center text-[13px] font-bold text-white sm:max-w-none">
+            {match.home_team}
+          </span>
+        </div>
+        <span className="text-sm font-bold text-white/30">vs</span>
+        <div className="flex flex-col items-center gap-2">
+          <TeamBadge url={logoUrlByTeam.get(match.away_team)} name={match.away_team} />
+          <span className="max-w-[92px] text-center text-[13px] font-bold text-white sm:max-w-none">
+            {match.away_team}
+          </span>
+        </div>
+      </Link>
+
+      <div className="relative mt-6">
+        {isJoined ? (
+          <PredictionForm
+            variant="spotlight"
+            sport={sport}
+            competitionId={competitionId}
+            matchId={match.id}
+            existing={null}
+          />
+        ) : (
+          <p className="text-center text-xs font-semibold text-white/50">
+            Nejdřív se do soutěže musíš přihlásit tlačítkem „Chci hrát“ nahoře.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -413,26 +584,18 @@ function MatchCard({
   logoUrlByTeam: Map<string, string>;
 }) {
   const tone = getResultTone(match, existing);
-  const cardToneClass = tone
-    ? RESULT_TONE_CLASSES[tone]
-    : isLocked
-      ? "border-black/10 bg-white/70 dark:border-white/15 dark:bg-white/[0.02]"
-      : "border-black/10 dark:border-white/15";
+  const cardToneClass = tone ? RESULT_TONE_CLASSES[tone] : "border-border-subtle bg-surface";
 
   const pointsToneClass =
-    tone === "exact"
-      ? "text-green-600 dark:text-green-400"
-      : tone === "partial"
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-black/50 dark:text-white/50";
+    tone === "exact" ? "text-success" : tone === "partial" ? "text-warning" : "text-muted-foreground";
 
   return (
-    <li className={`rounded-lg border p-4 ${cardToneClass}`}>
+    <li className={`rounded-[18px] border p-4 ${cardToneClass}`}>
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
-        className="btn-press -mx-2 -my-1 flex items-center justify-between gap-3 rounded-md px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="btn-press -mx-2 -my-1 flex items-center justify-between gap-3 rounded-[12px] px-2 py-1 transition-colors hover:bg-surface-hover"
       >
-        <span className="flex items-center gap-1.5 font-medium">
+        <span className="flex items-center gap-1.5 text-sm font-bold">
           <TeamLogo url={logoUrlByTeam.get(match.home_team)} />
           {match.home_team} – {match.away_team}
           <TeamLogo url={logoUrlByTeam.get(match.away_team)} />
@@ -442,20 +605,17 @@ function MatchCard({
             ? existing?.points !== null &&
               existing?.points !== undefined && (
                 <span
-                  className={`text-lg font-bold leading-none ${pointsToneClass}`}
+                  className={`text-lg font-extrabold leading-none ${pointsToneClass}`}
                 >
                   {existing.points} b.
                 </span>
               )
-            : (
-                <span
-                  className="text-base leading-none"
-                  title={existing ? "Tip zadán" : "Tip zatím nezadán"}
-                >
-                  {existing ? "✅" : "⚪"}
-                </span>
+            : existing ? (
+                <CircleCheck className="h-[18px] w-[18px] text-success" strokeWidth={2.2} />
+              ) : (
+                <Circle className="h-[18px] w-[18px] text-border-strong" strokeWidth={2.2} />
               )}
-          <span className="text-xs text-black/40 dark:text-white/40">
+          <span className="text-[11px] font-semibold text-faint-foreground">
             {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
               dateStyle: "short",
               timeStyle: "short",
@@ -466,22 +626,22 @@ function MatchCard({
       </Link>
 
       {isLocked ? (
-        <div className="mt-2 text-xs text-black/40 dark:text-white/40">
+        <div className="mt-2 text-xs font-semibold text-faint-foreground">
           {match.status === "finished" && (
             <p>
               Konečný výsledek: {match.home_score}:{match.away_score}
             </p>
           )}
           {match.status === "live" && (
-            <p className="font-medium text-red-600 dark:text-red-400">
+            <p className="font-bold text-danger">
               {match.home_score !== null && match.away_score !== null
-                ? `🔴 Právě se hraje: ${match.home_score}:${match.away_score}`
-                : "🔴 Právě se hraje"}
+                ? `Právě se hraje: ${match.home_score}:${match.away_score}`
+                : "Právě se hraje"}
             </p>
           )}
           {match.status === "scheduled" && new Date(match.kickoff_at) <= new Date() && (
-            <p className="font-medium text-red-600 dark:text-red-400">
-              🔴 Zápas právě začal, čekáme na aktuální skóre
+            <p className="font-bold text-danger">
+              Zápas právě začal, čekáme na aktuální skóre
             </p>
           )}
           {existing ? (
@@ -501,7 +661,7 @@ function MatchCard({
           existing={existing}
         />
       ) : (
-        <p className="mt-2 text-xs text-black/40 dark:text-white/40">
+        <p className="mt-2 text-xs font-semibold text-faint-foreground">
           Nejdřív se do soutěže musíte přihlásit tlačítkem „Chci hrát“
           nahoře.
         </p>
