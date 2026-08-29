@@ -55,8 +55,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    const spacesUrl = new URL("/spaces", request.url);
-    return NextResponse.redirect(spacesUrl);
+    const dashboardUrl = new URL("/dashboard", request.url);
+    return NextResponse.redirect(dashboardUrl);
   }
 
   return supabaseResponse;

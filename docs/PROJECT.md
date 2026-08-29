@@ -328,6 +328,23 @@ Hotovo:
   - **Zelená fajfka u "Už tipnuto" nahrazena badge "Tipnuto"** —
     uživatel nahlásil, že fajfka u nadcházejícího (ještě
     nevyhodnoceného) zápasu působila jako "získal(a) jsi body".
+- [x] **Dashboard jako vstupní stránka po přihlášení (29.8.2026)** —
+  `src/app/(app)/dashboard/page.tsx`, nahrazuje dřívější přesměrování
+  na `/spaces` (odsouhlaseno s uživatelem přes `AskUserQuestion`).
+  Tři sekce: vysvícená kartička chronologicky nejbližšího netipovaného
+  zápasu napříč VŠEMI soutěžemi hráče (ne jen jednou soutěží jako na
+  `/spaces/[id]`), "Tvoje soutěže" (jen soutěže, kde je hráč
+  `competition_participants`, s pozicí v žebříčku) a "Sbírka artefaktů"
+  (medaile za vítězství týdne z `weekly_badges`, posbírané napříč
+  soutěžemi — žádná nová databázová tabulka). `/spaces` (přehled/
+  prokliknutí VŠECH soutěží v appce, i těch, do kterých hráč ještě
+  nevstoupil) zůstává dál dostupné přes odkaz "Procházet všechny
+  soutěže" z Dashboardu — nadpis tam přejmenován z "Tvoje soutěže" na
+  "Všechny soutěže", ať nekoliduje s tím, že "Tvoje soutěže" teď vlastní
+  Dashboard. Sdílené komponenty `SpotlightMatchCard`/`TeamBadge`/
+  `TeamLogo` (`src/components/spotlight-match-card.tsx`) a
+  `CompetitionCard` (`src/components/competition-card.tsx`) přesunuty
+  z `/spaces` a `/spaces/[id]`, ať je můžou obě stránky sdílet.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -883,6 +900,22 @@ rozhodnutí a implementace viz krok 13.
     skóre" místo aby zápas tiše spadl mezi "Proběhlé"). Sekce se
     zobrazuje mezi "Nadcházející" a "Proběhlé" v detailu soutěže i jako
     doplněk hlavičky na detailu zápasu.
+17. [x] Dashboard jako vstupní stránka po přihlášení — viz "Stav" výše.
+18. [ ] **Veřejná marketingová stránka** (odsouhlaseno s uživatelem
+    29.8.2026 přes `AskUserQuestion`) — samostatná stránka, ne jen
+    rozšíření dnešní `/login`. Až bude appka na vlastní doméně
+    (v chatu vybráno `klopi.app`, 29.8.2026 — ještě nekoupená) a bude
+    mít logo, přejde appka i na produkční Google OAuth mód (`AskUserQuestion`
+    29.8.2026 potvrdilo, že appka díky žádosti jen o základní scope
+    nepotřebuje formální Google verifikaci) — Google ale i tak
+    vyžaduje veřejně dostupnou domovskou stránku s popisem appky a
+    odkazem na Zásady ochrany osobních údajů v nastavení OAuth
+    consent screenu. Tahle marketingová stránka má tenhle požadavek
+    splnit zároveň s tím, že appku pořádně představí. **Obsah/copy/
+    vizuál zatím nenavržen** — potřebuje samostatnou konverzaci s
+    uživatelem (možná využít `design` skill na vizuální návrh), než se
+    začne stavět. Zásady ochrany osobních údajů (samostatná stránka)
+    se řeší spolu s tímhle bodem.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
