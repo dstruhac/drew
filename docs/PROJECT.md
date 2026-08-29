@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, přidána sekce "Probíhající" pro živé zápasy)
+## Stav (aktualizováno 2026-08-29, dokončen grafický redesign appky)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -254,6 +254,37 @@ Hotovo:
   ověřeno na reálném živém zápase), appka je zobrazí ve vlastní
   červené sekci mezi "Nadcházející" a "Proběhlé". Podrobnosti viz krok
   16 v sekci "Naplánované další kroky".
+- [x] **Grafický redesign appky (29.8.2026)** — appka byla vizuálně jen
+  holé černobílé Tailwind CSS bez zaoblení/pohybu; uživatel chtěl
+  kompletní grafickou proměnu. Postup: nejdřív 3 vizuální směry jako
+  klikací návrh přes Claude Design canvas
+  (https://claude.ai/code/artifact/0e6aff80-f8c9-444a-bd9a-93838267bb43),
+  uživatel vybral "Svěží a čisté" (bílá/krémová, jeden živý zelený
+  akcent, hodně zaoblené karty). Realizace v 5 PR (#63–#67):
+  1. **Design tokeny** (`src/app/globals.css`) — pojmenované proměnné
+     pro barvy, zaoblení, stín, rychlost animací na jednom místě, ať
+     jde paleta později změnit na pár řádcích, ne procházením celé
+     appky. Sémantické barvy (`--success`/`--warning`/`--danger`)
+     záměrně oddělené od `--accent`. Font přepnut z (nikdy reálně
+     nezobrazovaného kvůli přebitému CSS) Geist na Manrope.
+  2. Pilotní obrazovka `/spaces` + hlavička appky.
+  3. **`/spaces/[id]` — "vysvícený" nejbližší zápas**: uživatel
+     nahlásil, že mu na širší obrazovce hodně zápasů zabírá hodně
+     místa. Řešení: chronologicky nejbližší netipovaný zápas je vždy
+     zvýrazněný jako velká karta nahoře (žádná nová DB struktura, je
+     to prostě první položka už seřazeného seznamu; při shodě
+     přesného času výkopu náhodný výběr, spočítaný jednou na
+     serveru). Po tipnutí se sám přesune do "Už tipnuto" a vysvítí se
+     další. Zbytek zápasů (i "Už tipnuto", "Probíhající", "Proběhlé")
+     na širších obrazovkách přechází z jednoho sloupce do mřížky.
+  4. **"Banger" momenty** — konfety (`canvas-confetti`, ~4kB) při
+     první trefě přesného skóre a nové gratulační okno při získání
+     medaile týdne (appka to dřív uměla zvýraznit jen tichým počtem
+     ikonek). Appka si "už jsi to viděl" pamatuje jen v `localStorage`
+     tohohle zařízení, ne v appce/databázi — vědomé zjednodušení.
+  5. Zbytek appky (žebříček, profil, přihlášení) přestylován na
+     stejné tokeny — appka už nikde nepoužívá staré natvrdo zapsané
+     barvy. Emoji nahrazena knihovnou ikon (`lucide-react`).
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
