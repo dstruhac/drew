@@ -198,7 +198,8 @@ Hotovo:
 - [x] Detail zápasu se seznamem tipů všech hráčů — `/spaces/[id]/matches/[matchId]`
 - [x] Sekce "Nadcházející"/"Proběhlé" v detailu soutěže — "Proběhlé" ve
   vlastní šedé kartě, "Nadcházející" dál dělené na "Ještě netipováno"
-  (vždy všechny, bez limitu) a sbalené "Už tipnuto" — viz krok 15
+  a sbalené "Už tipnuto" (oba defaultně omezené, viz krok 15 a ladění
+  appky za běhu výše)
 - [x] Sdílená hlavička appky s fotečkou uživatele
 - [x] Skutečné "přihlášení" (členství) do competition — nepřihlášenému
   hráči appka hned pod hlavičkou soutěže navrhne kliknout na "Chci hrát"
@@ -285,6 +286,30 @@ Hotovo:
   5. Zbytek appky (žebříček, profil, přihlášení) přestylován na
      stejné tokeny — appka už nikde nepoužívá staré natvrdo zapsané
      barvy. Emoji nahrazena knihovnou ikon (`lucide-react`).
+- [x] **Ladění appky za běhu po redesignu (29.8.2026, PR #69–#70)** —
+  drobné UX vychytávky doladěné podle zpětné vazby z reálného
+  používání appky uživatelem:
+  - **Auto-přeskok mezi políčky skóre** (`prediction-form.tsx`) — na
+    mobilu se po zadání první číslice skóre domácích fokus sám
+    přesune do pole hostů. Odsouhlaseno: přeskok hned po 1. číslici
+    (nejrychlejší); u vzácného dvouciferného skóre (10+) se dá
+    ťuknutím vrátit a dopsat druhou číslici.
+  - **Odpočet do výkopu všude** — sdílený formátovač
+    `src/lib/format-kickoff.ts` (dřív jen lokální kopie u vysvícené
+    kartičky, teď i na běžných kartičkách zápasu a v hlavičce detailu
+    zápasu), jen u zápasů, které ještě nezačaly.
+  - **Limity v detailu soutěže přeladěny** (`spaces/[id]/page.tsx`):
+    "Ještě netipováno" defaultně ukazuje vysvícenou kartičku + 3 další
+    zápasy (dřív se počet dalších počítal z velikosti kola — na
+    širších obrazovkách to pořád zabíralo hodně místa), "Už tipnuto"
+    defaultně taky jen 3 (dřív 5). Nadpisy "Nadcházející"/"Už tipnuto"
+    ukazují počet zápasů v závorce. Tlačítko "Zobrazit všechny"
+    (sdílená komponenta `ExpandableList`) zvýrazněné akcentní barvou
+    ve všech sekcích — dřív natvrdo černá/bílá bez design tokenů,
+    přehlídnuto při redesignu.
+  - **Zelená fajfka u "Už tipnuto" nahrazena badge "Tipnuto"** —
+    uživatel nahlásil, že fajfka u nadcházejícího (ještě
+    nevyhodnoceného) zápasu působila jako "získal(a) jsi body".
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
