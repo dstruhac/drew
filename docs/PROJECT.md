@@ -173,7 +173,7 @@ napojení na reálná data/výsledky. Domluveno:
     vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
   - **Stále otevřené, čeká se na e-maily kolegů.**
 
-## Stav (aktualizováno 2026-08-28, přidána Premier League a upozornění na nevyplněný tip)
+## Stav (aktualizováno 2026-08-28, přidána sekce "Probíhající" pro živé zápasy)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -248,6 +248,12 @@ Hotovo:
   (GitHub issue při selhání). Podrobnosti a odůvodnění rozhodnutí
   (kanál, časování, souhrn, opt-in) viz nápad č. 4 v sekci
   "Naplánované další kroky".
+- [x] Sekce "Probíhající" pro zápas, který se právě hraje (28.8.2026) —
+  `sync-results` teď kromě dohraných výsledků zapisuje i `status='live'`
+  + průběžné skóre (zdroj: stránka ligy na livesport.cz bez přípony,
+  ověřeno na reálném živém zápase), appka je zobrazí ve vlastní
+  červené sekci mezi "Nadcházející" a "Proběhlé". Podrobnosti viz krok
+  16 v sekci "Naplánované další kroky".
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -753,6 +759,56 @@ rozhodnutí a implementace viz krok 13.
     (tlačítko "Zobrazit všechny") — kolo je jen výchozí zobrazení,
     nic se natrvalo neschovává, i kdyby hráč zaostal o víc než jedno
     kolo.
+16. [x] Sekce "Probíhající" pro zápas, který se právě hraje —
+    `src/app/(app)/spaces/[id]/page.tsx` +
+    `src/app/(app)/spaces/[id]/matches/[matchId]/page.tsx` (28.8.2026,
+    na žádost uživatele). Dřív zápas po výkopu rovnou spadl mezi
+    "Proběhlé" (protože `isLocked` bralo v úvahu i "kickoff už
+    proběhl", ne jen `status`), takže hráč tam během utkání viděl
+    prázdnou kartičku bez skóre, jako by appka nevěděla, co se děje.
+
+    **Technické zjištění (moje, vysvětleno v chatu):** `matches.status`
+    už od úplně první migrace (`20260824120400_matches.sql`) povoluje
+    hodnotu `'live'` vedle `'scheduled'`/`'finished'` — datový model na
+    "probíhá" měl místo od začátku, jen ho scraper nikdy nevyužil
+    (`sync-fixtures`/`sync-results` zapisovaly jen `scheduled`/
+    `finished`). Ověřeno přes `playwright-probe.yml` na reálném živém
+    zápase (Crystal Palace–Manchester City, 28.8.2026): livesport.cz
+    zápas právě probíhající označí třídou `event__match--live`, ale
+    **jen na stránce ligy bez přípony** (`/{scrape_path}/`) — na
+    `/program/` už po výkopu zmizí, na `/vysledky/` se objeví až po
+    skončení. Appka tedy zatím neměla žádný zdroj dat pro "probíhá".
+
+    **Implementace:**
+    - `scripts/sync/lib/scrape-livesport.mjs` — nová
+      `scrapeLivesportLiveMatches()`, scrapuje stránku ligy bez
+      přípony a vrací jen zápasy s třídou `event__match--live` (external_id
+      + průběžné skóre).
+    - `scripts/sync/results.mjs` — při každém běhu (stejný 30minutový
+      rozvrh jako dosud) navíc zapíše `status='live'` + průběžné skóre
+      pro nalezené živé zápasy. Jen `UPDATE` podle `external_id` (ne
+      upsert/insert) — živý zápas byl v databázi vždy už dřív založen
+      jako nadcházející přes `sync-fixtures`, a `validateResults()` u
+      živého zápasu (na rozdíl od dohraných výsledků) nevyžaduje platný
+      `kickoff_at` (nový parametr `requireKickoffAt: false` v
+      `validate-results.mjs`) — livesport u živého zápasu místo data
+      ukazuje běžící minutu.
+    - Trigger `matches_calculate_points` se spouští jen na
+      `status='finished'`, takže zápis `status='live'` nikdy
+      nepřepočítá body předčasně.
+    - Žádná nová migrace ani změna RLS nebyla potřeba — `MatchStatus`
+      typ (`src/lib/supabase/database.types.ts`) i databázový `check`
+      constraint `'live'` už povolovaly, a viditelnost tipů po výkopu
+      (`predictions_select_own_or_locked`) se řídí `kickoff_at`/`status
+      <> 'scheduled'`, což `'live'` už splňuje stejně jako dřív.
+
+    **UI:** zápas patří do "Probíhající" (červený rámeček, 🔴), když
+    `status === 'live'`, NEBO když `status` je pořád `'scheduled'`, ale
+    `kickoff_at` už uplynul (mezera daná 30minutovým intervalem syncu —
+    appka to přizná hláškou "Zápas právě začal, čekáme na aktuální
+    skóre" místo aby zápas tiše spadl mezi "Proběhlé"). Sekce se
+    zobrazuje mezi "Nadcházející" a "Proběhlé" v detailu soutěže i jako
+    doplněk hlavičky na detailu zápasu.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 

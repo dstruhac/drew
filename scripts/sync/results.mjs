@@ -39,9 +39,17 @@
 // datech (hokejová sezóna v době psaní ještě nezačala, viz
 // docs/IMPORT-ARCHITECTURE.md). Až se objeví první reálný dohraný zápas
 // v prodloužení, ověří se přes playwright-probe a doplní se.
+//
+// Kromě dohraných zápasů se (od 28.8.2026) stejným během doplňuje i
+// status='live' + průběžné skóre u zápasu, který PRÁVĚ probíhá --
+// appka ho pak zobrazí ve vlastní sekci "Probíhající", ne až mezi
+// "Proběhlé" bez skóre. Zdroj je jiná stránka livesport.cz než výsledky
+// (viz scrapeLivesportLiveMatches) -- jen UPDATE podle external_id,
+// nikdy insert (na živém zápase chybí platný kickoff_at, viz
+// validate-results.mjs).
 
 import { createSupabaseClient } from "./lib/supabase-client.mjs";
-import { scrapeLivesportResults } from "./lib/scrape-livesport.mjs";
+import { scrapeLivesportResults, scrapeLivesportLiveMatches } from "./lib/scrape-livesport.mjs";
 import { validateResults } from "./lib/validate-results.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 
@@ -114,6 +122,52 @@ async function main() {
         });
         console.log(`::error::Validace selhala pro ${competition.name}, přeskakuji zápis.`);
         continue;
+      }
+
+      // Živě probíhající zápas -- jiná stránka livesport.cz než výsledky
+      // výše (viz komentář u scrapeLivesportLiveMatches). Vždy se
+      // zkouší, i když finished zápasů teď nepřibylo -- to je běžný
+      // případ (zápas právě začal, ještě neskončil).
+      const live = await scrapeLivesportLiveMatches(competition.scrape_path);
+      if (live.length > 0) {
+        const { ok: liveOk, errors: liveErrors } = validateResults(live, {
+          requireKickoffAt: false,
+        });
+
+        if (!liveOk) {
+          hadFailure = true;
+          await reportFailure({
+            title: `⚠️ sync-results: ${competition.name} — živý zápas nevypadá v pořádku`,
+            body: [
+              `Scrapování živého zápasu ${competition.scrape_source}:${competition.scrape_path} vrátilo data, která neprošla kontrolou rozumnosti — nic se nezapsalo.`,
+              "",
+              "**Chyby:**",
+              ...liveErrors.map((e) => `- ${e}`),
+            ].join("\n"),
+            label,
+          });
+          console.log(`::error::Validace živého zápasu selhala pro ${competition.name}, přeskakuji.`);
+        } else {
+          for (const m of live) {
+            // Jen UPDATE existujícího řádku (podle external_id) -- živý
+            // zápas byl v databázi vždy už dřív založen jako
+            // nadcházející (sync-fixtures), takže tu na rozdíl od
+            // dohraných výsledků výše není potřeba upsert/insert.
+            // .neq("status", "finished") je pojistka proti souběhu se
+            // sekcí výše, kdyby stejný zápas mezitím stihl skončit.
+            const { error: liveUpdateError } = await supabase
+              .from("matches")
+              .update({ status: "live", home_score: m.homeScore, away_score: m.awayScore })
+              .eq("competition_id", competition.id)
+              .eq("external_id", m.externalId)
+              .neq("status", "finished");
+
+            if (liveUpdateError) {
+              throw new Error(`Update živého zápasu selhal: ${liveUpdateError.message}`);
+            }
+          }
+          console.log(`Aktualizován stav ${live.length} živě probíhajícího zápasu/zápasů.`);
+        }
       }
 
       if (withResult.length === 0) {

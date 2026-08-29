@@ -178,21 +178,31 @@ export default async function CompetitionDetailPage({
       {(() => {
         const upcomingMissing: Match[] = [];
         const upcomingPredicted: Match[] = [];
+        const live: Match[] = [];
         const past: Match[] = [];
         for (const match of matches ?? []) {
           const isLocked =
             match.status !== "scheduled" ||
             new Date(match.kickoff_at) <= new Date();
-          if (isLocked) {
+          if (match.status === "finished") {
             past.push(match);
+          } else if (isLocked) {
+            // Buď appka výslovně ví, že zápas právě běží
+            // (status === "live", viz sync-results.mjs), nebo jen uplynul
+            // výkop a ještě nemáme čerstvá data (sync běží jednou za
+            // 30 minut) -- v obou případech patří do "Probíhající", ne
+            // do "Proběhlé" (tam by bez skóre a bez tipu ostatních
+            // vypadal jako chyba).
+            live.push(match);
           } else if (ownPredictionByMatch.has(match.id)) {
             upcomingPredicted.push(match);
           } else {
             upcomingMissing.push(match);
           }
         }
-        // Nejbližší zápas nahoře v obou sekcích: nadcházející vzestupně
-        // (jak přišly z DB), proběhlé sestupně (nejnovější výsledek první).
+        // Nejbližší zápas nahoře ve všech sekcích: nadcházející a
+        // probíhající vzestupně (jak přišly z DB), proběhlé sestupně
+        // (nejnovější výsledek první).
         past.reverse();
 
         const hasUpcoming = upcomingMissing.length > 0 || upcomingPredicted.length > 0;
@@ -251,6 +261,28 @@ export default async function CompetitionDetailPage({
                     />
                   </div>
                 )}
+              </section>
+            )}
+
+            {live.length > 0 && (
+              <section className="flex flex-col gap-3 rounded-xl border border-red-500/30 bg-red-50/60 p-4 dark:border-red-500/20 dark:bg-red-500/[0.06]">
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-red-700 dark:text-red-400">
+                  🔴 Probíhající
+                </h2>
+                <ul className="flex flex-col gap-3">
+                  {live.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      isLocked={true}
+                      isJoined={isJoined}
+                      existing={ownPredictionByMatch.get(match.id) ?? null}
+                      sport={competition.sport}
+                      competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
+                    />
+                  ))}
+                </ul>
               </section>
             )}
 
@@ -438,6 +470,18 @@ function MatchCard({
           {match.status === "finished" && (
             <p>
               Konečný výsledek: {match.home_score}:{match.away_score}
+            </p>
+          )}
+          {match.status === "live" && (
+            <p className="font-medium text-red-600 dark:text-red-400">
+              {match.home_score !== null && match.away_score !== null
+                ? `🔴 Právě se hraje: ${match.home_score}:${match.away_score}`
+                : "🔴 Právě se hraje"}
+            </p>
+          )}
+          {match.status === "scheduled" && new Date(match.kickoff_at) <= new Date() && (
+            <p className="font-medium text-red-600 dark:text-red-400">
+              🔴 Zápas právě začal, čekáme na aktuální skóre
             </p>
           )}
           {existing ? (
