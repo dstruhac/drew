@@ -99,6 +99,25 @@ body {
   font-family: var(--font-sans);
 }
 
+/* "Banger" momenty (redesign 29.8.2026) -- krátká animace, kterou si
+   appka pustí, když hráč poprvé uvidí trefený přesný výsledek nebo
+   vyhrané kolo (viz exact-score-celebration.tsx a
+   badge-celebration-modal.tsx). */
+@keyframes celebrate-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @layer components {
   /* Konzistentní odezva na hover/klik napříč appkou (odsouhlaseno
      27.8.2026) -- tlačítka a odkazy chovající se jako tlačítko lehce

@@ -14,6 +14,7 @@ import {
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
+import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
@@ -603,13 +604,16 @@ function MatchCard({
         <span className="flex shrink-0 flex-col items-end gap-0.5">
           {isLocked
             ? existing?.points !== null &&
-              existing?.points !== undefined && (
+              existing?.points !== undefined &&
+              (tone === "exact" ? (
+                <ExactScoreCelebration matchId={match.id} points={existing.points} />
+              ) : (
                 <span
                   className={`text-lg font-extrabold leading-none ${pointsToneClass}`}
                 >
                   {existing.points} b.
                 </span>
-              )
+              ))
             : existing ? (
                 <CircleCheck className="h-[18px] w-[18px] text-success" strokeWidth={2.2} />
               ) : (
