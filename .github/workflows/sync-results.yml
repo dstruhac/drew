@@ -16,13 +16,29 @@
 # víkendové odpolední zápasy a zápasy končící po půlnoci, aniž by se
 # musel cron ručně přeposouvat kvůli letnímu/zimnímu času (GitHub
 # Actions cron běží vždy v UTC, ne v pražském čase).
+#
+# Minuty 7 a 37 (ne 0 a 30) -- odsouhlaseno 29.8.2026. Uživatel
+# nahlásil, že appka reálně vyhodnocuje zápasy s mnohahodinovým
+# zpožděním (naměřeno 3,5-11 h mezi jednotlivými scheduled běhy misto
+# 30 minut) -- dva zápasy byly kvůli tomu v appce "zaseknuté" (jeden
+# hodiny po výkopu pořád jako 'scheduled', druhý jako 'live' dávno po
+# skončení). Hlavní příčina je zdokumentovaný, v roce 2026 zhoršující
+# se problém se spolehlivostí `schedule:` triggeru napříč celým
+# GitHubem (GitHub Actions Community Discussions #147369, #156282) --
+# to odsud neovlivníme. Jedna věc ovlivnit šla: tenhle cron se přesně
+# na celou/půl hodinu srážel s `predict-reminders.yml` (`0 * * * *`),
+# a GitHub sám doporučuje neplánovat úlohy přesně na celou hodinu,
+# protože je to nejvytíženější okamžik pro spouštění naplánovaných
+# workflow. Posunuto mimo tenhle kolizní bod -- nejde o jistý fix
+# mnohahodinových výpadků, jen o odstranění jednoho zbytečného
+# přitěžujícího faktoru.
 
 name: Sync results
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "7,37 * * * *"
 
 permissions:
   contents: read

@@ -17,13 +17,19 @@
 # Poběží po hodině -- přesný čas prvního chybějícího zápasu se liší
 # hráč od hráče i den ode dne, hodinová granularita cronu stačí (pošle
 # se nejdřív přesně za 2h před kickoffem, nejpozději do hodiny poté).
+#
+# Minuta 12 (ne 0) -- odsouhlaseno 29.8.2026 při ladění spolehlivosti
+# scheduled běhů (viz sync-results.yml): GitHub Actions sám doporučuje
+# neplánovat úlohy přesně na celou hodinu, protože to je nejvytíženější
+# okamžik pro spouštění naplánovaných workflow napříč celým GitHubem --
+# tenhle cron se navíc přesně na :00 srážel i s vlastním sync-results.
 
 name: Predict reminders
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 * * * *"
+    - cron: "12 * * * *"
 
 permissions:
   contents: read
