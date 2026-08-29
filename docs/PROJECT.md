@@ -973,6 +973,28 @@ náhodně, co se stane při víc přesných tipech najednou (víc kartiček
 najednou, nebo jen jedna za den?), a jestli/jak se kartičky liší podle
 sportu/soutěže.
 
+### Nápad: úvodní seznámení s appkou při prvním přihlášení (onboarding, 2026-08-29, nerozpracováno)
+
+Nový uživatel by měl při prvním přihlášení dostat rychlé provedení
+appkou — vysvětlit, jak appka funguje, ne ho pustit rovnou "naslepo".
+Uživatelova představa: **instastory styl** (na sebe navazující
+"slidy"/modální okna, jako story na Instagramu), ne dlouhý text.
+Zatím jen zapsané, **rozebere se, až na to přijde chvíle**.
+
+Navržený obsah (4 kroky, podle zadání uživatele):
+1. přihlas se do soutěže
+2. tipuj výsledky
+3. získávej medaile za vítěze týdne v dané soutěži
+4. získávej kartičky za přesné tipy výsledků (viz nápad výše — závisí
+   na tom, jestli se kartičky vůbec implementují)
+
+Zatím nerozhodnuté/technicky nepromyšlené otázky (k probrání spolu):
+kdy přesně se má zobrazit (opravdu jen úplně první přihlášení, nebo i
+možnost si to pustit znovu později?), jak appka pozná "první
+přihlášení" (nové pole u `profiles`?), jestli jde přeskočit/zavřít
+předčasně, a jestli/jak se obsah liší podle toho, co appka v danou
+chvíli reálně umí (bod 4 dává smysl, jen pokud existují kartičky).
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
