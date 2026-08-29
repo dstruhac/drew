@@ -76,6 +76,14 @@ export function PredictionForm({
     away?.focus();
   }
 
+  // Označení celé hodnoty při vstupu do pole (29.8.2026, na žádost
+  // uživatele): u už vyplněného tipu jde tak rovnou přepsat novou
+  // hodnotou bez ručního mazání -- platí jak při kliknutí/ťuknutí myší,
+  // tak při naskočení fokusu z `focusAwayOnFirstDigit`.
+  function selectAllOnFocus(e: React.FocusEvent<HTMLInputElement>) {
+    e.target.select();
+  }
+
   if (variant === "spotlight") {
     return (
       <form
@@ -93,6 +101,7 @@ export function PredictionForm({
             defaultValue={existing?.predicted_home_score}
             aria-label="Tip skóre domácích"
             onChange={focusAwayOnFirstDigit}
+            onFocus={selectAllOnFocus}
             onBlur={maybeAutoSave}
             className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
           />
@@ -105,6 +114,7 @@ export function PredictionForm({
             required
             defaultValue={existing?.predicted_away_score}
             aria-label="Tip skóre hostů"
+            onFocus={selectAllOnFocus}
             onBlur={maybeAutoSave}
             className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
           />
@@ -154,6 +164,7 @@ export function PredictionForm({
         defaultValue={existing?.predicted_home_score}
         aria-label="Tip skóre domácích"
         onChange={focusAwayOnFirstDigit}
+        onFocus={selectAllOnFocus}
         onBlur={maybeAutoSave}
         className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
@@ -166,6 +177,7 @@ export function PredictionForm({
         required
         defaultValue={existing?.predicted_away_score}
         aria-label="Tip skóre hostů"
+        onFocus={selectAllOnFocus}
         onBlur={maybeAutoSave}
         className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
