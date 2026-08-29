@@ -1,28 +1,102 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Základní barvy plochy a textu. */
+  --background: #faf9f6;
+  --foreground: #15171c;
+
+  /* Karty a další "zvednuté" plochy nad podkladem. */
+  --surface: #ffffff;
+  --surface-hover: #f3f3ee;
+
+  /* Ohraničení. */
+  --border-subtle: #ececE6;
+  --border-strong: #d9dad5;
+
+  /* Odstíny textu -- nahrazují dřívější text-black/60, text-black/40 atd. */
+  --muted-foreground: #767b84;
+  --faint-foreground: #9a9da3;
+
+  /* Hlavní/akcentní barva appky -- JEDINÉ místo, které bude potřeba
+     upravit, až budou barvy appky definitivně rozhodnuté (viz redesign
+     v docs/PROJECT.md). Dnešní hodnota je z vybraného návrhu "Svěží a
+     čisté". */
+  --accent: #16a34a;
+  --accent-foreground: #ffffff;
+
+  /* Sémantické barvy, záměrně ODDĚLENÉ od --accent -- "trefil jsi
+     přesně" musí zůstat zelená i kdyby se --accent později změnil na
+     jinou barvu. Hodnoty odpovídají Tailwindovým amber-600/red-600,
+     které appka už dřív používala pro stejný účel. */
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+
+  /* Zaoblení -- čtyři úrovně od malých čipů po velké "hero" karty. */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+
+  /* Stín karty -- klidový stav a stav při najetí myší/fokusu. */
+  --shadow-card: 0 8px 20px rgb(20 20 20 / 0.05);
+  --shadow-card-hover: 0 6px 16px rgb(0 0 0 / 0.08);
+
+  /* Rychlost/průběh animací -- "fast" pro drobné interakce
+     (btn-press), "base" pro běžné přechody, "celebration" pro banger
+     momenty (viz další krok redesignu). */
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-celebration: 700ms;
+  --ease-standard: ease-out;
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-manrope);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b0e14;
+    --foreground: #f1f2f4;
+
+    --surface: #161b24;
+    --surface-hover: #1c222d;
+
+    --border-subtle: #232a36;
+    --border-strong: #2e3846;
+
+    --muted-foreground: #98a0ac;
+    --faint-foreground: #6c7583;
+
+    --accent: #22c55e;
+    --success: #22c55e;
+    --warning: #fbbf24;
+    --danger: #f87171;
+
+    --shadow-card: 0 8px 20px rgb(0 0 0 / 0.3);
+    --shadow-card-hover: 0 6px 16px rgb(0 0 0 / 0.35);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
 
 @layer components {
@@ -32,10 +106,10 @@ body {
      klávesnicí. */
   .btn-press {
     transition:
-      transform 150ms ease-out,
-      background-color 150ms ease-out,
-      opacity 150ms ease-out,
-      box-shadow 150ms ease-out;
+      transform var(--duration-fast) var(--ease-standard),
+      background-color var(--duration-fast) var(--ease-standard),
+      opacity var(--duration-fast) var(--ease-standard),
+      box-shadow var(--duration-fast) var(--ease-standard);
   }
   .btn-press:active {
     transform: scale(0.96);
@@ -46,16 +120,17 @@ body {
   }
 
   /* Celá karta jako odkaz (seznam soutěží) -- jemně se "nadzvedne" při
-     najetí myší a stiskne při kliknutí. */
+     najetí myší a stiskne při kliknutí. Klidový stín karty (pokud ho
+     má mít) se přidává zvlášť přes `shadow-[var(--shadow-card)]`. */
   .card-lift {
     transition:
-      transform 150ms ease-out,
-      box-shadow 150ms ease-out,
-      background-color 150ms ease-out;
+      transform var(--duration-fast) var(--ease-standard),
+      box-shadow var(--duration-fast) var(--ease-standard),
+      background-color var(--duration-fast) var(--ease-standard);
   }
   .card-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+    box-shadow: var(--shadow-card-hover);
   }
   .card-lift:active {
     transform: translateY(0) scale(0.99);
@@ -70,8 +145,5 @@ body {
   .btn-press:focus-visible,
   .card-lift:focus-visible {
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgb(255 255 255 / 0.35);
-  }
-  .card-lift:hover {
-    box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
   }
 }
