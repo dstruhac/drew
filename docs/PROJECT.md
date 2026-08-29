@@ -947,6 +947,32 @@ skončení POC dema. Zadání zatím jen zapsané, nic se neimplementuje —
 definici "odehraného týdne", chování při vynechání, co všechno z
 gamifikace do appky skutečně chceme, než se začne cokoliv stavět.
 
+**Sběratelské kartičky za přesný tip (2026-08-29, nerozpracováno).**
+Další nápad do stejné gamifikační kategorie, zatím jen zapsaný,
+**rozebere se, až na to přijde chvíle**:
+
+- **Spouštěč**: uživatel trefí přesný výsledek zápasu → "získá"
+  kartičku.
+- **"Banger moment" při dalším přihlášení**: appka mu to neukáže hned
+  po zápase, ale až při jeho dalším přihlášení/návštěvě appky —
+  upozornění (uživatel si to představuje jako modální okno) s
+  tlačítkem, po jeho kliknutí appka odvede uživatele na jeho profil.
+- **Zobrazení na profilu**: kartičky se sbírají a zobrazují na profilu
+  hráče. Nová kartička je tam nejdřív **šedivá** a až nějakým vizuálním
+  efektem se "zbarví" (reveal efekt).
+- **Detail kartičky**: kliknutím na kartičku se otevře modální okno se
+  zvětšeným obrázkem a popiskem.
+- **Obsah kartiček zatím neurčen** — jen příklady k inspiraci, ne
+  rozhodnutí: legendární hráči dané soutěže, nebo předměty spojené se
+  soutěží/klubem (např. "dres Sparta venkovní") s popiskem.
+
+Zatím nerozhodnuté/technicky nepromyšlené otázky (k probrání spolu):
+odkud se vezme sada kartiček a jejich obrázky/popisky (ruční seznam?
+podle competition?), jestli je kartiček konečný počet nebo se losují
+náhodně, co se stane při víc přesných tipech najednou (víc kartiček
+najednou, nebo jen jedna za den?), a jestli/jak se kartičky liší podle
+sportu/soutěže.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
