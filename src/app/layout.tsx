@@ -13,7 +13,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Drew",
+  title: "Klopi",
   description: "Tipovací hra na sportovní zápasy",
 };
 

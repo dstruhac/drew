@@ -1,7 +1,7 @@
 @AGENTS.md
 @docs/PROJECT.md
 
-# Jak pracovat na tomto projektu (Drew)
+# Jak pracovat na tomto projektu (Klopi)
 
 Uživatel je netechnický ("jsem kopyto") — vede ho vlastní preference,
 ne technická zkušenost. Tahle pravidla platí pro každou session, ne

@@ -39,7 +39,7 @@ export async function AppHeader() {
           <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-accent">
             <ChevronDown className="h-4 w-4 text-accent-foreground" strokeWidth={2.6} />
           </span>
-          <span className="text-[18px] font-extrabold tracking-tight">Drew</span>
+          <span className="text-[18px] font-extrabold tracking-tight">Klopi</span>
         </Link>
 
         <div className="flex items-center gap-3">

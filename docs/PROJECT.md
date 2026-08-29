@@ -1,4 +1,4 @@
-# Drew — kontext projektu
+# Klopi — kontext projektu
 
 Živý dokument. Aktualizuje se po každé větší funkci nebo rozhodnutí, ať
 kdokoliv (včetně budoucí Claude Code session) může kdykoliv navázat bez
@@ -10,6 +10,24 @@ repozitářem pracovat.
 Tipovací hra na sportovní zápasy (nejdřív hokej a fotbal) pro malou
 uzavřenou skupinu uživatelů (kolegové, kamarádi). Uživatelé tipují
 skóre zápasů před výkopem, po zápase se jim spočítají body.
+
+### Jméno appky: Klopi (29.8.2026)
+
+Appka se dřív jmenovala jen pracovně "Drew" (podle názvu GitHub
+repozitáře, nikdy to nebylo vědomé rozhodnutí o brandu). Po delším
+brainstormu s uživatelem (hecovací jednoslovné varianty jako
+"Vedle"/"Skoro", jména se skrytým významem jako "Drew"=draw/remíza,
+slangové "-ák"/"-ovka" varianty) padlo finální rozhodnutí na
+**Klopi** — zkrácenina/spojenina z "Klobása + Pivo", tedy věcí, které
+podle uživatele appku a partu kamarádů reálně spojují (sledování
+zápasu spolu). Přejmenováno ve viditelné části appky (titulek
+stránky, hlavička appky, přihlašovací stránka) i v `README.md`.
+
+**Vědomě NEpřejmenováno:** GitHub repozitář (`dstruhac/drew`) a
+produkční Vercel doména (`drew-pink.vercel.app`) zůstávají "Drew" —
+jde o obtížně vratnou změnu (mění URL, dotkla by se Google OAuth
+Authorized origins v Google Cloud Console), takže je to otevřená
+otázka, čeká na rozhodnutí uživatele.
 
 ## Tech stack
 
