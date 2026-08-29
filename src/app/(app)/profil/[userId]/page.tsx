@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
 
@@ -141,16 +142,17 @@ export default async function PublicProfilePage({
     });
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-3xl sm:px-10">
       <header>
         <Link
           href="/spaces"
-          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
+          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
         >
-          ← Soutěže
+          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+          Soutěže
         </Link>
         <div className="mt-2 flex items-center gap-3">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-black/10 dark:border-white/15">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border-subtle">
             {profile.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -159,18 +161,15 @@ export default async function PublicProfilePage({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="flex h-full w-full items-center justify-center bg-black/5 text-lg font-medium dark:bg-white/10">
+              <span className="flex h-full w-full items-center justify-center bg-surface-hover text-lg font-bold text-muted-foreground">
                 {profile.display_name.trim().charAt(0).toUpperCase() || "?"}
               </span>
             )}
           </div>
           <div>
-            <h1 className="text-xl font-semibold">{profile.display_name}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">{profile.display_name}</h1>
             {isOwnProfile && (
-              <Link
-                href="/profil"
-                className="text-xs text-black/40 underline underline-offset-2 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
-              >
+              <Link href="/profil" className="text-xs font-bold text-accent hover:underline">
                 Upravit profil
               </Link>
             )}
@@ -179,7 +178,7 @@ export default async function PublicProfilePage({
       </header>
 
       {rows.length === 0 && (
-        <p className="text-sm text-black/60 dark:text-white/60">
+        <p className="text-sm font-medium text-muted-foreground">
           {isOwnProfile
             ? "Zatím nehraješ žádnou soutěž. Přihlas se do některé na přehledu soutěží."
             : "Tenhle hráč zatím nehraje žádnou soutěž."}
@@ -187,7 +186,7 @@ export default async function PublicProfilePage({
       )}
 
       {rows.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {rows.map(({ competition, standings }) => {
             const rankIndex = standings.findIndex(([uid]) => uid === userId);
             const totals = rankIndex !== -1 ? standings[rankIndex][1] : emptyTotals();
@@ -197,10 +196,10 @@ export default async function PublicProfilePage({
               <li key={competition.id}>
                 <Link
                   href={`/spaces/${competition.id}`}
-                  className="card-lift block rounded-lg border border-black/10 dark:border-white/15 p-4 hover:bg-black/5 dark:hover:bg-white/10"
+                  className="card-lift flex h-full flex-col gap-3 rounded-[22px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)]"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 font-medium">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-bold">
                       {competition.logo_url && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -211,29 +210,34 @@ export default async function PublicProfilePage({
                       )}
                       {competition.name}
                     </span>
-                    <span className="text-xs rounded-full border border-black/10 dark:border-white/15 px-2 py-0.5 text-black/60 dark:text-white/60">
+                    <span className="shrink-0 rounded-full border border-border-subtle px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                       {SPORT_LABELS[competition.sport]}
                     </span>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between">
-                    <p className="text-xs text-black/40 dark:text-white/40">
+                  <div className="flex flex-1 items-end justify-between gap-2">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                       {rankIndex !== -1 ? (
-                        <>
-                          🏆 {rankIndex + 1}. místo z {standings.length}
-                        </>
+                        <span className="flex items-center gap-1">
+                          <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          {rankIndex + 1}. místo z {standings.length}
+                        </span>
                       ) : (
                         "Zatím bez pozice v žebříčku"
                       )}
                       {badgeCount > 0 && (
-                        <span title={`${badgeCount}× vítěz týdne`}>
-                          {" · "}🏅 {badgeCount}
+                        <span
+                          title={`${badgeCount}× vítěz týdne`}
+                          className="flex items-center gap-1 text-accent"
+                        >
+                          <Medal className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          {badgeCount}
                         </span>
                       )}
                     </p>
-                    <div className="text-right">
-                      <span className="font-semibold">{totals.totalPoints} b.</span>
-                      <p className="text-xs text-black/40 dark:text-white/40">
+                    <div className="shrink-0 text-right">
+                      <span className="font-extrabold">{totals.totalPoints} b.</span>
+                      <p className="text-xs font-semibold text-faint-foreground">
                         {totals.scoredCount} z {totals.predictionCount} zápasů
                         {" · "}
                         {totals.exactCount}× přesně

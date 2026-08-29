@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
 
@@ -150,24 +151,25 @@ export default async function LeaderboardPage({
   const weekRangeLabel = formatWeekRange(weekStart, weekEnd);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10">
       <header>
         <Link
           href={`/spaces/${id}`}
-          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
+          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
         >
-          ← {competition.name}
+          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+          {competition.name}
         </Link>
-        <h1 className="mt-1 text-xl font-semibold">Žebříček</h1>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Žebříček</h1>
       </header>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+        <h2 className="text-sm font-bold text-muted-foreground">
           Celkový žebříček
         </h2>
 
         {standings.length === 0 && (
-          <p className="text-sm text-black/60 dark:text-white/60">
+          <p className="text-sm font-medium text-muted-foreground">
             Zatím se do soutěže nikdo nepřihlásil.
           </p>
         )}
@@ -177,30 +179,31 @@ export default async function LeaderboardPage({
             {standings.map((entry, index) => (
               <li
                 key={entry.userId}
-                className="flex items-center justify-between rounded-lg border border-black/10 dark:border-white/15 p-4"
+                className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface p-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-5 text-sm text-black/40 dark:text-white/40">
+                  <span className="w-5 text-sm font-bold text-faint-foreground">
                     {index + 1}.
                   </span>
                   <Link
                     href={`/profil/${entry.userId}`}
-                    className="font-medium hover:underline"
+                    className="font-bold hover:underline"
                   >
                     {entry.displayName}
                   </Link>
                   {(badgeCountByUser.get(entry.userId) ?? 0) > 0 && (
                     <span
                       title={`${badgeCountByUser.get(entry.userId)}× vítěz týdne`}
-                      className="text-xs text-black/60 dark:text-white/60"
+                      className="flex items-center gap-1 text-xs font-bold text-accent"
                     >
-                      🏅 {badgeCountByUser.get(entry.userId)}
+                      <Medal className="h-3.5 w-3.5" strokeWidth={2.2} />
+                      {badgeCountByUser.get(entry.userId)}
                     </span>
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="font-semibold">{entry.totalPoints} b.</span>
-                  <p className="text-xs text-black/40 dark:text-white/40">
+                  <span className="font-extrabold">{entry.totalPoints} b.</span>
+                  <p className="text-xs font-semibold text-faint-foreground">
                     {entry.scoredCount} z {entry.predictionCount} zápasů vyhodnoceno
                     {" · "}
                     {entry.exactCount}× přesně
@@ -214,16 +217,16 @@ export default async function LeaderboardPage({
 
       <section className="flex flex-col gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+          <h2 className="text-sm font-bold text-muted-foreground">
             Týdenní žebříček
           </h2>
-          <p className="text-xs text-black/40 dark:text-white/40">
+          <p className="text-xs font-semibold text-faint-foreground">
             {weekRangeLabel} — vynuluje se po předání medaile na začátku dalšího týdne
           </p>
         </div>
 
         {weekMatchIds.size === 0 ? (
-          <p className="text-sm text-black/60 dark:text-white/60">
+          <p className="text-sm font-medium text-muted-foreground">
             V tomhle týdnu se zatím nehrálo.
           </p>
         ) : (
@@ -231,20 +234,20 @@ export default async function LeaderboardPage({
             {weeklyStandings.map((entry, index) => (
               <li
                 key={entry.userId}
-                className="flex items-center justify-between rounded-lg border border-black/10 dark:border-white/15 p-4"
+                className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface p-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-5 text-sm text-black/40 dark:text-white/40">
+                  <span className="w-5 text-sm font-bold text-faint-foreground">
                     {index + 1}.
                   </span>
                   <Link
                     href={`/profil/${entry.userId}`}
-                    className="font-medium hover:underline"
+                    className="font-bold hover:underline"
                   >
                     {entry.displayName}
                   </Link>
                 </div>
-                <span className="font-semibold">{entry.points} b.</span>
+                <span className="font-extrabold">{entry.points} b.</span>
               </li>
             ))}
           </ol>
