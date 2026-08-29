@@ -101,6 +101,31 @@ export default async function CompetitionDetailPage({
       .map((p) => [p.match_id, p]),
   );
 
+  // Vlastní pozice v žebříčku pod hlavičkou soutěže (odsouhlaseno
+  // s uživatelem 29.8.2026) -- stejný výpočet jako na
+  // /spaces/[id]/leaderboard a na přehledu soutěží, jen z dat, která
+  // tahle stránka už má načtená (žádný nový dotaz navíc).
+  const standings = (participants ?? []).map((p) => ({
+    userId: p.user_id,
+    displayName: p.profiles?.display_name ?? "Neznámý hráč",
+    totalPoints: 0,
+  }));
+  for (const prediction of predictions ?? []) {
+    if (prediction.points === null) continue;
+    const entry = standings.find((e) => e.userId === prediction.user_id);
+    if (entry) entry.totalPoints += prediction.points;
+  }
+  standings.sort(
+    (a, b) =>
+      b.totalPoints - a.totalPoints ||
+      a.displayName.localeCompare(b.displayName, "cs"),
+  );
+  const ownRankIndex = standings.findIndex((e) => e.userId === user?.id);
+  const ownRank =
+    ownRankIndex !== -1
+      ? { rank: ownRankIndex + 1, total: standings.length }
+      : null;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
       <header>
@@ -137,26 +162,23 @@ export default async function CompetitionDetailPage({
             {participants?.length ?? 0} hráč
             {(participants?.length ?? 0) === 1 ? "" : "ů"}
           </span>
+          {ownRank && (
+            <span className="flex items-center gap-1.5">
+              <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
+              {ownRank.rank}. místo z {ownRank.total}
+            </span>
+          )}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
             href={`/spaces/${competition.id}/leaderboard`}
-            className="btn-press rounded-full border border-border-subtle px-4 py-2 text-xs font-bold hover:bg-surface-hover"
+            className="btn-press rounded-full border border-accent/30 bg-accent/5 px-4 py-2 text-xs font-bold text-accent hover:bg-accent/10"
           >
             Žebříček →
           </Link>
 
-          {isJoined ? (
-            <form action={leaveCompetition.bind(null, competition.id)}>
-              <button
-                type="submit"
-                className="btn-press rounded-full border border-border-subtle px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-surface-hover"
-              >
-                Opustit soutěž
-              </button>
-            </form>
-          ) : (
+          {!isJoined && (
             <form action={joinCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
@@ -369,6 +391,20 @@ export default async function CompetitionDetailPage({
           </>
         );
       })()}
+
+      {isJoined && (
+        <form
+          action={leaveCompetition.bind(null, competition.id)}
+          className="mt-4 self-start"
+        >
+          <button
+            type="submit"
+            className="btn-press rounded-full border border-danger/30 bg-danger/5 px-4 py-2 text-xs font-bold text-danger hover:bg-danger/10"
+          >
+            Opustit soutěž
+          </button>
+        </form>
+      )}
     </main>
   );
 }
@@ -599,7 +635,7 @@ function MatchCard({
                 </span>
               ))
             : existing ? (
-                <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
                   Tipnuto
                 </span>
               ) : (
@@ -626,7 +662,7 @@ function MatchCard({
       {isLocked ? (
         <div className="mt-2 text-xs font-semibold text-faint-foreground">
           {match.status === "finished" && (
-            <p>
+            <p className="text-base font-extrabold text-foreground">
               Konečný výsledek: {match.home_score}:{match.away_score}
             </p>
           )}
