@@ -1,4 +1,4 @@
-# Drew
+# Klopi
 
 Tipovací hra na sportovní zápasy (hokej, fotbal) pro malou skupinu uživatelů.
 

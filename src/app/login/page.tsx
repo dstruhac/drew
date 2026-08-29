@@ -39,7 +39,7 @@ export default function LoginPage() {
         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
           <ChevronDown className="h-6 w-6 text-accent-foreground" strokeWidth={2.6} />
         </div>
-        <h1 className="text-4xl font-extrabold tracking-tight">Drew</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight">Klopi</h1>
         <p className="mt-2 text-sm font-semibold italic text-muted-foreground">
           Tipuj. Boduj. Chečruj kamarády.
         </p>
