@@ -16,6 +16,7 @@ import { ExpandableList } from "@/components/expandable-list";
 import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
+import { formatRelativeKickoff } from "@/lib/format-kickoff";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
 
@@ -450,18 +451,6 @@ const RESULT_TONE_CLASSES = {
   miss: "border-border-subtle bg-surface",
 } as const;
 
-// Krátký, hrubý odhad "za jak dlouho" pro vysvícenou kartičku --
-// appka záměrně neřeší přesné české skloňování ("den"/"dny"/"dní"),
-// stačí orientační odhad.
-function formatRelativeKickoff(kickoffAt: string): string {
-  const diffMs = new Date(kickoffAt).getTime() - Date.now();
-  const diffHours = diffMs / 3_600_000;
-  if (diffHours < 1) return "za chvíli";
-  if (diffHours < 24) return `za ${Math.max(1, Math.round(diffHours))} h`;
-  const diffDays = Math.round(diffHours / 24);
-  return diffDays === 1 ? "zítra" : `za ${diffDays} dní`;
-}
-
 function TeamLogo({ url }: { url: string | undefined }) {
   if (!url) return null;
   return (
@@ -625,6 +614,14 @@ function MatchCard({
               timeStyle: "short",
               timeZone: "Europe/Prague",
             })}
+            {!isLocked && (
+              <>
+                {" · "}
+                <span className="font-bold text-accent">
+                  {formatRelativeKickoff(match.kickoff_at)}
+                </span>
+              </>
+            )}
           </span>
         </span>
       </Link>
