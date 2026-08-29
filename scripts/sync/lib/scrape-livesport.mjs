@@ -58,12 +58,16 @@ export function inferYear(month, day, hour, minute, referenceDate) {
   return year;
 }
 
-// Sdílené jádro pro obě stránky livesport.cz (rozpis "/program/" i
-// výsledky "/vysledky/") — obě mají stejné selektory, liší se jen URL a
-// tím, co je pro danou stránku "platný" záznam (rozpis potřebuje platné
-// datum výkopu, výsledky potřebují jen skóre — viz volající funkce níže).
+// Sdílené jádro pro obě stránky livesport.cz (rozpis "/program/",
+// výsledky "/vysledky/" a přehled ligy bez přípony, viz
+// scrapeLivesportLiveMatches níže) — všechny mají stejné selektory, liší
+// se jen URL a tím, co je pro danou stránku "platný" záznam (rozpis
+// potřebuje platné datum výkopu, výsledky/živé zápasy potřebují jen
+// skóre — viz volající funkce níže).
 async function scrapeLivesportRaw(scrapePath, urlSuffix) {
-  const url = `https://www.livesport.cz/${scrapePath}/${urlSuffix}/`;
+  const url = urlSuffix
+    ? `https://www.livesport.cz/${scrapePath}/${urlSuffix}/`
+    : `https://www.livesport.cz/${scrapePath}/`;
   const browser = await chromium.launch();
 
   try {
@@ -85,6 +89,11 @@ async function scrapeLivesportRaw(scrapePath, urlSuffix) {
     return await page.$$eval(".event__match", (els) =>
       els.map((el) => ({
         externalId: el.id || null,
+        // Zápas právě probíhající -- livesport.cz ho označí touhle
+        // třídou (ověřeno přes playwright-probe 28.8.2026 na reálném
+        // živém zápase Crystal Palace-Manchester City). Používá jen
+        // scrapeLivesportLiveMatches níže.
+        isLive: el.classList.contains("event__match--live"),
         dateTimeText:
           el.querySelector(".event__stageTime .wcl-dateContent_eEChT")?.textContent.trim() || null,
         homeTeam:
@@ -147,6 +156,27 @@ export async function scrapeLivesportResults(scrapePath, { referenceDate = new D
       homeTeam: r.homeTeam,
       awayTeam: r.awayTeam,
       kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate),
+      homeScore: parseScore(r.homeScoreText),
+      awayScore: parseScore(r.awayScoreText),
+    }));
+}
+
+// Stránka bez přípony (přehled ligy) — na rozdíl od "/program/" (jen
+// budoucí zápasy) a "/vysledky/" (jen dohrané zápasy) je jediná ze tří,
+// která ukazuje zápas PRÁVĚ PROBÍHAJÍCÍ (ověřeno 28.8.2026 přes
+// playwright-probe na reálném živém zápase -- na "/program/" už zápas
+// po výkopu zmizí, na "/vysledky/" se objeví až po skončení). Vrací jen
+// zápasy s třídou "event__match--live"; ostatní (nadcházející z toho
+// samého přehledu) results.mjs nezajímají, o ty se stará sync-fixtures.
+export async function scrapeLivesportLiveMatches(scrapePath) {
+  const raw = await scrapeLivesportRaw(scrapePath, "");
+
+  return raw
+    .filter((r) => r.isLive && r.externalId && r.homeTeam && r.awayTeam)
+    .map((r) => ({
+      externalId: r.externalId,
+      homeTeam: r.homeTeam,
+      awayTeam: r.awayTeam,
       homeScore: parseScore(r.homeScoreText),
       awayScore: parseScore(r.awayScoreText),
     }));

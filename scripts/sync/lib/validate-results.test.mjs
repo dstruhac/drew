@@ -72,4 +72,20 @@ describe("validateResults", () => {
     expect(ok).toBe(false);
     expect(errors[0]).toMatch(/neplatné skóre hostů/);
   });
+
+  it("with requireKickoffAt: false, accepts a live match without kickoff_at (livesport shows a running minute instead)", () => {
+    const { ok, errors } = validateResults([match({ kickoffAt: null })], {
+      requireKickoffAt: false,
+    });
+    expect(ok).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it("with requireKickoffAt: false, still rejects other broken data (e.g. missing external_id)", () => {
+    const { ok, errors } = validateResults([match({ kickoffAt: null, externalId: null })], {
+      requireKickoffAt: false,
+    });
+    expect(ok).toBe(false);
+    expect(errors[0]).toMatch(/chybí external_id/);
+  });
 });
