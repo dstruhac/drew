@@ -30,7 +30,7 @@ export function ExpandableList({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="btn-press self-start text-xs font-medium text-black/60 transition-colors hover:text-black/90 hover:underline dark:text-white/60 dark:hover:text-white/90"
+          className="btn-press self-start text-xs font-bold text-accent transition-colors hover:underline"
         >
           {expanded ? "Zobrazit méně" : `Zobrazit všechny (${items.length})`}
         </button>
