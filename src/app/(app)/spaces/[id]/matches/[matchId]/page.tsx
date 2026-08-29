@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft, Radio } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { PredictionForm } from "../../prediction-form";
 
@@ -89,11 +90,12 @@ export default async function MatchDetailPage({
       <header>
         <Link
           href={`/spaces/${competition.id}`}
-          className="text-xs text-black/40 dark:text-white/40 transition-colors hover:text-black/70 hover:underline dark:hover:text-white/70"
+          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
         >
-          ← {competition.name}
+          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+          {competition.name}
         </Link>
-        <h1 className="mt-1 flex items-center gap-2 text-xl font-semibold">
+        <h1 className="mt-2 flex items-center gap-2 text-xl font-extrabold tracking-tight">
           {logoUrlByTeam.get(match.home_team) && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -112,7 +114,7 @@ export default async function MatchDetailPage({
             />
           )}
         </h1>
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+        <p className="mt-1 text-sm font-semibold text-muted-foreground">
           {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
             dateStyle: "long",
             timeStyle: "short",
@@ -120,38 +122,40 @@ export default async function MatchDetailPage({
           })}
         </p>
         {match.status === "finished" && (
-          <p className="mt-2 text-lg font-semibold">
+          <p className="mt-2 text-lg font-extrabold">
             Konečný výsledek: {match.home_score}:{match.away_score}
           </p>
         )}
         {match.status === "live" && (
-          <p className="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
+          <p className="mt-2 flex items-center gap-1.5 text-lg font-extrabold text-danger">
+            <Radio className="h-4 w-4" strokeWidth={2.4} />
             {match.home_score !== null && match.away_score !== null
-              ? `🔴 Právě se hraje: ${match.home_score}:${match.away_score}`
-              : "🔴 Právě se hraje"}
+              ? `Právě se hraje: ${match.home_score}:${match.away_score}`
+              : "Právě se hraje"}
           </p>
         )}
         {match.status === "scheduled" && new Date(match.kickoff_at) <= new Date() && (
-          <p className="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
-            🔴 Zápas právě začal, čekáme na aktuální skóre
+          <p className="mt-2 flex items-center gap-1.5 text-lg font-extrabold text-danger">
+            <Radio className="h-4 w-4" strokeWidth={2.4} />
+            Zápas právě začal, čekáme na aktuální skóre
           </p>
         )}
       </header>
 
       <section>
-        <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+        <h2 className="text-sm font-bold text-muted-foreground">
           Váš tip
         </h2>
         {isLocked ? (
           ownPrediction ? (
-            <p className="mt-2 text-sm">
+            <p className="mt-2 text-sm font-semibold">
               {ownPrediction.predicted_home_score}:
               {ownPrediction.predicted_away_score}
               {ownPrediction.points !== null &&
                 ` — získal(a) jste ${ownPrediction.points} b.`}
             </p>
           ) : (
-            <p className="mt-2 text-sm text-black/40 dark:text-white/40">
+            <p className="mt-2 text-sm font-semibold text-faint-foreground">
               Nestihl(a) jste tip, zápas je zamčený.
             </p>
           )
@@ -163,7 +167,7 @@ export default async function MatchDetailPage({
             existing={ownPrediction}
           />
         ) : (
-          <p className="mt-2 text-sm text-black/40 dark:text-white/40">
+          <p className="mt-2 text-sm font-semibold text-faint-foreground">
             Nejdřív se do soutěže musíte přihlásit tlačítkem „Chci hrát“ v
             detailu soutěže.
           </p>
@@ -171,12 +175,12 @@ export default async function MatchDetailPage({
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+        <h2 className="text-sm font-bold text-muted-foreground">
           Tipy hráčů
         </h2>
         {isLocked ? (
           standings.length === 0 ? (
-            <p className="mt-2 text-sm text-black/40 dark:text-white/40">
+            <p className="mt-2 text-sm font-semibold text-faint-foreground">
               Do soutěže se zatím nikdo nepřihlásil.
             </p>
           ) : (
@@ -184,31 +188,31 @@ export default async function MatchDetailPage({
               {standings.map((entry, index) => (
                 <li
                   key={entry.userId}
-                  className="flex items-center justify-between rounded-lg border border-black/10 dark:border-white/15 p-3"
+                  className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-5 text-sm text-black/40 dark:text-white/40">
+                    <span className="w-5 text-sm font-semibold text-faint-foreground">
                       {index + 1}.
                     </span>
                     <Link
                       href={`/profil/${entry.userId}`}
-                      className="font-medium hover:underline"
+                      className="font-bold hover:underline"
                     >
                       {entry.displayName}
                     </Link>
                   </div>
-                  <div className="text-right text-sm">
+                  <div className="text-right text-sm font-semibold">
                     {entry.hasPrediction ? (
                       <>
                         <span>
                           {entry.homeScore}:{entry.awayScore}
                         </span>
-                        <span className="ml-2 text-black/40 dark:text-white/40">
+                        <span className="ml-2 text-faint-foreground">
                           {entry.points ?? 0} b.
                         </span>
                       </>
                     ) : (
-                      <span className="text-black/40 dark:text-white/40">
+                      <span className="text-faint-foreground">
                         bez tipu
                       </span>
                     )}
@@ -218,7 +222,7 @@ export default async function MatchDetailPage({
             </ol>
           )
         ) : (
-          <p className="mt-2 text-sm text-black/40 dark:text-white/40">
+          <p className="mt-2 text-sm font-semibold text-faint-foreground">
             Tipy ostatních hráčů se odemknou po výkopu zápasu.
           </p>
         )}

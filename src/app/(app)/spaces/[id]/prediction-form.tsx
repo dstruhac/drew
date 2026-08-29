@@ -11,6 +11,7 @@ export function PredictionForm({
   competitionId,
   matchId,
   existing,
+  variant = "default",
 }: {
   sport: Sport;
   competitionId: string;
@@ -20,6 +21,10 @@ export function PredictionForm({
     predicted_away_score: number;
     predicted_overtime_flag: boolean | null;
   } | null;
+  /** "spotlight" = větší formulář pro vysvícený nejbližší zápas (na
+   * tmavé kartě, viz MatchesSpotlightCard v page.tsx) -- stejná akce
+   * a auto-save logika, jen jiný vzhled. */
+  variant?: "default" | "spotlight";
 }) {
   const action = submitPrediction.bind(null, sport, competitionId, matchId);
   const [state, formAction, isPending] = useActionState(action, initialState);
@@ -57,6 +62,68 @@ export function PredictionForm({
     form.requestSubmit();
   }
 
+  if (variant === "spotlight") {
+    return (
+      <form
+        ref={formRef}
+        action={formAction}
+        className="flex flex-col items-center gap-4"
+      >
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            inputMode="numeric"
+            name="predicted_home_score"
+            min={0}
+            required
+            defaultValue={existing?.predicted_home_score}
+            aria-label="Tip skóre domácích"
+            onBlur={maybeAutoSave}
+            className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <span className="text-2xl font-extrabold text-white/30">:</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            name="predicted_away_score"
+            min={0}
+            required
+            defaultValue={existing?.predicted_away_score}
+            aria-label="Tip skóre hostů"
+            onBlur={maybeAutoSave}
+            className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
+
+        {sport === "hockey" && (
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
+            <input
+              type="checkbox"
+              name="predicted_overtime_flag"
+              defaultChecked={existing?.predicted_overtime_flag ?? false}
+              onChange={maybeAutoSave}
+            />
+            prodloužení/nájezdy
+          </label>
+        )}
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="btn-press w-full max-w-[220px] rounded-full bg-accent px-6 py-3 text-sm font-extrabold text-accent-foreground disabled:opacity-50 disabled:active:scale-100"
+        >
+          {isPending ? "Ukládám…" : existing ? "Upravit tip" : "Uložit tip"}
+        </button>
+
+        {state.error && (
+          <span className="text-center text-xs font-semibold text-red-300">
+            {state.error}
+          </span>
+        )}
+      </form>
+    );
+  }
+
   return (
     <form
       ref={formRef}
@@ -72,9 +139,9 @@ export function PredictionForm({
         defaultValue={existing?.predicted_home_score}
         aria-label="Tip skóre domácích"
         onBlur={maybeAutoSave}
-        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
+        className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
-      <span className="text-black/40 dark:text-white/40">:</span>
+      <span className="text-faint-foreground">:</span>
       <input
         type="number"
         inputMode="numeric"
@@ -84,11 +151,11 @@ export function PredictionForm({
         defaultValue={existing?.predicted_away_score}
         aria-label="Tip skóre hostů"
         onBlur={maybeAutoSave}
-        className="w-14 rounded-md border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-black/30 dark:focus:ring-white/30"
+        className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
       />
 
       {sport === "hockey" && (
-        <label className="flex items-center gap-1.5 text-xs text-black/60 dark:text-white/60">
+        <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           <input
             type="checkbox"
             name="predicted_overtime_flag"
@@ -102,13 +169,13 @@ export function PredictionForm({
       <button
         type="submit"
         disabled={isPending}
-        className="btn-press rounded-md border border-black/10 dark:border-white/15 px-3 py-1 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:active:scale-100"
+        className="btn-press rounded-[10px] border border-border-subtle px-3 py-1 text-sm font-semibold hover:bg-surface-hover disabled:opacity-50 disabled:active:scale-100"
       >
         {isPending ? "Ukládám…" : existing ? "Upravit tip" : "Uložit tip"}
       </button>
 
       {state.error && (
-        <span className="w-full text-xs text-red-600 dark:text-red-400">
+        <span className="w-full text-xs font-semibold text-danger">
           {state.error}
         </span>
       )}

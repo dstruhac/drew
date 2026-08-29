@@ -9,9 +9,14 @@ import { useState, type ReactNode } from "react";
 export function ExpandableList({
   items,
   initialCount,
+  listClassName = "flex flex-col gap-3",
 }: {
   items: ReactNode[];
   initialCount: number;
+  /** Třídy pro obalující <ul> -- výchozí je svislý seznam, ale na
+   * širších obrazovkách appka místy přechází na mřížku (viz
+   * spaces/[id]/page.tsx). */
+  listClassName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = items.length > initialCount;
@@ -19,7 +24,7 @@ export function ExpandableList({
 
   return (
     <>
-      {visible.length > 0 && <ul className="flex flex-col gap-3">{visible}</ul>}
+      {visible.length > 0 && <ul className={listClassName}>{visible}</ul>}
 
       {hasMore && (
         <button
