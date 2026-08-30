@@ -427,15 +427,18 @@ Hotovo:
   víc lig nestačí (jeden zápas = hokej s prodloužením, druhý fotbal;
   každý navíc z jiné výsledkové stránky).
 
-  **`scripts/sync/random-league.mjs`** (nová `.github/workflows/random-league.yml`,
-  zatím jen `workflow_dispatch` — `schedule` se přidá až po ověřeném
-  ručním běhu, stejná konvence jako u ostatních sync úloh): najde
-  dnešní pražský den, zeptá se, jestli už "Náhodná liga" dnešní zápasy
-  má (idempotence — výběr je náhodný, druhé spuštění stejný den by bez
-  týhle pojistky přidalo jiných 5 zápasů navíc), pak projede celý pool,
-  nascrapuje z každé ligy dnešní zápasy (`scrapeLivesportFixtures`,
-  beze změny) a náhodně vybere 5. Selhání jedné ligy nezastaví celý
-  běh (zbytek poolu pokračuje).
+  **`scripts/sync/random-league.mjs`** (`.github/workflows/random-league.yml`):
+  najde dnešní pražský den, zeptá se, jestli už "Náhodná liga" dnešní
+  zápasy má (idempotence — výběr je náhodný, druhé spuštění stejný den
+  by bez týhle pojistky přidalo jiných 5 zápasů navíc), pak projede
+  celý pool, nascrapuje z každé ligy dnešní zápasy
+  (`scrapeLivesportFixtures`, beze změny) a náhodně vybere 5. Selhání
+  jedné ligy nezastaví celý běh (zbytek poolu pokračuje). **První ruční
+  běh (30.8.2026, po smergování PR #81) ověřen naostro** — z 9
+  kandidátů (fotbal aktivní, hokej mimosezónu, 0 zápasů) vybráno a
+  zapsáno 5: Monako–Marseille, Flamengo–Botafogo RJ, Celta Vigo–Ath.
+  Bilbao, Lazio–FC Janov, Sparta Praha–Slavia Praha. Po ověření zapnut
+  `schedule` (`20 4 * * *`, po `sync-fixtures` a mimo celou/půl hodinu).
 
   **`results.mjs` rozšířeno** o `syncRandomPoolCompetition()` — na
   rozdíl od běžné soutěže (jedno `scrape_path`) se zápasy "Náhodné
