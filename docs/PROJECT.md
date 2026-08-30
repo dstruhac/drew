@@ -1058,6 +1058,37 @@ rozhodnutí a implementace viz krok 13.
     na doplnění kontaktního e-mailu do Zásad ochrany osobních údajů.
     Uživatel avizoval, že se na obsah/vzhled týhle stránky ještě vrátí
     a bude ji ladit za běhu.
+19. [ ] **Spolehlivost `sync-results` (a dalších `schedule:` workflow)
+    — otevřeno, čeká na "jedeme" od uživatele.** Uživatel 30.8.2026
+    nahlásil, že appka pořád nevyhodnocuje zápasy každých 30 minut, jak
+    je nastaveno. Ověřeno na historii běhů `sync-results`
+    (GitHub Actions): i po dřívější opravě (krok výše, PR #78 —
+    přesun mimo celou/půlhodinu) jsou mezery mezi automatickými běhy
+    2–6 hodin místo 30 minut (např. 30.8. 07:21→13:13 = 5 h 52 min,
+    29.8. 15:12→18:46 = 3 h 34 min). Všechny běhy skončily úspěšně
+    (`success`) — příčina není v appce ani síti, je to dál stejný
+    zdokumentovaný, celoplošný problém se spolehlivostí GitHubova
+    `schedule:` triggeru (GitHub Community Discussions #147369,
+    #156282, viz poznámka u PR #78) — přesun mimo kolizní bod ho jen
+    zmírnil, ne vyřešil.
+
+    **Navržené řešení (moje doporučení, 30.8.2026):** nespoléhat na
+    GitHubův vlastní plánovač, ale nechat appku spouštět externí
+    spolehlivější "budík" (např. bezplatná služba cron-job.org), který
+    GitHubu každých 30 minut zvenku řekne "spusť workflow" přes jeho
+    API. Vyžaduje jeden ruční krok uživatele (vygenerovat přístupový
+    token v GitHub nastavení, vložit ho jako tajný údaj do
+    cron-job.org) — jinak nemění nic na appce/datovém modelu.
+
+    **Priorita:** uživatel chce nejdřív vyřešit koupi domény (krok 20
+    níže), tenhle krok počká.
+20. [ ] **Koupě vlastní domény** — další krok v pořadí, zadaný
+    uživatelem 30.8.2026, zatím nerozpracováno (čeká se, až uživatel
+    upřesní, kterou doménu a u koho registrovat). Souvisí s dřívější
+    otevřenou otázkou u kroku 18 (produkční Google OAuth mód čeká mj.
+    na doménu, uvažovaná varianta byla `klopi.app`) a s poznámkou u
+    nápadu č. 4 níže (až bude vlastní doména, zvážit přechod e-mailů
+    z Gmail SMTP na Resend s ověřenou doménou).
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
