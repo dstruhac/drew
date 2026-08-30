@@ -3,6 +3,7 @@ import { Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
+import { competitionFallbackSport } from "@/lib/sport";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
 // odsouhlaseno s uživatelem 29.8.2026 přes AskUserQuestion). Tři
@@ -57,7 +58,7 @@ export default async function DashboardPage() {
       ? supabase
           .from("matches")
           .select(
-            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score",
+            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
           )
           .in("competition_id", competitionIds)
           .eq("status", "scheduled")
@@ -147,7 +148,7 @@ export default async function DashboardPage() {
           <SpotlightMatchCard
             match={spotlightMatch}
             isJoined={true}
-            sport={sportByCompetition.get(spotlightMatch.competition_id) ?? "football"}
+            sport={competitionFallbackSport(sportByCompetition.get(spotlightMatch.competition_id))}
             competitionId={spotlightMatch.competition_id}
             logoUrlByTeam={spotlightLogoMap}
           />

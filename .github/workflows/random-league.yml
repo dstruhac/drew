@@ -1,0 +1,51 @@
+# Jednou denně (brzy ráno) vybere 5 náhodných zápasů z dnešního dne
+# napříč skupinou známých fotbalových a hokejových lig (viz
+# scripts/sync/lib/random-league-pool.mjs) a zapíše je do trvalé
+# soutěže "Náhodná liga". Detaily a odůvodnění viz PROJECT.md.
+#
+# Zatím jen workflow_dispatch (ruční spuštění) — stejná opatrná
+# konvence jako u sync-fixtures/sync-results: hodinový/denní `schedule`
+# se přidá až po prvním ověřeném ručním běhu s reálnými přihlašovacími
+# údaji.
+
+name: Random league
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Cache Chromia pro Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('scripts/sync/package-lock.json') }}
+
+      - name: Nainstalovat závislosti a Chromium
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Spustit random-league
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node random-league.mjs

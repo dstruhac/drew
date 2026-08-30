@@ -345,6 +345,79 @@ Hotovo:
   `TeamLogo` (`src/components/spotlight-match-card.tsx`) a
   `CompetitionCard` (`src/components/competition-card.tsx`) přesunuty
   z `/spaces` a `/spaces/[id]`, ať je můžou obě stránky sdílet.
+- [x] **"Náhodná liga" (30.8.2026)** — nová trvalá soutěž
+  (`sport = 'mixed'`), které se každý den doplní 5 náhodně vybraných
+  zápasů napříč skupinou 13 známých fotbalových a hokejových lig
+  (`scripts/sync/lib/random-league-pool.mjs`). Rozhodnutí s uživatelem
+  přes `AskUserQuestion`/v chatu:
+  - **Zdroj zápasů**: vybraná skupina lig, ne úplně cokoliv z
+    livesport.cz (ověřeno probe workflow 30.8.2026 — denní přehled
+    `/fotbal/` má přes 450 zápasů napříč úplně všemi zeměmi světa,
+    včetně krajských přeborů a mládežnických zápasů — nepoužitelné pro
+    "náhodný, ale poznatelný" zápas). Pool: Chance Liga, Premier
+    League, Bundesliga, La Liga, Serie A, Ligue 1, Niké liga, Brazilská
+    Série A (fotbal) + Tipsport extraliga, NHL, Tipos extraliga, SHL,
+    National League (hokej). Ruská KHL vědomě vynechána (uživatel
+    30.8.2026). Brazilská Série A přidána speciálně kvůli pokrytí
+    evropského léta (červen–půlka srpna), kdy evropský fotbal i hokej
+    mají mimosezónu najednou — ověřeno reálným scrapem, že tou dobou
+    skutečně hraje. Všech 10 nových `scrape_path` hodnot ověřeno
+    přes `playwright-probe.yml` před zapsáním do kódu (ne odhadnuto).
+  - **Model soutěže**: jedna trvalá soutěž s jedním žebříčkem, ne denní
+    reset.
+  - **Míň než 5 zápasů v jeden den** (např. mezinárodní reprezentační
+    pauza) není chyba — appka zapíše, kolik zápasů je, klidně 0.
+
+  **Datový model**: `competitions.sport` rozšířeno o `'mixed'`
+  (`supabase/migrations/20260830090000_random_league.sql`) — signál
+  appce i `sync-results`, že tahle soutěž kombinuje víc lig. Nové
+  sloupce `matches.sport`/`matches.source_scrape_path`, vyplněné JEN u
+  zápasů "Náhodné ligy" (jinak `null`, appka použije sport/scrape_path
+  soutěže jako dřív) — potřeba, protože appka jinak měla sport a
+  scrape_path jen na úrovni competition, což u soutěže kombinující
+  víc lig nestačí (jeden zápas = hokej s prodloužením, druhý fotbal;
+  každý navíc z jiné výsledkové stránky).
+
+  **`scripts/sync/random-league.mjs`** (nová `.github/workflows/random-league.yml`,
+  zatím jen `workflow_dispatch` — `schedule` se přidá až po ověřeném
+  ručním běhu, stejná konvence jako u ostatních sync úloh): najde
+  dnešní pražský den, zeptá se, jestli už "Náhodná liga" dnešní zápasy
+  má (idempotence — výběr je náhodný, druhé spuštění stejný den by bez
+  týhle pojistky přidalo jiných 5 zápasů navíc), pak projede celý pool,
+  nascrapuje z každé ligy dnešní zápasy (`scrapeLivesportFixtures`,
+  beze změny) a náhodně vybere 5. Selhání jedné ligy nezastaví celý
+  běh (zbytek poolu pokračuje).
+
+  **`results.mjs` rozšířeno** o `syncRandomPoolCompetition()` — na
+  rozdíl od běžné soutěže (jedno `scrape_path`) se zápasy "Náhodné
+  ligy" seskupí podle `source_scrape_path` a pro každou skupinu se
+  výsledek dohledá na JEJÍ výsledkové stránce. Zásadní rozdíl oproti
+  běžné soutěži: nikdy se nic nezakládá (jen `UPDATE` podle
+  `external_id`) — `scrapeLivesportResults()` vrací všechny zápasy
+  CELÉ ligy, ne jen těch pár, co appka náhodně vybrala, takže
+  upsert/insert by omylem naimportoval celou ligu do Náhodné ligy.
+
+  **UI**: appka dřív měla `sport` jen na competition (typ `"hockey" |
+  "football"`, používaný mj. pro checkbox "prodloužení/nájezdy" u
+  hokeje). Nově `CompetitionSport` (`"hockey" | "football" | "mixed"`)
+  na competition + `Sport | null` na matches — `MatchCard`/
+  `SpotlightMatchCard` počítají efektivní sport zápasu jako
+  `match.sport ?? competition.sport` (sdílený fallback
+  `src/lib/sport.ts`), takže zbytek appky (barvy karet, formulář tipu)
+  funguje beze změny chování u běžných soutěží a správně se přepíná
+  zápas od zápasu u "Náhodné ligy".
+
+  **Vedlejší zjištění (30.8.2026, k případnému budoucímu kroku):**
+  ověřeno přes probe, že livesport.cz na stránce konkrétního zápasu
+  (`/zapas/.../kurzy/?mid=...`) reálně ukazuje kurzy sázkových kanceláří
+  (1-X-2 desetinná čísla, víc trhů — Over/Under, oba dají gól,
+  double chance...). Uživatel projevil zájem appce doplnit kurzy jako
+  pomoc při tipování. Technicky proveditelné, ale jiný druh scrapování
+  než appka dělá dnes — dnešní scraper stahuje JEDNU stránku za celou
+  ligu a dostane všechny zápasy najednou, kurzy jsou ale jen na
+  stránce KONKRÉTNÍHO zápasu, takže by to vyžadovalo otevřít prohlížeč
+  zvlášť pro každý sledovaný zápas (výrazně dražší na čas/requesty).
+  Neimplementováno, čeká na rozhodnutí jako samostatný krok.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
