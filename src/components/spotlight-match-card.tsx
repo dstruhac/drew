@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { PredictionForm } from "@/app/(app)/spaces/[id]/prediction-form";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
+import type { Sport } from "@/lib/supabase/database.types";
 
 // Sdíleno mezi detailem soutěže (spaces/[id]/page.tsx) a Dashboardem
 // (dashboard/page.tsx, 29.8.2026) -- původně žilo jen v detailu
@@ -16,6 +17,10 @@ export type Match = {
   status: "scheduled" | "live" | "finished" | "postponed";
   home_score: number | null;
   away_score: number | null;
+  // Jen u zápasů z "Náhodné ligy" (competition.sport === "mixed") --
+  // jinak null a appka použije sport soutěže, viz matchSport() v
+  // spaces/[id]/page.tsx.
+  sport?: Sport | null;
 };
 
 export function TeamLogo({ url }: { url: string | undefined }) {
@@ -63,6 +68,10 @@ export function SpotlightMatchCard({
   competitionId: string;
   logoUrlByTeam: Map<string, string>;
 }) {
+  // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
+  // každý zápas zvlášť -- jinak je match.sport null a bere se sport
+  // soutěže, jak appka dělala vždycky.
+  const effectiveSport = match.sport ?? sport;
   return (
     <div className="relative overflow-hidden rounded-[26px] bg-[#15171c] p-6 sm:p-8">
       <div className="pointer-events-none absolute -top-10 -right-10 h-36 w-36 rounded-full bg-accent/25" />
@@ -111,7 +120,7 @@ export function SpotlightMatchCard({
         {isJoined ? (
           <PredictionForm
             variant="spotlight"
-            sport={sport}
+            sport={effectiveSport}
             competitionId={competitionId}
             matchId={match.id}
             existing={null}

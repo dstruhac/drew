@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ChevronRight, Trophy } from "lucide-react";
-import type { Sport } from "@/lib/supabase/database.types";
+import type { CompetitionSport } from "@/lib/supabase/database.types";
 
-const SPORT_LABELS: Record<Sport, string> = {
+const SPORT_LABELS: Record<CompetitionSport, string> = {
   hockey: "Hokej",
   football: "Fotbal",
+  mixed: "Mix",
 };
 
 // Sdíleno mezi /spaces (přehled všech soutěží) a Dashboardem
@@ -17,7 +18,7 @@ export function CompetitionCard({
   competition: {
     id: string;
     name: string;
-    sport: Sport;
+    sport: CompetitionSport;
     logo_url: string | null;
     points_exact: number;
     points_winner: number;

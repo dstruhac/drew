@@ -4,6 +4,7 @@ import { CalendarOff, ChevronLeft, Radio } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
+import { competitionFallbackSport } from "@/lib/sport";
 
 export default async function MatchDetailPage({
   params,
@@ -30,7 +31,7 @@ export default async function MatchDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
       )
       .eq("id", matchId)
       .eq("competition_id", id)
@@ -179,7 +180,7 @@ export default async function MatchDetailPage({
           )
         ) : isJoined ? (
           <PredictionForm
-            sport={competition.sport}
+            sport={match.sport ?? competitionFallbackSport(competition.sport)}
             competitionId={competition.id}
             matchId={match.id}
             existing={ownPrediction}

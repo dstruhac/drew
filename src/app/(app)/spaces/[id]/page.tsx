@@ -21,8 +21,9 @@ import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
+import { competitionFallbackSport } from "@/lib/sport";
 
-const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal" } as const;
+const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
 
 // Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
 // všechny" (odsouhlaseno s uživatelem 27.8.2026, přeladěno 29.8.2026).
@@ -77,7 +78,7 @@ export default async function CompetitionDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
       )
       .eq("competition_id", id)
       .order("kickoff_at", { ascending: true }),
@@ -298,7 +299,7 @@ export default async function CompetitionDetailPage({
                     <SpotlightMatchCard
                       match={spotlight}
                       isJoined={isJoined}
-                      sport={competition.sport}
+                      sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
                     />
@@ -313,7 +314,7 @@ export default async function CompetitionDetailPage({
                             isLocked={false}
                             isJoined={isJoined}
                             existing={null}
-                            sport={competition.sport}
+                            sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             logoUrlByTeam={logoUrlByTeam}
                           />
@@ -344,7 +345,7 @@ export default async function CompetitionDetailPage({
                           isLocked={false}
                           isJoined={isJoined}
                           existing={ownPredictionByMatch.get(match.id) ?? null}
-                          sport={competition.sport}
+                          sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           logoUrlByTeam={logoUrlByTeam}
                         />
@@ -369,7 +370,7 @@ export default async function CompetitionDetailPage({
                       isLocked={true}
                       isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
-                      sport={competition.sport}
+                      sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
                     />
@@ -392,7 +393,7 @@ export default async function CompetitionDetailPage({
                       isLocked={true}
                       isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
-                      sport={competition.sport}
+                      sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
                     />
@@ -416,7 +417,7 @@ export default async function CompetitionDetailPage({
                       isLocked={true}
                       isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
-                      sport={competition.sport}
+                      sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
                     />
@@ -522,6 +523,10 @@ function MatchCard({
   competitionId: string;
   logoUrlByTeam: Map<string, string>;
 }) {
+  // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
+  // každý zápas zvlášť -- jinak je match.sport null a bere se sport
+  // předaný z competition, jak appka dělala vždycky.
+  const effectiveSport = match.sport ?? sport;
   const tone = getResultTone(match, existing);
   const cardToneClass =
     match.status === "postponed"
@@ -619,7 +624,7 @@ function MatchCard({
         </div>
       ) : isJoined ? (
         <PredictionForm
-          sport={sport}
+          sport={effectiveSport}
           competitionId={competitionId}
           matchId={match.id}
           existing={existing}
