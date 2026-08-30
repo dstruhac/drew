@@ -393,7 +393,7 @@ export default async function CompetitionDetailPage({
                       isLocked={true}
                       isJoined={isJoined}
                       existing={ownPredictionByMatch.get(match.id) ?? null}
-                      sport={competition.sport}
+                      sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
                     />
