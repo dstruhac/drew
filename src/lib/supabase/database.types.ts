@@ -8,7 +8,7 @@ export type Sport = "hockey" | "football";
 // jako signál appce/sync-results, že jde o tenhle zvláštní případ.
 export type CompetitionSport = Sport | "mixed";
 export type CompetitionStatus = "active" | "archived";
-export type MatchStatus = "scheduled" | "live" | "finished";
+export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
 
 export interface Database {
   public: {

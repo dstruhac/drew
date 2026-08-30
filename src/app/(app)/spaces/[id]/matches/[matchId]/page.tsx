@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Radio } from "lucide-react";
+import { CalendarOff, ChevronLeft, Radio } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
@@ -148,6 +148,12 @@ export default async function MatchDetailPage({
             Zápas právě začal, čekáme na aktuální skóre
           </p>
         )}
+        {match.status === "postponed" && (
+          <p className="mt-2 flex items-center gap-1.5 text-lg font-extrabold text-warning">
+            <CalendarOff className="h-4 w-4" strokeWidth={2.4} />
+            Zápas je odložen, nový termín zatím není znám
+          </p>
+        )}
       </header>
 
       <section>
@@ -161,6 +167,11 @@ export default async function MatchDetailPage({
               {ownPrediction.predicted_away_score}
               {ownPrediction.points !== null &&
                 ` — získal(a) jste ${ownPrediction.points} b.`}
+            </p>
+          ) : match.status === "postponed" ? (
+            <p className="mt-2 text-sm font-semibold text-faint-foreground">
+              Zatím jste nestihl(a) zadat tip — půjde znovu, jakmile appka
+              zachytí nový termín.
             </p>
           ) : (
             <p className="mt-2 text-sm font-semibold text-faint-foreground">

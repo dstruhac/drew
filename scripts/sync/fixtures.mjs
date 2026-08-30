@@ -73,7 +73,13 @@ async function main() {
         kickoff_at: m.kickoffAt,
         ...(m.homeScore != null && m.awayScore != null
           ? { home_score: m.homeScore, away_score: m.awayScore, status: "finished" }
-          : {}),
+          // Explicitní 'scheduled' (ne jen necháno na sloupcovém
+          // výchozím stavu) -- 29.8.2026, aby se dřív odložený zápas
+          // (status='postponed', viz results.mjs) sám odblokoval, jakmile
+          // se znovu objeví v rozpisu s novým termínem. Bez tohohle by
+          // upsert při konfliktu status vůbec netknul a zápas by zůstal
+          // navždy označený jako odložený i po vyhlášení nového termínu.
+          : { status: "scheduled" }),
       }));
 
       const { error: upsertError } = await supabase
