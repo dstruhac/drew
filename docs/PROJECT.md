@@ -345,6 +345,55 @@ Hotovo:
   `TeamLogo` (`src/components/spotlight-match-card.tsx`) a
   `CompetitionCard` (`src/components/competition-card.tsx`) přesunuty
   z `/spaces` a `/spaces/[id]`, ať je můžou obě stránky sdílet.
+- [x] **Vyhodnocování zápasů: prošetřena a částečně opravena
+  nespolehlivost `sync-results` (29.8.2026, PR #78)** — uživatel
+  nahlásil, že appka vyhodnocuje zápasy s velkým zpožděním. Ověřeno na
+  historii běhů: mezery mezi jednotlivými automatickými spuštěními
+  byly 3,5–11 hodin místo nastavených 30 minut, dva zápasy zůstaly
+  zaseknuté ve špatném stavu hodiny po výkopu. Hlavní příčina je
+  zdokumentovaný, celoplošně se zhoršující problém se spolehlivostí
+  GitHub Actions `schedule:` triggerů (mimo dosah tohohle repa) — z
+  toho šlo opravit jen to, že `sync-results` (`*/30 * * * *`) a
+  `predict-reminders` (`0 * * * *`) se srážely přesně v celou/půl
+  hodinu, což GitHub sám doporučuje nedělat (nejvytíženější okamžik
+  pro spouštění naplánovaných úloh napříč celým GitHubem). Přeladěno
+  na `7,37 * * * *` / `12 * * * *`. Nemění chování appky ani datový
+  model, smergováno rovnou bez čekání na schválení.
+- [x] **Podpora pro odložené zápasy (29.8.2026)** — při ručním
+  spuštění `sync-results` kvůli bodu výše se navíc našel druhý,
+  nesouvisející reálný zápas (Bohemians – Mladá Boleslav, Chance
+  Liga), zaseknutý jako `scheduled` i 6+ hodin po výkopu a chybějící
+  jak na `/vysledky/`, tak na `/program/` livesport.cz — uživatel
+  potvrdil, že zápas byl skutečně odložen. Appka do té doby uměla
+  jen `scheduled`/`live`/`finished` a takový zápas matoucně
+  zobrazovala jako "právě začal, čekáme na skóre" donekonečna.
+  Uživatel zvolil (přes `AskUserQuestion`) postavit pořádnou podporu,
+  ne jen jednorázovou ruční opravu SQL:
+  - Nová hodnota `matches.status = 'postponed'`
+    (`supabase/migrations/20260829220000_add_postponed_match_status.sql`,
+    rozšiřuje `matches_status_check`; **čeká na ruční spuštění v
+    Supabase SQL editoru**).
+  - **Detekce** (`scripts/sync/results.mjs`): zápas se označí jako
+    odložený, když má `status='scheduled'`, `kickoff_at` je víc než 4
+    hodiny v minulosti (bezpečná rezerva nad běžnou délku zápasu i s
+    prodloužením) a NENÍ mezi zápasy vrácenými stránkou výsledků —
+    kontroluje se proti všem scrapovaným zápasům, ne jen těm už se
+    zapsaným skóre, ať se dohrávaný zápas bez skóre neoznačí omylem
+    jako odložený.
+  - **Zpětné odblokování** (`scripts/sync/fixtures.mjs`): dřívější
+    upsert u nadcházejících zápasů `status` vůbec nezapisoval
+    (spoléhal na sloupcový výchozí stav) — objevený vedlejší bug, kdy
+    by PostgREST upsert při konfliktu `status` vůbec netkl a jednou
+    odložený zápas by zůstal odložený navždy i po vyhlášení nového
+    termínu. Opraveno explicitním `status: "scheduled"` u každého
+    nadcházejícího zápasu v rozpisu — jakmile livesport.cz zápas znovu
+    zařadí s novým termínem, appka ho sama odemkne.
+  - **UI**: nová sekce "Odloženo" (žlutě, ikona `CalendarOff`) mezi
+    "Probíhající" a "Proběhlé" na `/spaces/[id]`, i v detailu zápasu
+    (`/spaces/[id]/matches/[matchId]`) — vlastní text v hlavičce i u
+    "Váš tip", ať uživatel ví, že se zápas jen odložil, ne že appka
+    nefunguje. Sdílený typ `Match` v
+    `src/components/spotlight-match-card.tsx` rozšířen o `"postponed"`.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 

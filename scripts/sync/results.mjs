@@ -53,6 +53,12 @@ import { scrapeLivesportResults, scrapeLivesportLiveMatches } from "./lib/scrape
 import { validateResults } from "./lib/validate-results.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 
+// Bezpečná rezerva nad běžnou délku zápasu (fotbal ~2h se
+// vším kolem, hokej s prodloužením/nájezdy o něco víc) -- viz
+// docs/... a supabase/migrations/20260829220000_add_postponed_match_status.sql
+// pro celé odůvodnění detekce odložených zápasů.
+const POSTPONED_THRESHOLD_MS = 4 * 60 * 60 * 1000;
+
 async function main() {
   const supabase = createSupabaseClient();
 
@@ -78,7 +84,7 @@ async function main() {
     try {
       const { data: existing, error: existingError } = await supabase
         .from("matches")
-        .select("id, status, kickoff_at")
+        .select("id, status, kickoff_at, external_id")
         .eq("competition_id", competition.id);
 
       if (existingError) throw new Error(`Nepodařilo se načíst zápasy: ${existingError.message}`);
@@ -105,6 +111,37 @@ async function main() {
 
       const scraped = await scrapeLivesportResults(competition.scrape_path);
       const withResult = scraped.filter((m) => m.homeScore != null && m.awayScore != null);
+
+      // Odložený zápas (29.8.2026, reálný případ Bohemians - Mladá
+      // Boleslav): livesport.cz ho beze zbytku vynechá i ze stránky
+      // výsledků, dokud nevyhlásí nový termín -- na rozdíl od
+      // dohrávaného zápasu, který tam JE, jen zatím bez skóre. Kontrola
+      // proti `scraped` (ne `withResult`), ať dohrávaný zápas bez skóre
+      // nedopadne omylem jako "odložený". `status === 'scheduled'`
+      // vylučuje zápas, který appka už jednou zachytila jako 'live' --
+      // ten očividně odložený není, jen čeká na dopsání finálního skóre.
+      const scrapedExternalIds = new Set(scraped.map((m) => m.externalId));
+      const newlyPostponed = (existing ?? []).filter(
+        (m) =>
+          m.status === "scheduled" &&
+          now - new Date(m.kickoff_at).getTime() > POSTPONED_THRESHOLD_MS &&
+          !scrapedExternalIds.has(m.external_id),
+      );
+
+      if (newlyPostponed.length > 0) {
+        const { error: postponedError } = await supabase
+          .from("matches")
+          .update({ status: "postponed" })
+          .in(
+            "id",
+            newlyPostponed.map((m) => m.id),
+          );
+
+        if (postponedError) {
+          throw new Error(`Označení odloženého zápasu selhalo: ${postponedError.message}`);
+        }
+        console.log(`Označeno jako odložené: ${newlyPostponed.length} zápas(y).`);
+      }
 
       const { ok, errors } = validateResults(withResult);
 
