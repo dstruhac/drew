@@ -31,7 +31,7 @@ export function CompetitionCard({
       href={`/spaces/${competition.id}`}
       className="card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)]"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
         {competition.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

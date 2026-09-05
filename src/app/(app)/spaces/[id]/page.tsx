@@ -143,7 +143,7 @@ export default async function CompetitionDetailPage({
         </Link>
 
         <div className="mt-2 flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white">
             {competition.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
