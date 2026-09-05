@@ -876,6 +876,27 @@ nevymýšlí za něj):
    (`src/app/(app)/spaces/[id]/page.tsx`) a na stránce detailu zápasu.
    Logo se vykresluje na bílém "chipu" (`bg-white p-*`), aby bylo
    čitelné i v dark módu bez ohledu na barvu loga.
+
+   **Doplněno pro Premier League (5.9.2026, na žádost uživatele),
+   zdroj [football-logos.cc](https://football-logos.cc).** Na rozdíl
+   od Chance Ligy nejde o ZIP s PDF/AI (nutná konverze přes
+   pdftoppm+ImageMagick), ale o rovnou hotové transparentní PNG přímo
+   na stránce každého loga (`<meta property="og:image">` na
+   `https://football-logos.cc/england/{slug}/`) — import je proto o
+   dost jednodušší,
+   viz `scripts/sync/import-logos-football-logos-cc.mjs` +
+   `.github/workflows/import-logos-premier-league.yml` (ruční spuštění,
+   bez schedule, stejná konvence jako u Chance Ligy). Mapování
+   `team_name` → slug ověřeno přes `db-probe.yml` (distinct
+   `home_team`/`away_team` pro Premier League) proti seznamu klubů na
+   stránce ligy — 20 klubů, 20 slugů, jednoznačná shoda. Licenční
+   podmínky ověřeny na `football-logos.cc/license/`: použití pro
+   "informational, editorial, and fan-based purposes... non-commercial
+   design work, and fan projects" povolené, komerční merchandise ne —
+   Klopi jako nekomerční hra pro partu kamarádů do toho spadá. Import
+   proběhl na první pokus (logo soutěže + všech 20 klubů), žádná
+   změna appky/UI nebyla potřeba — appka už čte
+   `competitions.logo_url`/`team_logos` obecně pro libovolnou soutěž.
 8. [x] Barevné odlišení kartičky zápasu podle skóre. **Rozhodnuto
    s uživatelem 28.8.2026 přes `AskUserQuestion`:** barva ukazuje
    úspěšnost VLASTNÍHO tipu uživatele, ne výsledek zápasu samotného —
