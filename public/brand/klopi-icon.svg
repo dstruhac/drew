@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title"><title id="title">Klopi app icon</title><rect width="256" height="256" rx="64" fill="#16a34a"/><path d="M57 96h69v84c0 13-11 24-24 24H81c-13 0-24-11-24-24V96z" fill="#fff"/><path d="M66 121h51v51c0 10-8 18-18 18H84c-10 0-18-8-18-18v-51z" fill="#f3b61f"/><path d="M63 91c5-17 22-21 33-11 10-11 28-5 30 10 11 0 18 9 15 20H57c-4-11-1-19 6-19z" fill="#fff7e6"/><g transform="rotate(-20 159 150)"><rect x="106" y="132" width="97" height="34" rx="17" fill="#e25b32"/><path d="M129 138l8 22M151 137l8 22M173 137l8 22" stroke="#fff7e6" stroke-width="5" stroke-linecap="round"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Klopi</title>
+  <desc id="desc">Dark green app icon with a beer-glass ring and a sausage silhouette.</desc>
+  <rect width="256" height="256" rx="58" fill="#064e3b"/>
+  <path d="M187 190c-17 18-40 29-66 29-50 0-91-41-91-91s41-91 91-91c34 0 64 19 79 47" fill="none" stroke="#f4bd43" stroke-width="17" stroke-linecap="round"/>
+  <path d="M200 84c6 12 10 25 11 39" fill="none" stroke="#f4bd43" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="211" cy="146" r="8.5" fill="#f4bd43"/>
+  <circle cx="205" cy="170" r="6.5" fill="#f4bd43"/>
+  <path d="M68 143c17 28 38 43 62 43 24 0 45-14 61-42" fill="none" stroke="#d95b2a" stroke-width="36" stroke-linecap="round"/>
+  <path d="M75 137c17 20 36 31 57 31 20 0 39-10 53-29" fill="none" stroke="#fff7e8" stroke-width="6" stroke-linecap="round" opacity=".95"/>
+  <path d="M91 164l-7 13M116 174l-3 15M142 174l3 15M167 164l7 13" fill="none" stroke="#7c2d12" stroke-width="6" stroke-linecap="round"/>
+</svg>
