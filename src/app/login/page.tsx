@@ -1,7 +1,7 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleIcon } from "@/components/google-icon";
 
@@ -37,9 +37,7 @@ export default function LoginPage() {
       />
 
       <div className="w-full max-w-sm rounded-[28px] border border-border-subtle bg-surface/80 p-8 text-center shadow-[var(--shadow-card)] backdrop-blur-sm">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
-          <ChevronDown className="h-6 w-6 text-accent-foreground" strokeWidth={2.6} />
-        </div>
+        <Image src="/brand/klopi-icon.svg" alt="Klopi" width={48} height={48} className="mx-auto mb-2 h-12 w-12" priority />
         <h1 className="text-4xl font-extrabold tracking-tight">Klopi</h1>
         <p className="mt-2 text-sm font-semibold italic text-muted-foreground">
           Tipuj. Boduj. Chečruj kamarády.
