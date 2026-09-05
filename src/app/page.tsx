@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Users, Calendar, Check, Medal } from "lucide-react";
@@ -18,6 +19,10 @@ const LEAGUES = [
   { name: "Chance Liga", sport: "Fotbal" },
   { name: "Premier League", sport: "Fotbal" },
 ];
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function LandingPage() {
   return (

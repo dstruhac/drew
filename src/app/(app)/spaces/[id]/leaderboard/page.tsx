@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function LeaderboardPage({
   params,
@@ -18,11 +19,11 @@ export default async function LeaderboardPage({
   // napojenou tabulku zápasů, takže na nic čekat nemusí a ušetří se celé
   // jedno kolo čekání na databázi (perf analýza 28.8.2026).
   const [
-    { data: competition },
-    { data: participants },
-    { data: matches },
-    { data: badges },
-    { data: predictions },
+    competitionResult,
+    participantsResult,
+    matchesResult,
+    badgesResult,
+    predictionsResult,
   ] = await Promise.all([
     supabase.from("competitions").select("id, name").eq("id", id).single(),
     supabase
@@ -41,6 +42,17 @@ export default async function LeaderboardPage({
       )
       .eq("matches.competition_id", id),
   ]);
+
+  throwIfSupabaseError(competitionResult.error, "Načtení soutěže", ["PGRST116"]);
+  throwIfSupabaseError(participantsResult.error, "Načtení účastníků žebříčku");
+  throwIfSupabaseError(matchesResult.error, "Načtení zápasů pro žebříček");
+  throwIfSupabaseError(badgesResult.error, "Načtení medailí");
+  throwIfSupabaseError(predictionsResult.error, "Načtení tipů pro žebříček");
+  const competition = competitionResult.data;
+  const participants = participantsResult.data;
+  const matches = matchesResult.data;
+  const badges = badgesResult.data;
+  const predictions = predictionsResult.data;
 
   if (!competition) {
     notFound();

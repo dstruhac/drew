@@ -4,6 +4,7 @@ import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
 import { BadgeCenter } from "@/components/badge-center";
 import { competitionFallbackSport } from "@/lib/sport";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
 // odsouhlaseno s uživatelem 29.8.2026 přes AskUserQuestion). Tři
@@ -21,12 +22,14 @@ export default async function DashboardPage() {
   // závisí (filtrují se podle nich). getCurrentUser() není síťový
   // dotaz (viz komentář u něj v server.ts), takže tahle závislost nic
   // nestojí navíc.
-  const { data: participantRows } = await supabase
+  const { data: participantRows, error: participantRowsError } = await supabase
     .from("competition_participants")
     .select(
       "competitions(id, name, sport, logo_url, points_exact, points_winner, points_total_goals)",
     )
     .eq("user_id", user?.id ?? "");
+
+  throwIfSupabaseError(participantRowsError, "Načtení hráčových soutěží");
 
   const myCompetitions = (participantRows ?? [])
     .map((row) => row.competitions)
@@ -36,25 +39,25 @@ export default async function DashboardPage() {
   const sportByCompetition = new Map(myCompetitions.map((c) => [c.id, c.sport]));
 
   const [
-    { data: allParticipants },
-    { data: predictions },
-    { data: upcomingMatches },
-    { data: teamLogos },
-    { data: weeklyBadges },
-    { data: profileRow },
+    allParticipantsResult,
+    predictionsResult,
+    upcomingMatchesResult,
+    teamLogosResult,
+    weeklyBadgesResult,
+    profileResult,
   ] = await Promise.all([
     competitionIds.length
       ? supabase
           .from("competition_participants")
           .select("competition_id, user_id, profiles(display_name)")
           .in("competition_id", competitionIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     competitionIds.length
       ? supabase
           .from("predictions")
           .select("match_id, user_id, points, matches!inner(competition_id)")
           .in("matches.competition_id", competitionIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     competitionIds.length
       ? supabase
           .from("matches")
@@ -66,13 +69,13 @@ export default async function DashboardPage() {
           .gt("kickoff_at", new Date().toISOString())
           .order("kickoff_at", { ascending: true })
           .limit(50)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     competitionIds.length
       ? supabase
           .from("team_logos")
           .select("competition_id, team_name, logo_url")
           .in("competition_id", competitionIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     // Bez filtru na user_id -- BadgeCenter potřebuje vidět i cizí
     // medaile v soutěžích, které hráč hraje, aby ho o nich mohl
     // informovat (viz níže myBadges/othersNewBadges).
@@ -82,13 +85,27 @@ export default async function DashboardPage() {
           .select("competition_id, week_start, user_id, points, competitions(name), profiles(display_name)")
           .in("competition_id", competitionIds)
           .order("week_start", { ascending: false })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("profiles")
       .select("badges_seen_through")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
   ]);
+
+  throwIfSupabaseError(allParticipantsResult.error ?? null, "Načtení účastníků soutěží");
+  throwIfSupabaseError(predictionsResult.error ?? null, "Načtení tipů");
+  throwIfSupabaseError(upcomingMatchesResult.error ?? null, "Načtení nadcházejících zápasů");
+  throwIfSupabaseError(teamLogosResult.error ?? null, "Načtení log týmů");
+  throwIfSupabaseError(weeklyBadgesResult.error ?? null, "Načtení medailí");
+  throwIfSupabaseError(profileResult.error ?? null, "Načtení profilu");
+
+  const allParticipants = allParticipantsResult.data;
+  const predictions = predictionsResult.data;
+  const upcomingMatches = upcomingMatchesResult.data;
+  const teamLogos = teamLogosResult.data;
+  const weeklyBadges = weeklyBadgesResult.data;
+  const profileRow = profileResult.data;
 
   // Vysvícený zápas: chronologicky nejbližší (matches jsou už seřazené
   // vzestupně z dotazu výše) zápas napříč soutěžemi hráče, který ještě

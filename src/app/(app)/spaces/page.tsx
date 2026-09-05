@@ -1,5 +1,6 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function SpacesPage() {
   const supabase = await createClient();
@@ -26,20 +27,25 @@ export default async function SpacesPage() {
   // zápasy jen proto, aby se zjistilo, do které soutěže tip patří. Teď
   // si tip tuhle informaci nese s sebou z napojené tabulky zápasů, takže
   // vlna i celý dotaz na zápasy odpadly (perf analýza 28.8.2026).
-  const [{ data: participants }, { data: predictions }] = await Promise.all([
+  const [participantsResult, predictionsResult] = await Promise.all([
     competitionIds.length
       ? supabase
           .from("competition_participants")
           .select("competition_id, user_id, profiles(display_name)")
           .in("competition_id", competitionIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     competitionIds.length
       ? supabase
           .from("predictions")
           .select("user_id, points, matches!inner(competition_id)")
           .in("matches.competition_id", competitionIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ]);
+
+  throwIfSupabaseError(participantsResult.error ?? null, "Načtení účastníků soutěží");
+  throwIfSupabaseError(predictionsResult.error ?? null, "Načtení tipů pro žebříčky");
+  const participants = participantsResult.data;
+  const predictions = predictionsResult.data;
 
   const standingsByCompetition = new Map<
     string,

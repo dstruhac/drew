@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "npm test --prefix scripts/sync",
+    "check": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

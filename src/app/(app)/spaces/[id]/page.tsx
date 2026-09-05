@@ -22,6 +22,7 @@ import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport } from "@/lib/sport";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
 
@@ -63,11 +64,11 @@ export default async function CompetitionDetailPage({
   // 28.8.2026 -- jedno kolo stálo ~0,38 s).
   const [
     user,
-    { data: competition },
-    { data: participants },
-    { data: matches },
-    { data: teamLogos },
-    { data: predictions },
+    competitionResult,
+    participantsResult,
+    matchesResult,
+    teamLogosResult,
+    predictionsResult,
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
@@ -90,6 +91,17 @@ export default async function CompetitionDetailPage({
       )
       .eq("matches.competition_id", id),
   ]);
+
+  throwIfSupabaseError(competitionResult.error, "Načtení soutěže", ["PGRST116"]);
+  throwIfSupabaseError(participantsResult.error, "Načtení účastníků soutěže");
+  throwIfSupabaseError(matchesResult.error, "Načtení zápasů");
+  throwIfSupabaseError(teamLogosResult.error, "Načtení log týmů");
+  throwIfSupabaseError(predictionsResult.error, "Načtení tipů");
+  const competition = competitionResult.data;
+  const participants = participantsResult.data;
+  const matches = matchesResult.data;
+  const teamLogos = teamLogosResult.data;
+  const predictions = predictionsResult.data;
 
   if (!competition) {
     notFound();

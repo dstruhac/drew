@@ -13,13 +13,30 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Klopi",
-  description: "Tipovací hra na sportovní zápasy",
+  metadataBase: new URL("https://klopi.cz"),
+  title: {
+    default: "Klopi – tipovačka pro kámoše",
+    template: "%s | Klopi",
+  },
+  description: "Tipuj sportovní zápasy s kamarády a porovnejte se v žebříčku.",
+  openGraph: {
+    type: "website",
+    locale: "cs_CZ",
+    url: "/",
+    siteName: "Klopi",
+    title: "Klopi – tipovačka pro kámoše",
+    description: "Tipuj sportovní zápasy s kamarády a porovnejte se v žebříčku.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Klopi – tipovačka pro kámoše",
+    description: "Tipuj sportovní zápasy s kamarády a porovnejte se v žebříčku.",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${manrope.variable} h-full antialiased`}>
+    <html lang="cs" className={`${manrope.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

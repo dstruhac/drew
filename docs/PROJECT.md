@@ -179,29 +179,15 @@ se jako nové tabulky/sloupce, až budou potřeba.
   **Pozor**: každá tabulka musí mít i `Relationships: [...]` klíč, jinak
   postgrest-js typuje `select()` jako `never` (na tohle jsme narazili).
 
-## Aktuální cíl: POC demo pro kámoše ✅ appka funguje (2026-08-25)
+## Aktuální cíl: pilotní provoz ✅ spuštěn (2026-09-05)
 
-Uživatel potvrdil: `/spaces` ukazuje soutěž, detail ukazuje 3 zápasy,
-tip jde uložit a zůstává po refreshi. Zbývá jen doplnit kamarády jako
-Google test users, až budou známé jejich e-maily (viz níže).
+Základní tok aplikace je otestovaný a aplikace přechází do pilotního
+provozu s reálnými hráči. Google OAuth je publikovaný a přihlášení je
+otevřené všem uživatelům — není už omezené seznamem testovacích e-mailů
+(potvrzeno uživatelem 5.9.2026). Soutěže používají reálné rozpisy a
+výsledky automaticky importované z Livesportu.
 
-Uživatel chce appku ukázat kamarádům jako proof-of-concept, bez
-napojení na reálná data/výsledky. Domluveno:
-- kámoši se sami přihlásí přes Google (ne jen sledují) a reálně zkusí
-  zadat tip
-- do "Hokejová extraliga 2026/27" jsou/budou 2–3 fiktivní zápasy v
-  budoucnosti (jde na ně tipovat), žádný v minulosti zatím záměrně ne
-- **pozor na Google OAuth consent screen "Testing" mode** — pokud není
-  publikovaný (nebo kámoši přidáni jako test users), přihlášení jim
-  spadne na "app is blocked". Nutno ověřit/vyřešit před demem.
-  - Rozhodnuto: zůstáváme v "Testing" a kamarády přidáme jako **Test
-    users** (ne Publish App) — uživatel to vyplní, až bude znát jejich
-    e-maily. Google Cloud Console → OAuth consent screen → nejdřív
-    dokončit tab **Branding** (app name/support email, obvykle už
-    vyplněné), pak tab **Audience** → **Test users** → přidat e-maily.
-  - **Stále otevřené, čeká se na e-maily kolegů.**
-
-## Stav (aktualizováno 2026-08-29, dokončen grafický redesign appky)
+## Stav (aktualizováno 2026-09-05, zahájen pilotní provoz)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -1154,13 +1140,9 @@ rozhodnutí a implementace viz krok 13.
     Ověřeno end-to-end 5.9.2026: ruční test v cron-job.org vrátil `204`
     a na GitHubu se podle toho reálně spustil běh `sync-results`
     (run #58, událost `workflow_dispatch`).
-20. [ ] **Koupě vlastní domény** — další krok v pořadí, zadaný
-    uživatelem 30.8.2026, zatím nerozpracováno (čeká se, až uživatel
-    upřesní, kterou doménu a u koho registrovat). Souvisí s dřívější
-    otevřenou otázkou u kroku 18 (produkční Google OAuth mód čeká mj.
-    na doménu, uvažovaná varianta byla `klopi.app`) a s poznámkou u
-    nápadu č. 4 níže (až bude vlastní doména, zvážit přechod e-mailů
-    z Gmail SMTP na Resend s ověřenou doménou).
+20. [x] **Vlastní doména `klopi.cz`** — koupena u Forpsi, připojena k
+    Vercelu a ověřena 5.9.2026. Původní produkční URL se na ni
+    přesměrovává; podrobnosti jsou v sekci „Jméno appky“ výše.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
@@ -1352,6 +1334,24 @@ Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
 - grace perioda na pozdní tip
 - self-service zakládání competitions/matches běžnými uživateli (teď
   jen service role / SQL editor, viz RLS rozhodnutí výše)
+- **Hokejové prodloužení a nájezdy** — rozhodnout, zda se tipuje výsledek
+  po základní době nebo konečný výsledek, a zda se správný tip na
+  prodloužení boduje. Datový model už má `predicted_overtime_flag`, ale
+  bodování ho zatím záměrně nepoužívá.
+
+### Pilotní stabilizace a automatické kontroly (5.9.2026)
+
+- Google OAuth je otevřený všem a základní fungování aplikace je
+  uživatelsky ověřené; začíná pilotní provoz.
+- E-mailové upozornění bylo reálně doručeno. Odkaz na zápas se skládá z
+  výchozího `https://klopi.cz` a cesty konkrétního zápasu; automatický
+  test kontroluje, že se URL sestaví správně.
+- Přidána společná kontrola chyb databázových dotazů. Neočekávaná chyba
+  už nevypadá jako prázdná soutěž nebo chybějící tipy, ale zobrazí
+  srozumitelnou obrazovku „Data se nepodařilo načíst“ s opakováním.
+- Kořenové `pnpm check` spouští TypeScript a automatické testy. GitHub
+  Actions je spouští na každém pull requestu a po změně `main`; zatím
+  fungují jako viditelné upozornění, nikoliv povinná brána pro nasazení.
 
 ## Jak navázat (pro budoucí Claude Code session)
 

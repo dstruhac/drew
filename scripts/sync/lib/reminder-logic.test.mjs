@@ -119,12 +119,12 @@ describe("buildReminderEmail", () => {
       },
     ];
 
-    const { subject, text } = buildReminderEmail(matches, "https://drew-pink.vercel.app");
+    const { subject, text } = buildReminderEmail(matches, "https://klopi.cz");
 
     expect(subject).toBe("Chybí ti tip na dnešní zápas");
     expect(text).toContain("dnes tě čeká zápas, na který ještě nemáš tip:");
     expect(text).toContain("18:00 Slavia Praha – Sparta Praha");
-    expect(text).toContain("https://drew-pink.vercel.app/spaces/c1/matches/m1");
+    expect(text).toContain("https://klopi.cz/spaces/c1/matches/m1");
   });
 
   it("uses plural subject/body and lists every match for more than one", () => {
@@ -145,11 +145,11 @@ describe("buildReminderEmail", () => {
       },
     ];
 
-    const { subject, text } = buildReminderEmail(matches, "https://drew-pink.vercel.app");
+    const { subject, text } = buildReminderEmail(matches, "https://klopi.cz");
 
     expect(subject).toBe("Chybí ti tip na 2 dnešní zápasy");
     expect(text).toContain("dnes tě čekají zápasy, na které ještě nemáš tip:");
-    expect(text).toContain("https://drew-pink.vercel.app/spaces/c1/matches/m1");
-    expect(text).toContain("https://drew-pink.vercel.app/spaces/c2/matches/m2");
+    expect(text).toContain("https://klopi.cz/spaces/c1/matches/m1");
+    expect(text).toContain("https://klopi.cz/spaces/c2/matches/m2");
   });
 });
