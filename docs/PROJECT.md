@@ -1200,10 +1200,24 @@ rozhodnutí a implementace viz krok 13.
     klíčem podle Supabase dokumentace tenhle endpoint neobsahuje
     redirect URL seznam, jen zapnuté providery).
 
-    **Čeká na ruční ověření uživatelem** (přesné kroky viz odpověď v
-    chatu 5.9.2026): Supabase Dashboard → Authentication → URL
-    Configuration → zkontrolovat/doplnit `https://klopi.cz` jako Site
-    URL a `https://klopi.cz/**` do Redirect URLs.
+    **Potvrzeno uživatelem (5.9.2026, i v anonymním okně):** po
+    přihlášení v Google appka reálně skončila na
+    `https://www.klopi.cz/?code=...` — kód z Google tedy dorazil, ale
+    na úvodní stránku (`/`), ne na `/auth/callback`, takže appka ho
+    nikdy nepoužila k dokončení přihlášení (`exchangeCodeForSession`
+    se nezavolal). Adresa navíc obsahuje `www.`, což appka jinde
+    nikde nepoužívá — silný důkaz, že Supabase Auth má jako "Site URL"
+    (svoji záložní adresu, na kterou skočí, když jí appkou poslaná
+    návratová adresa `redirect_to` nesedí do jejího seznamu
+    "Redirect URLs") nastavené něco s `www.`, ne holé `klopi.cz`.
+    Hypotéza z minulého odstavce tím potvrzena.
+
+    **Ruční oprava** (Supabase Dashboard → Authentication → URL
+    Configuration, https://supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr/auth/url-configuration):
+    Site URL přepsat na `https://klopi.cz` (bez `www.`) a do Redirect
+    URLs přidat `https://klopi.cz/**` (`https://www.klopi.cz/**`
+    přidáno pro jistotu navíc, staré řádky nemazat). Čeká na
+    provedení a ověření.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
