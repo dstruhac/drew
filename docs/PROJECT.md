@@ -23,11 +23,19 @@ podle uživatele appku a partu kamarádů reálně spojují (sledování
 zápasu spolu). Přejmenováno ve viditelné části appky (titulek
 stránky, hlavička appky, přihlašovací stránka) i v `README.md`.
 
-**Vědomě NEpřejmenováno:** GitHub repozitář (`dstruhac/drew`) a
-produkční Vercel doména (`drew-pink.vercel.app`) zůstávají "Drew" —
-jde o obtížně vratnou změnu (mění URL, dotkla by se Google OAuth
-Authorized origins v Google Cloud Console), takže je to otevřená
-otázka, čeká na rozhodnutí uživatele.
+**Vlastní doména klopi.cz (5.9.2026).** Appka měla dřív jen adresu
+`drew-pink.vercel.app`. Uživatel zvažoval i `klopi.app`, nakonec
+zaregistroval **`klopi.cz`** u Forpsi. DNS (`A` záznam na
+`klopi.cz` + `CNAME` na `www.klopi.cz`, oba na Vercelovy adresy)
+nastaveno a ověřeno funkční. `https://klopi.cz` přidáno do Authorized
+JavaScript origins v Google Cloud Console. `drew-pink.vercel.app`
+zůstává funkční jako přesměrování na `klopi.cz` (nastaveno v
+nastavení té domény ve Vercelu — "Redirect to", ne "Set as Primary
+Domain", jak se ta funkce dřív jmenovala).
+
+**Vědomě NEpřejmenováno:** GitHub repozitář zůstává `dstruhac/drew` —
+přejmenování repozitáře je vratné a nedotýká se OAuth ani DNS, ale
+zatím na to nebyl důvod (URL repozitáře nikdo z appky neuvidí).
 
 ## Tech stack
 
@@ -42,7 +50,8 @@ otázka, čeká na rozhodnutí uživatele.
 
 - **GitHub repo**: https://github.com/dstruhac/drew (default branch `main`)
 - **Vercel projekt**: https://vercel.com/dstruhacs-projects/drew
-  - produkční URL: **https://drew-pink.vercel.app**
+  - produkční URL: **https://klopi.cz** (`drew-pink.vercel.app` přesměrovává na
+    tuhle adresu, viz sekce "Jméno appky" výše)
   - produkční deploy se spouští jen z `main` (push na jinou branch = jen preview URL)
 - **Supabase projekt**: https://supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr
   - `NEXT_PUBLIC_SUPABASE_URL=https://rvcxdlmwxdykkxpqegzr.supabase.co`
@@ -51,7 +60,8 @@ otázka, čeká na rozhodnutí uživatele.
   - Client ID: `151884903772-gdqjv8knvcghh17posnrd7qu5kta518l.apps.googleusercontent.com`
   - Client Secret: uložen jen v Supabase Dashboardu (Authentication → Providers → Google), nikde v repu
   - Redirect URI nastavené v Google Console: `https://rvcxdlmwxdykkxpqegzr.supabase.co/auth/v1/callback`
-  - Authorized origins: `https://drew-pink.vercel.app`, `http://localhost:3000`
+  - Authorized origins: `https://klopi.cz`, `https://drew-pink.vercel.app`,
+    `http://localhost:3000`
 
 ## Datový model (`supabase/migrations/`)
 
@@ -199,7 +209,8 @@ Hotovo:
 - [x] Supabase klienti (browser/server/proxy)
 - [x] Login stránka + funkční Google OAuth, motto a vizuální redesign
 - [x] Ochrana stránek podle přihlášení
-- [x] Nasazení na Vercel (https://drew-pink.vercel.app)
+- [x] Nasazení na Vercel (https://klopi.cz, viz sekce "Vlastní doména
+  klopi.cz" výše)
 - [x] `/spaces` načítá reálné competitions z DB, u vlastních soutěží ukazuje
   pozici v žebříčku (🏆 Tvoje pozice: X. místo z Y)
 - [x] První competition založená ručně: "Hokejová extraliga 2026/27" (hockey)
