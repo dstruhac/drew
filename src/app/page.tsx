@@ -55,14 +55,15 @@ export default function LandingPage() {
           </span>
 
           <h1 className="mx-auto mt-6 max-w-2xl text-[2.4rem] leading-[1.08] font-extrabold tracking-tight sm:text-[3.4rem]">
-            Tipuj zápasy.
+            Klopi.
             <br />
-            Boduj. Chečruj kamarády.
+            Klobása a pivo nás spojuje.
           </h1>
 
           <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-relaxed font-medium text-muted-foreground">
-            Klopi je malá tipovací hra na sportovní zápasy — žádné sázení,
-            jen body, žebříček a dobrá parta u piva a klobásy.
+            Tak si s náma i zatipuj. Klopi je tipovací hra na sportovní
+            zápasy. Žádné sázení, jen body, žebříček, medaile za vítěze
+            týdne a hecovačky.
           </p>
 
           <div className="mt-8 flex justify-center">
@@ -76,16 +77,12 @@ export default function LandingPage() {
               Přihlásit se přes Google
             </Link>
           </div>
-
-          <p className="mt-4 text-[13px] font-semibold text-faint-foreground">
-            Appka je pro uzavřenou partu — pozvánku dostaneš od kamaráda.
-          </p>
         </section>
 
         <section className="border-t border-border-subtle px-4 py-14">
           <div className="mx-auto max-w-[520px] text-center">
             <h2 className="text-2xl font-extrabold tracking-tight">
-              Co zrovna sledujeme
+              Nyní se tipuje
             </h2>
             <p className="mt-2.5 text-[15px] font-medium text-muted-foreground">
               Appka umí tipy na tyhle soutěže — postupně přibydou další.
