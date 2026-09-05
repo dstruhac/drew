@@ -2,7 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that don't require a signed-in session.
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/soukromi"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/auth/callback",
+  "/soukromi",
+  "/robots.txt",
+  "/sitemap.xml",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(

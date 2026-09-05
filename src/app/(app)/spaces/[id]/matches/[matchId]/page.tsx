@@ -5,6 +5,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
 import { competitionFallbackSport } from "@/lib/sport";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function MatchDetailPage({
   params,
@@ -20,11 +21,11 @@ export default async function MatchDetailPage({
   // výkopu je tak vynucené v databázi, ne jen skrytím v UI.
   const [
     user,
-    { data: competition },
-    { data: match },
-    { data: participants },
-    { data: predictions },
-    { data: teamLogos },
+    competitionResult,
+    matchResult,
+    participantsResult,
+    predictionsResult,
+    teamLogosResult,
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
@@ -48,6 +49,17 @@ export default async function MatchDetailPage({
       .eq("match_id", matchId),
     supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
   ]);
+
+  throwIfSupabaseError(competitionResult.error, "Načtení soutěže", ["PGRST116"]);
+  throwIfSupabaseError(matchResult.error, "Načtení zápasu", ["PGRST116"]);
+  throwIfSupabaseError(participantsResult.error, "Načtení účastníků zápasu");
+  throwIfSupabaseError(predictionsResult.error, "Načtení tipů k zápasu");
+  throwIfSupabaseError(teamLogosResult.error, "Načtení log týmů");
+  const competition = competitionResult.data;
+  const match = matchResult.data;
+  const participants = participantsResult.data;
+  const predictions = predictionsResult.data;
+  const teamLogos = teamLogosResult.data;
 
   if (!competition) {
     notFound();

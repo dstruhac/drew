@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
   hockey: "Hokej",
@@ -29,9 +30,9 @@ export default async function PublicProfilePage({
   // jiného, všechny filtrují rovnou podle `userId` z route parametru.
   const [
     currentUser,
-    { data: profile },
-    { data: participations },
-    { data: badges },
+    profileResult,
+    participationsResult,
+    badgesResult,
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
@@ -41,6 +42,13 @@ export default async function PublicProfilePage({
       .eq("user_id", userId),
     supabase.from("weekly_badges").select("competition_id").eq("user_id", userId),
   ]);
+
+  throwIfSupabaseError(profileResult.error, "Načtení profilu", ["PGRST116"]);
+  throwIfSupabaseError(participationsResult.error, "Načtení soutěží hráče");
+  throwIfSupabaseError(badgesResult.error, "Načtení medailí hráče");
+  const profile = profileResult.data;
+  const participations = participationsResult.data;
+  const badges = badgesResult.data;
 
   if (!profile) {
     notFound();
@@ -64,7 +72,7 @@ export default async function PublicProfilePage({
   // účastníky a VŠECHNY tipy v těch soutěžích (ne jen tohohle hráče),
   // abychom spočítali jeho pozici v žebříčku stejně jako na
   // /spaces/[id]/leaderboard.
-  const [{ data: allParticipants }, { data: allPredictions }] =
+  const [allParticipantsResult, allPredictionsResult] =
     competitionIds.length
       ? await Promise.all([
           supabase
@@ -78,7 +86,12 @@ export default async function PublicProfilePage({
             )
             .in("matches.competition_id", competitionIds),
         ])
-      : [{ data: [] }, { data: [] }];
+      : [{ data: [], error: null }, { data: [], error: null }];
+
+  throwIfSupabaseError(allParticipantsResult.error, "Načtení účastníků soutěží");
+  throwIfSupabaseError(allPredictionsResult.error, "Načtení tipů pro profil");
+  const allParticipants = allParticipantsResult.data;
+  const allPredictions = allPredictionsResult.data;
 
   type Totals = {
     totalPoints: number;
