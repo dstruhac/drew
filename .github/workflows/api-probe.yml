@@ -19,6 +19,17 @@
 # Appka nakonec místo placeného API jede scrapingem z livesport.cz (viz
 # docs/IMPORT-ARCHITECTURE.md), takže autorizační mechanismus i oba
 # secrets byly odstraněné jako nepoužívaná slepá cesta.
+#
+# Znovu doplněno (5.9.2026), obecněji: potřeba ověřit, proč GitHubovo
+# vlastní API vrací 403 na `workflow_dispatch` volané externí službou
+# (cron-job.org) — cron-job.org bohužel v bezplatném tarifu neukazuje
+# doslovné tělo odpovědi, jen vlastní parafrázi. Tenhle probe umí zavolat
+# libovolnou URL i s metodou/tělem/Authorization hlavičkou a vypsat
+# přesně to, co server odpověděl — obecný nástroj, ne nic specifického
+# pro GitHub. Autorizační token se čte z repository secretu
+# `PROBE_AUTH_TOKEN` (GitHub Actions ho v logu automaticky maskuje),
+# nikdy nejde jako workflow_dispatch input (ten by byl vidět v běhu
+# nezamaskovaný).
 
 name: API probe
 
@@ -29,6 +40,21 @@ on:
         description: "Plná URL, včetně parametrů"
         required: true
         type: string
+      method:
+        description: "HTTP metoda"
+        required: false
+        default: "GET"
+        type: string
+      body:
+        description: "Nepovinné tělo požadavku (např. pro POST), posílá se jako je"
+        required: false
+        default: ""
+        type: string
+      use_auth_token:
+        description: "Poslat i Authorization: Bearer <PROBE_AUTH_TOKEN ze secrets>?"
+        required: false
+        default: false
+        type: boolean
       max_chars:
         description: "Kolik znaků odpovědi maximálně vypsat do logu"
         required: false
@@ -55,6 +81,10 @@ jobs:
       - name: Zavolat URL a vypsat odpověď
         env:
           PROBE_URL: ${{ inputs.url }}
+          PROBE_METHOD: ${{ inputs.method }}
+          PROBE_BODY: ${{ inputs.body }}
+          USE_AUTH_TOKEN: ${{ inputs.use_auth_token }}
+          AUTH_TOKEN: ${{ secrets.PROBE_AUTH_TOKEN }}
           MAX_CHARS: ${{ inputs.max_chars }}
           FILTER: ${{ inputs.filter }}
           JQ_EXPR: ${{ inputs.jq }}
@@ -62,17 +92,21 @@ jobs:
           set -uo pipefail
 
           echo "URL: ${PROBE_URL}"
+          echo "Metoda: ${PROBE_METHOD}"
           echo "----- HTTP status a hlavičky -----"
 
-          # Běžné webové stránky (ne API) často blokují/přesměrovávají
-          # požadavky bez "prohlížečového" User-Agenta — proto ho
-          # posíláme vždy, u API endpointů nevadí.
-          HTTP_CODE=$(curl -sSL --max-time 30 \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36" \
-            -D headers.txt \
-            -o body.json \
-            -w '%{http_code}' \
-            "${PROBE_URL}") || {
+          CURL_ARGS=(-sSL --max-time 30 -X "${PROBE_METHOD}"
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+            -D headers.txt -o body.json -w '%{http_code}')
+
+          if [ "${USE_AUTH_TOKEN}" = "true" ]; then
+            CURL_ARGS+=(-H "Authorization: Bearer ${AUTH_TOKEN}")
+          fi
+          if [ -n "${PROBE_BODY}" ]; then
+            CURL_ARGS+=(-H "Content-Type: application/json" --data "${PROBE_BODY}")
+          fi
+
+          HTTP_CODE=$(curl "${CURL_ARGS[@]}" "${PROBE_URL}") || {
               echo "::error::curl selhal (viz výstup výše)"
               exit 1
             }
