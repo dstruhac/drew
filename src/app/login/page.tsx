@@ -40,7 +40,7 @@ export default function LoginPage() {
         <Image src="/brand/klopi-icon.svg" alt="Klopi" width={48} height={48} className="mx-auto mb-2 h-12 w-12" priority />
         <h1 className="text-4xl font-extrabold tracking-tight">Klopi</h1>
         <p className="mt-2 text-sm font-semibold italic text-muted-foreground">
-          Tipuj. Boduj. Chečruj kamarády.
+          Tak už se k nám přidej.
         </p>
         <p className="mt-4 text-sm font-medium text-muted-foreground">
           Tipovací hra na sportovní zápasy
