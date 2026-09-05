@@ -1058,30 +1058,56 @@ rozhodnutí a implementace viz krok 13.
     na doplnění kontaktního e-mailu do Zásad ochrany osobních údajů.
     Uživatel avizoval, že se na obsah/vzhled týhle stránky ještě vrátí
     a bude ji ladit za běhu.
-19. [ ] **Spolehlivost `sync-results` (a dalších `schedule:` workflow)
-    — otevřeno, čeká na "jedeme" od uživatele.** Uživatel 30.8.2026
-    nahlásil, že appka pořád nevyhodnocuje zápasy každých 30 minut, jak
-    je nastaveno. Ověřeno na historii běhů `sync-results`
-    (GitHub Actions): i po dřívější opravě (krok výše, PR #78 —
-    přesun mimo celou/půlhodinu) jsou mezery mezi automatickými běhy
-    2–6 hodin místo 30 minut (např. 30.8. 07:21→13:13 = 5 h 52 min,
-    29.8. 15:12→18:46 = 3 h 34 min). Všechny běhy skončily úspěšně
-    (`success`) — příčina není v appce ani síti, je to dál stejný
-    zdokumentovaný, celoplošný problém se spolehlivostí GitHubova
-    `schedule:` triggeru (GitHub Community Discussions #147369,
-    #156282, viz poznámka u PR #78) — přesun mimo kolizní bod ho jen
-    zmírnil, ne vyřešil.
+19. [x] **Spolehlivost `sync-results` (a dalších `schedule:` workflow)
+    — vyřešeno (5.9.2026).** Uživatel 30.8.2026 nahlásil, že appka
+    pořád nevyhodnocuje zápasy každých 30 minut, jak je nastaveno.
+    Ověřeno na historii běhů `sync-results` (GitHub Actions): i po
+    dřívější opravě (krok výše, PR #78 — přesun mimo celou/půlhodinu)
+    jsou mezery mezi automatickými běhy 2–6 hodin místo 30 minut (např.
+    30.8. 07:21→13:13 = 5 h 52 min, 29.8. 15:12→18:46 = 3 h 34 min).
+    Všechny běhy skončily úspěšně (`success`) — příčina nebyla v appce
+    ani síti, ale ve stejném zdokumentovaném, celoplošném problému se
+    spolehlivostí GitHubova `schedule:` triggeru (GitHub Community
+    Discussions #147369, #156282, viz poznámka u PR #78) — přesun mimo
+    kolizní bod ho jen zmírnil, nevyřešil.
 
-    **Navržené řešení (moje doporučení, 30.8.2026):** nespoléhat na
-    GitHubův vlastní plánovač, ale nechat appku spouštět externí
-    spolehlivější "budík" (např. bezplatná služba cron-job.org), který
-    GitHubu každých 30 minut zvenku řekne "spusť workflow" přes jeho
-    API. Vyžaduje jeden ruční krok uživatele (vygenerovat přístupový
-    token v GitHub nastavení, vložit ho jako tajný údaj do
-    cron-job.org) — jinak nemění nic na appce/datovém modelu.
+    **Řešení (moje doporučení, realizováno 5.9.2026):** appku teď
+    "budí" externí bezplatná služba **cron-job.org** — každých 30
+    minut zavolá GitHubovo API (`POST
+    /repos/dstruhac/drew/actions/workflows/sync-results.yml/dispatches`),
+    což GitHubu řekne "spusť workflow hned", nezávisle na jeho vlastním
+    nespolehlivém plánovači. Uživatel si založil účet na cron-job.org a
+    vytvořil fine-grained GitHub token s právem `Actions: Read and
+    write` jen na `dstruhac/drew`. GitHubův vlastní `schedule:`
+    (`7,37 * * * *`) zůstává navíc zapnutý jako neškodná záloha — appka
+    si stejně nejdřív ověří v databázi, jestli je co dělat.
 
-    **Priorita:** uživatel chce nejdřív vyřešit koupi domény (krok 20
-    níže), tenhle krok počká.
+    **Cestou dvě chyby při zakládání tokenu, obě si appka/uživatel
+    sami odchytili:**
+    1. Token byl napoprvé vytvořený s "Repository access: Public
+       Repositories (read-only)" — u týhle volby GitHub nedovolí
+       nastavit VŮBEC ŽÁDNÁ oprávnění (proto se u tokenu ukazovalo "0
+       repository permissions"), a je tedy natvrdo jen pro čtení bez
+       ohledu na cokoliv jiného. Náš repozitář je veřejný, takže GitHub
+       tuhle volbu nabízí jako lákavou zkratku — je to ale slepá cesta
+       pro cokoliv, co má appka umět spouštět. Oprava: založit token
+       znovu s "Only select repositories" → `dstruhac/drew`.
+    2. cron-job.org v bezplatném tarifu neukazuje doslovné tělo
+       odpovědi od GitHubu, jen vlastní parafrázi ("may block automated
+       requests..."), takže z něj nešlo přesně poznat, o jakou chybu
+       jde. Doplněna podpora pro HTTP metodu/tělo/`Authorization`
+       hlavičku do existujícího diagnostického
+       `.github/workflows/api-probe.yml` (token čtený z repository
+       secretu `PROBE_AUTH_TOKEN`, nikdy z workflow_dispatch inputu, ať
+       se nezobrazí nezamaskovaný) — tím se dal z GitHubu vytáhnout
+       přesný text chyby (`"Resource not accessible by personal access
+       token"`), který teprve ukázal skutečnou příčinu (bod 1 výše).
+       `api-probe.yml` má tuhle podporu (metoda/tělo/auth hlavička)
+       trvale, ať se dá použít i příště na jiný podobný problém.
+
+    Ověřeno end-to-end 5.9.2026: ruční test v cron-job.org vrátil `204`
+    a na GitHubu se podle toho reálně spustil běh `sync-results`
+    (run #58, událost `workflow_dispatch`).
 20. [ ] **Koupě vlastní domény** — další krok v pořadí, zadaný
     uživatelem 30.8.2026, zatím nerozpracováno (čeká se, až uživatel
     upřesní, kterou doménu a u koho registrovat). Souvisí s dřívější
