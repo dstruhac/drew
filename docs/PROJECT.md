@@ -579,6 +579,14 @@ tří důvodů, které se násobily:
 rozehřáté" — `sync-results` už běží každých 30 minut a databáze se tím
 udržuje v provozu sama.
 
+- [x] **Podtitulek v hlavičce veřejné stránky (5.9.2026)** — hlavička
+  `/` (`src/app/page.tsx`) ukazovala jen "Klopi", uživatel chtěl vrátit
+  i podtitulek se skrytým významem jména ("Klobása a pivo", viz sekce
+  "Jméno appky" výše). Doplněno jako `– Klobása a pivo` za název, jen
+  od `sm:` šířky výš (na mobilu by s tlačítkem "Přihlásit se" na
+  stejném řádku bylo těsno) — patička appky se stejným textem
+  ("Klopi — Klobása + Pivo, věci co nás spojujou.") beze změny.
+
 ## Naplánované další kroky
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
@@ -1161,6 +1169,41 @@ rozhodnutí a implementace viz krok 13.
     na doménu, uvažovaná varianta byla `klopi.app`) a s poznámkou u
     nápadu č. 4 níže (až bude vlastní doména, zvážit přechod e-mailů
     z Gmail SMTP na Resend s ověřenou doménou).
+21. [ ] **Diagnostika: přihlášení přes Google z klopi.cz skončí zpátky
+    na nepřihlášené stránce (5.9.2026, nahlásil uživatel).** Appka po
+    dokončení Google OAuth měla skončit na `/dashboard` (kód v
+    `src/app/auth/callback/route.ts` to už dělá — `next` parametr má
+    výchozí hodnotu `/dashboard` od 29.8.2026), ale uživatel skončil
+    zpátky na veřejné (nepřihlášené) stránce.
+
+    **Ověřeno (GitHub Actions probe), co to NENÍ:** zavolání
+    `https://rvcxdlmwxdykkxpqegzr.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://klopi.cz/auth/callback`
+    reálně doputuje až na skutečnou přihlašovací stránku Google se
+    správným `client_id` appky — první část OAuth řetězu (Supabase →
+    Google) tedy funguje a Google Cloud Console (Authorized origins) v
+    tom problém není.
+
+    **Pracovní hypotéza (nejde ověřit odsud, viz níže):** Supabase
+    Auth má vlastní, samostatný seznam povolených návratových adres
+    ("Redirect URLs" v Dashboardu), oddělený od Google Cloud Console.
+    Když se appka 5.9.2026 přesunula na `klopi.cz`
+    (`5f9fe45`), aktualizovalo se jen Google Cloud Console (Authorized
+    origins) a `docs/PROJECT.md` — nikde není záznam, že by se zároveň
+    přidalo `https://klopi.cz/**` do Supabase Auth Redirect URLs.
+    Pokud tam chybí, Supabase po přihlášení v Google tichem přesměruje
+    zpátky na svoji nastavenou výchozí "Site URL" (nejspíš pořád
+    `drew-pink.vercel.app`, která se sice přesměruje na `klopi.cz`, ale
+    už BEZ proběhlého `exchangeCodeForSession()`) — což by vypadalo
+    přesně jako nahlášený bug. Nejde to ověřit z týhle session (seznam
+    Redirect URLs není přes veřejné API čitelný, ověřeno probe
+    workflow — `/auth/v1/settings` bez API klíče vrací jen 401, a i s
+    klíčem podle Supabase dokumentace tenhle endpoint neobsahuje
+    redirect URL seznam, jen zapnuté providery).
+
+    **Čeká na ruční ověření uživatelem** (přesné kroky viz odpověď v
+    chatu 5.9.2026): Supabase Dashboard → Authentication → URL
+    Configuration → zkontrolovat/doplnit `https://klopi.cz` jako Site
+    URL a `https://klopi.cz/**` do Redirect URLs.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 

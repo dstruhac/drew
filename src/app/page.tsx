@@ -26,7 +26,12 @@ export default function LandingPage() {
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-10">
           <div className="flex items-center gap-2">
             <Image src="/brand/klopi-icon.svg" alt="Klopi" width={34} height={34} className="h-[34px] w-[34px]" priority />
-            <span className="text-[19px] font-extrabold tracking-tight">Klopi</span>
+            <span className="text-[19px] font-extrabold tracking-tight">
+              Klopi
+              <span className="hidden font-semibold text-muted-foreground sm:inline">
+                {" "}– Klobása a pivo
+              </span>
+            </span>
           </div>
           <Link
             href="/login"
