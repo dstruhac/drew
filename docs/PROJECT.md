@@ -345,6 +345,131 @@ Hotovo:
   `TeamLogo` (`src/components/spotlight-match-card.tsx`) a
   `CompetitionCard` (`src/components/competition-card.tsx`) přesunuty
   z `/spaces` a `/spaces/[id]`, ať je můžou obě stránky sdílet.
+- [x] **Vyhodnocování zápasů: prošetřena a částečně opravena
+  nespolehlivost `sync-results` (29.8.2026, PR #78)** — uživatel
+  nahlásil, že appka vyhodnocuje zápasy s velkým zpožděním. Ověřeno na
+  historii běhů: mezery mezi jednotlivými automatickými spuštěními
+  byly 3,5–11 hodin místo nastavených 30 minut, dva zápasy zůstaly
+  zaseknuté ve špatném stavu hodiny po výkopu. Hlavní příčina je
+  zdokumentovaný, celoplošně se zhoršující problém se spolehlivostí
+  GitHub Actions `schedule:` triggerů (mimo dosah tohohle repa) — z
+  toho šlo opravit jen to, že `sync-results` (`*/30 * * * *`) a
+  `predict-reminders` (`0 * * * *`) se srážely přesně v celou/půl
+  hodinu, což GitHub sám doporučuje nedělat (nejvytíženější okamžik
+  pro spouštění naplánovaných úloh napříč celým GitHubem). Přeladěno
+  na `7,37 * * * *` / `12 * * * *`. Nemění chování appky ani datový
+  model, smergováno rovnou bez čekání na schválení.
+- [x] **Podpora pro odložené zápasy (29.8.2026)** — při ručním
+  spuštění `sync-results` kvůli bodu výše se navíc našel druhý,
+  nesouvisející reálný zápas (Bohemians – Mladá Boleslav, Chance
+  Liga), zaseknutý jako `scheduled` i 6+ hodin po výkopu a chybějící
+  jak na `/vysledky/`, tak na `/program/` livesport.cz — uživatel
+  potvrdil, že zápas byl skutečně odložen. Appka do té doby uměla
+  jen `scheduled`/`live`/`finished` a takový zápas matoucně
+  zobrazovala jako "právě začal, čekáme na skóre" donekonečna.
+  Uživatel zvolil (přes `AskUserQuestion`) postavit pořádnou podporu,
+  ne jen jednorázovou ruční opravu SQL:
+  - Nová hodnota `matches.status = 'postponed'`
+    (`supabase/migrations/20260829220000_add_postponed_match_status.sql`,
+    rozšiřuje `matches_status_check`; **čeká na ruční spuštění v
+    Supabase SQL editoru**).
+  - **Detekce** (`scripts/sync/results.mjs`): zápas se označí jako
+    odložený, když má `status='scheduled'`, `kickoff_at` je víc než 4
+    hodiny v minulosti (bezpečná rezerva nad běžnou délku zápasu i s
+    prodloužením) a NENÍ mezi zápasy vrácenými stránkou výsledků —
+    kontroluje se proti všem scrapovaným zápasům, ne jen těm už se
+    zapsaným skóre, ať se dohrávaný zápas bez skóre neoznačí omylem
+    jako odložený.
+  - **Zpětné odblokování** (`scripts/sync/fixtures.mjs`): dřívější
+    upsert u nadcházejících zápasů `status` vůbec nezapisoval
+    (spoléhal na sloupcový výchozí stav) — objevený vedlejší bug, kdy
+    by PostgREST upsert při konfliktu `status` vůbec netkl a jednou
+    odložený zápas by zůstal odložený navždy i po vyhlášení nového
+    termínu. Opraveno explicitním `status: "scheduled"` u každého
+    nadcházejícího zápasu v rozpisu — jakmile livesport.cz zápas znovu
+    zařadí s novým termínem, appka ho sama odemkne.
+  - **UI**: nová sekce "Odloženo" (žlutě, ikona `CalendarOff`) mezi
+    "Probíhající" a "Proběhlé" na `/spaces/[id]`, i v detailu zápasu
+    (`/spaces/[id]/matches/[matchId]`) — vlastní text v hlavičce i u
+    "Váš tip", ať uživatel ví, že se zápas jen odložil, ne že appka
+    nefunguje. Sdílený typ `Match` v
+    `src/components/spotlight-match-card.tsx` rozšířen o `"postponed"`.
+- [x] **"Náhodná liga" (30.8.2026)** — nová trvalá soutěž
+  (`sport = 'mixed'`), které se každý den doplní 5 náhodně vybraných
+  zápasů napříč skupinou 13 známých fotbalových a hokejových lig
+  (`scripts/sync/lib/random-league-pool.mjs`). Rozhodnutí s uživatelem
+  přes `AskUserQuestion`/v chatu:
+  - **Zdroj zápasů**: vybraná skupina lig, ne úplně cokoliv z
+    livesport.cz (ověřeno probe workflow 30.8.2026 — denní přehled
+    `/fotbal/` má přes 450 zápasů napříč úplně všemi zeměmi světa,
+    včetně krajských přeborů a mládežnických zápasů — nepoužitelné pro
+    "náhodný, ale poznatelný" zápas). Pool: Chance Liga, Premier
+    League, Bundesliga, La Liga, Serie A, Ligue 1, Niké liga, Brazilská
+    Série A (fotbal) + Tipsport extraliga, NHL, Tipos extraliga, SHL,
+    National League (hokej). Ruská KHL vědomě vynechána (uživatel
+    30.8.2026). Brazilská Série A přidána speciálně kvůli pokrytí
+    evropského léta (červen–půlka srpna), kdy evropský fotbal i hokej
+    mají mimosezónu najednou — ověřeno reálným scrapem, že tou dobou
+    skutečně hraje. Všech 10 nových `scrape_path` hodnot ověřeno
+    přes `playwright-probe.yml` před zapsáním do kódu (ne odhadnuto).
+  - **Model soutěže**: jedna trvalá soutěž s jedním žebříčkem, ne denní
+    reset.
+  - **Míň než 5 zápasů v jeden den** (např. mezinárodní reprezentační
+    pauza) není chyba — appka zapíše, kolik zápasů je, klidně 0.
+
+  **Datový model**: `competitions.sport` rozšířeno o `'mixed'`
+  (`supabase/migrations/20260830090000_random_league.sql`) — signál
+  appce i `sync-results`, že tahle soutěž kombinuje víc lig. Nové
+  sloupce `matches.sport`/`matches.source_scrape_path`, vyplněné JEN u
+  zápasů "Náhodné ligy" (jinak `null`, appka použije sport/scrape_path
+  soutěže jako dřív) — potřeba, protože appka jinak měla sport a
+  scrape_path jen na úrovni competition, což u soutěže kombinující
+  víc lig nestačí (jeden zápas = hokej s prodloužením, druhý fotbal;
+  každý navíc z jiné výsledkové stránky).
+
+  **`scripts/sync/random-league.mjs`** (`.github/workflows/random-league.yml`):
+  najde dnešní pražský den, zeptá se, jestli už "Náhodná liga" dnešní
+  zápasy má (idempotence — výběr je náhodný, druhé spuštění stejný den
+  by bez týhle pojistky přidalo jiných 5 zápasů navíc), pak projede
+  celý pool, nascrapuje z každé ligy dnešní zápasy
+  (`scrapeLivesportFixtures`, beze změny) a náhodně vybere 5. Selhání
+  jedné ligy nezastaví celý běh (zbytek poolu pokračuje). **První ruční
+  běh (30.8.2026, po smergování PR #81) ověřen naostro** — z 9
+  kandidátů (fotbal aktivní, hokej mimosezónu, 0 zápasů) vybráno a
+  zapsáno 5: Monako–Marseille, Flamengo–Botafogo RJ, Celta Vigo–Ath.
+  Bilbao, Lazio–FC Janov, Sparta Praha–Slavia Praha. Po ověření zapnut
+  `schedule` (`20 4 * * *`, po `sync-fixtures` a mimo celou/půl hodinu).
+
+  **`results.mjs` rozšířeno** o `syncRandomPoolCompetition()` — na
+  rozdíl od běžné soutěže (jedno `scrape_path`) se zápasy "Náhodné
+  ligy" seskupí podle `source_scrape_path` a pro každou skupinu se
+  výsledek dohledá na JEJÍ výsledkové stránce. Zásadní rozdíl oproti
+  běžné soutěži: nikdy se nic nezakládá (jen `UPDATE` podle
+  `external_id`) — `scrapeLivesportResults()` vrací všechny zápasy
+  CELÉ ligy, ne jen těch pár, co appka náhodně vybrala, takže
+  upsert/insert by omylem naimportoval celou ligu do Náhodné ligy.
+
+  **UI**: appka dřív měla `sport` jen na competition (typ `"hockey" |
+  "football"`, používaný mj. pro checkbox "prodloužení/nájezdy" u
+  hokeje). Nově `CompetitionSport` (`"hockey" | "football" | "mixed"`)
+  na competition + `Sport | null` na matches — `MatchCard`/
+  `SpotlightMatchCard` počítají efektivní sport zápasu jako
+  `match.sport ?? competition.sport` (sdílený fallback
+  `src/lib/sport.ts`), takže zbytek appky (barvy karet, formulář tipu)
+  funguje beze změny chování u běžných soutěží a správně se přepíná
+  zápas od zápasu u "Náhodné ligy".
+
+  **Vedlejší zjištění (30.8.2026, k případnému budoucímu kroku):**
+  ověřeno přes probe, že livesport.cz na stránce konkrétního zápasu
+  (`/zapas/.../kurzy/?mid=...`) reálně ukazuje kurzy sázkových kanceláří
+  (1-X-2 desetinná čísla, víc trhů — Over/Under, oba dají gól,
+  double chance...). Uživatel projevil zájem appce doplnit kurzy jako
+  pomoc při tipování. Technicky proveditelné, ale jiný druh scrapování
+  než appka dělá dnes — dnešní scraper stahuje JEDNU stránku za celou
+  ligu a dostane všechny zápasy najednou, kurzy jsou ale jen na
+  stránce KONKRÉTNÍHO zápasu, takže by to vyžadovalo otevřít prohlížeč
+  zvlášť pro každý sledovaný zápas (výrazně dražší na čas/requesty).
+  Neimplementováno, čeká na rozhodnutí jako samostatný krok.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -933,6 +1058,63 @@ rozhodnutí a implementace viz krok 13.
     na doplnění kontaktního e-mailu do Zásad ochrany osobních údajů.
     Uživatel avizoval, že se na obsah/vzhled týhle stránky ještě vrátí
     a bude ji ladit za běhu.
+19. [x] **Spolehlivost `sync-results` (a dalších `schedule:` workflow)
+    — vyřešeno (5.9.2026).** Uživatel 30.8.2026 nahlásil, že appka
+    pořád nevyhodnocuje zápasy každých 30 minut, jak je nastaveno.
+    Ověřeno na historii běhů `sync-results` (GitHub Actions): i po
+    dřívější opravě (krok výše, PR #78 — přesun mimo celou/půlhodinu)
+    jsou mezery mezi automatickými běhy 2–6 hodin místo 30 minut (např.
+    30.8. 07:21→13:13 = 5 h 52 min, 29.8. 15:12→18:46 = 3 h 34 min).
+    Všechny běhy skončily úspěšně (`success`) — příčina nebyla v appce
+    ani síti, ale ve stejném zdokumentovaném, celoplošném problému se
+    spolehlivostí GitHubova `schedule:` triggeru (GitHub Community
+    Discussions #147369, #156282, viz poznámka u PR #78) — přesun mimo
+    kolizní bod ho jen zmírnil, nevyřešil.
+
+    **Řešení (moje doporučení, realizováno 5.9.2026):** appku teď
+    "budí" externí bezplatná služba **cron-job.org** — každých 30
+    minut zavolá GitHubovo API (`POST
+    /repos/dstruhac/drew/actions/workflows/sync-results.yml/dispatches`),
+    což GitHubu řekne "spusť workflow hned", nezávisle na jeho vlastním
+    nespolehlivém plánovači. Uživatel si založil účet na cron-job.org a
+    vytvořil fine-grained GitHub token s právem `Actions: Read and
+    write` jen na `dstruhac/drew`. GitHubův vlastní `schedule:`
+    (`7,37 * * * *`) zůstává navíc zapnutý jako neškodná záloha — appka
+    si stejně nejdřív ověří v databázi, jestli je co dělat.
+
+    **Cestou dvě chyby při zakládání tokenu, obě si appka/uživatel
+    sami odchytili:**
+    1. Token byl napoprvé vytvořený s "Repository access: Public
+       Repositories (read-only)" — u týhle volby GitHub nedovolí
+       nastavit VŮBEC ŽÁDNÁ oprávnění (proto se u tokenu ukazovalo "0
+       repository permissions"), a je tedy natvrdo jen pro čtení bez
+       ohledu na cokoliv jiného. Náš repozitář je veřejný, takže GitHub
+       tuhle volbu nabízí jako lákavou zkratku — je to ale slepá cesta
+       pro cokoliv, co má appka umět spouštět. Oprava: založit token
+       znovu s "Only select repositories" → `dstruhac/drew`.
+    2. cron-job.org v bezplatném tarifu neukazuje doslovné tělo
+       odpovědi od GitHubu, jen vlastní parafrázi ("may block automated
+       requests..."), takže z něj nešlo přesně poznat, o jakou chybu
+       jde. Doplněna podpora pro HTTP metodu/tělo/`Authorization`
+       hlavičku do existujícího diagnostického
+       `.github/workflows/api-probe.yml` (token čtený z repository
+       secretu `PROBE_AUTH_TOKEN`, nikdy z workflow_dispatch inputu, ať
+       se nezobrazí nezamaskovaný) — tím se dal z GitHubu vytáhnout
+       přesný text chyby (`"Resource not accessible by personal access
+       token"`), který teprve ukázal skutečnou příčinu (bod 1 výše).
+       `api-probe.yml` má tuhle podporu (metoda/tělo/auth hlavička)
+       trvale, ať se dá použít i příště na jiný podobný problém.
+
+    Ověřeno end-to-end 5.9.2026: ruční test v cron-job.org vrátil `204`
+    a na GitHubu se podle toho reálně spustil běh `sync-results`
+    (run #58, událost `workflow_dispatch`).
+20. [ ] **Koupě vlastní domény** — další krok v pořadí, zadaný
+    uživatelem 30.8.2026, zatím nerozpracováno (čeká se, až uživatel
+    upřesní, kterou doménu a u koho registrovat). Souvisí s dřívější
+    otevřenou otázkou u kroku 18 (produkční Google OAuth mód čeká mj.
+    na doménu, uvažovaná varianta byla `klopi.app`) a s poznámkou u
+    nápadu č. 4 níže (až bude vlastní doména, zvážit přechod e-mailů
+    z Gmail SMTP na Resend s ověřenou doménou).
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
@@ -1096,6 +1278,25 @@ migracích výše přibyla ještě jedna
 (`20260828170000_competition_participants_email_reminders.sql`, viz
 "Implementace" výše) — než půjde `predict-reminders.yml` znovu
 zkoušet, musí být aplikovaná v Supabase i tahle.
+
+**Časté pády — vyřešeno (5.9.2026).** Uživatel nahlásil, že
+`predict-reminders` často padá. Ověřeno na historii běhů (GitHub
+Actions): opakovaná chyba `JWT issued at future` na jinak platný
+service role klíč — přicházela v **shlucích** (víc běhů za sebou ve
+stejném časovém okně, pak zase hodiny v pořádku), ne rovnoměrně napříč
+dnem. To ukazuje na dočasný problém na straně **Supabase** (nesoulad
+hodin mezi jejich servery), ne na appku — klíč je statický, jeho `iat`
+se mezi voláními nemění, takže appka sama chybu nezpůsobuje.
+
+Oprava (`scripts/sync/predict-reminders.mjs`): krátký automatický
+retry (`withJwtRetry`, max 2 opakování po 3 s) na všech dotazech, kde
+se tahle chyba objevila — čeká se jen pár sekund na to, až se Supabase
+zase srovná. Vedlejší zjištění při vyšetřování: chyba vzniklá PŘED
+per-uživatelskou smyčkou (např. tahle) dřív jen shodila proces s exit
+code 1, aniž by se založil GitHub Issue — přestože skript má vlastní
+hlášení chyb (`reportFailure`). Doplněn top-level `try/catch` okolo
+`main()`, ať se nahlásí i tenhle typ pádu, ne jen selhání jednotlivého
+odeslání e-mailu.
 
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 

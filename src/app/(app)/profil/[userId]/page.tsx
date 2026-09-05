@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import type { Sport } from "@/lib/supabase/database.types";
+import type { CompetitionSport } from "@/lib/supabase/database.types";
 
-const SPORT_LABELS: Record<Sport, string> = {
+const SPORT_LABELS: Record<CompetitionSport, string> = {
   hockey: "Hokej",
   football: "Fotbal",
+  mixed: "Mix",
 };
 
 // Veřejný profil hráče (odsouhlaseno s uživatelem 28.8.2026): kdokoliv

@@ -53,19 +53,147 @@ import { scrapeLivesportResults, scrapeLivesportLiveMatches } from "./lib/scrape
 import { validateResults } from "./lib/validate-results.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 
+// "Náhodná liga" (competition.sport === "mixed", viz random-league.mjs)
+// nemá jedno scrape_path -- každý její zápas pochází z jiné ligy (viz
+// matches.source_scrape_path). Proto se seskupí podle zdrojové ligy a
+// pro každou skupinu se zápasy dohledají na JEJÍ výsledkové stránce --
+// ale narozdíl od syncSingleLeagueCompetition se nikdy nic nezakládá
+// (jen UPDATE podle external_id), protože scrapeLivesportResults vrací
+// VŠECHNY zápasy celé té ligy, ne jen těch pár, co appka náhodně
+// vybrala -- upsert/insert by omylem naimportoval celou ligu do
+// Náhodné ligy.
+async function syncRandomPoolCompetition(supabase, competition) {
+  const label = `sync-results:${competition.id}`;
+  const now = Date.now();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("matches")
+    .select("external_id, status, kickoff_at, source_scrape_path")
+    .eq("competition_id", competition.id);
+
+  if (existingError) throw new Error(`Nepodařilo se načíst zápasy: ${existingError.message}`);
+
+  const pending = (existing ?? []).filter(
+    (m) => m.status !== "finished" && new Date(m.kickoff_at).getTime() <= now,
+  );
+
+  if (pending.length === 0) {
+    console.log(`${competition.name}: žádné nedohrané zápasy po výkopu, přeskakuji (0 požadavků).`);
+    return false;
+  }
+
+  const bySourcePath = new Map();
+  for (const m of pending) {
+    if (!m.source_scrape_path) continue; // nemělo by nastat, obranná kontrola
+    if (!bySourcePath.has(m.source_scrape_path)) bySourcePath.set(m.source_scrape_path, new Set());
+    bySourcePath.get(m.source_scrape_path).add(m.external_id);
+  }
+
+  console.log(
+    `----- ${competition.name}: ${pending.length} zápasů čeká na výsledek napříč ${bySourcePath.size} ligami -----`,
+  );
+
+  let hadFailure = false;
+  let totalUpdated = 0;
+
+  for (const [sourcePath, externalIds] of bySourcePath) {
+    try {
+      const scraped = await scrapeLivesportResults(sourcePath);
+      const withResult = scraped.filter((m) => m.homeScore != null && m.awayScore != null && externalIds.has(m.externalId));
+
+      if (withResult.length > 0) {
+        const { ok, errors } = validateResults(withResult);
+        if (!ok) {
+          hadFailure = true;
+          await reportFailure({
+            title: `⚠️ sync-results: ${competition.name} (${sourcePath}) — data nevypadají v pořádku`,
+            body: [
+              `Scrapování výsledků livesport:${sourcePath} vrátilo data, která neprošla kontrolou rozumnosti — nic se nezapsalo.`,
+              "",
+              "**Chyby:**",
+              ...errors.map((e) => `- ${e}`),
+            ].join("\n"),
+            label,
+          });
+        } else {
+          for (const m of withResult) {
+            const { error: updateError } = await supabase
+              .from("matches")
+              .update({ home_score: m.homeScore, away_score: m.awayScore, status: "finished" })
+              .eq("competition_id", competition.id)
+              .eq("external_id", m.externalId);
+            if (updateError) throw new Error(`Update selhal: ${updateError.message}`);
+          }
+          totalUpdated += withResult.length;
+        }
+      }
+
+      const live = (await scrapeLivesportLiveMatches(sourcePath)).filter((m) => externalIds.has(m.externalId));
+      if (live.length > 0) {
+        const { ok: liveOk, errors: liveErrors } = validateResults(live, { requireKickoffAt: false });
+        if (!liveOk) {
+          hadFailure = true;
+          await reportFailure({
+            title: `⚠️ sync-results: ${competition.name} (${sourcePath}) — živý zápas nevypadá v pořádku`,
+            body: [
+              `Scrapování živého zápasu livesport:${sourcePath} vrátilo data, která neprošla kontrolou rozumnosti — nic se nezapsalo.`,
+              "",
+              "**Chyby:**",
+              ...liveErrors.map((e) => `- ${e}`),
+            ].join("\n"),
+            label,
+          });
+        } else {
+          for (const m of live) {
+            const { error: liveUpdateError } = await supabase
+              .from("matches")
+              .update({ status: "live", home_score: m.homeScore, away_score: m.awayScore })
+              .eq("competition_id", competition.id)
+              .eq("external_id", m.externalId)
+              .neq("status", "finished");
+            if (liveUpdateError) throw new Error(`Update živého zápasu selhal: ${liveUpdateError.message}`);
+          }
+        }
+      }
+    } catch (err) {
+      hadFailure = true;
+      console.log(`::error::${competition.name} (${sourcePath}): ${err.message}`);
+      await reportFailure({
+        title: `⚠️ sync-results: ${competition.name} (${sourcePath}) — běh selhal`,
+        body: `Scrapování selhalo s chybou:\n\n\`\`\`\n${err.stack || err.message}\n\`\`\``,
+        label,
+      });
+    }
+  }
+
+  console.log(`${competition.name}: aktualizováno ${totalUpdated} zápasů.`);
+  if (!hadFailure) {
+    await reportRecovery({ label, summary: `Poslední běh v pořádku, aktualizováno ${totalUpdated} zápasů.` });
+  }
+  return hadFailure;
+}
+
+// Bezpečná rezerva nad běžnou délku zápasu (fotbal ~2h se
+// vším kolem, hokej s prodloužením/nájezdy o něco víc) -- viz
+// docs/... a supabase/migrations/20260829220000_add_postponed_match_status.sql
+// pro celé odůvodnění detekce odložených zápasů.
+const POSTPONED_THRESHOLD_MS = 4 * 60 * 60 * 1000;
+
 async function main() {
   const supabase = createSupabaseClient();
 
-  const { data: competitions, error } = await supabase
+  const { data: allCompetitions, error } = await supabase
     .from("competitions")
-    .select("id, name, scrape_source, scrape_path")
-    .not("scrape_source", "is", null)
-    .not("scrape_path", "is", null);
+    .select("id, name, sport, scrape_source, scrape_path");
 
   if (error) throw new Error(`Nepodařilo se načíst competitions: ${error.message}`);
 
-  if (!competitions || competitions.length === 0) {
-    console.log("Žádná competition nemá vyplněné scrape_source/scrape_path — není co dělat.");
+  const competitions = (allCompetitions ?? []).filter(
+    (c) => c.sport === "mixed" || (c.scrape_source && c.scrape_path),
+  );
+
+  if (competitions.length === 0) {
+    console.log("Žádná competition nemá vyplněné scrape_source/scrape_path (ani není 'mixed') — není co dělat.");
     return;
   }
 
@@ -73,12 +201,17 @@ async function main() {
   const now = Date.now();
 
   for (const competition of competitions) {
+    if (competition.sport === "mixed") {
+      if (await syncRandomPoolCompetition(supabase, competition)) hadFailure = true;
+      continue;
+    }
+
     const label = `sync-results:${competition.id}`;
 
     try {
       const { data: existing, error: existingError } = await supabase
         .from("matches")
-        .select("id, status, kickoff_at")
+        .select("id, status, kickoff_at, external_id")
         .eq("competition_id", competition.id);
 
       if (existingError) throw new Error(`Nepodařilo se načíst zápasy: ${existingError.message}`);
@@ -105,6 +238,37 @@ async function main() {
 
       const scraped = await scrapeLivesportResults(competition.scrape_path);
       const withResult = scraped.filter((m) => m.homeScore != null && m.awayScore != null);
+
+      // Odložený zápas (29.8.2026, reálný případ Bohemians - Mladá
+      // Boleslav): livesport.cz ho beze zbytku vynechá i ze stránky
+      // výsledků, dokud nevyhlásí nový termín -- na rozdíl od
+      // dohrávaného zápasu, který tam JE, jen zatím bez skóre. Kontrola
+      // proti `scraped` (ne `withResult`), ať dohrávaný zápas bez skóre
+      // nedopadne omylem jako "odložený". `status === 'scheduled'`
+      // vylučuje zápas, který appka už jednou zachytila jako 'live' --
+      // ten očividně odložený není, jen čeká na dopsání finálního skóre.
+      const scrapedExternalIds = new Set(scraped.map((m) => m.externalId));
+      const newlyPostponed = (existing ?? []).filter(
+        (m) =>
+          m.status === "scheduled" &&
+          now - new Date(m.kickoff_at).getTime() > POSTPONED_THRESHOLD_MS &&
+          !scrapedExternalIds.has(m.external_id),
+      );
+
+      if (newlyPostponed.length > 0) {
+        const { error: postponedError } = await supabase
+          .from("matches")
+          .update({ status: "postponed" })
+          .in(
+            "id",
+            newlyPostponed.map((m) => m.id),
+          );
+
+        if (postponedError) {
+          throw new Error(`Označení odloženého zápasu selhalo: ${postponedError.message}`);
+        }
+        console.log(`Označeno jako odložené: ${newlyPostponed.length} zápas(y).`);
+      }
 
       const { ok, errors } = validateResults(withResult);
 

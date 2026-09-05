@@ -34,6 +34,25 @@ import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 const HOURS_BEFORE = 2;
 const LABEL = "predict-reminders";
 
+// Supabase občas na pár desítek minut vrátí "JWT issued at future" na
+// jinak platný service role klíč -- ověřeno 5.9.2026 na historii běhů:
+// chyby přicházejí v shlucích (několik běhů za sebou v tomtéž okně), ne
+// rovnoměrně napříč dnem, což ukazuje na dočasný problém na Supabase
+// straně (nesoulad hodin mezi jejich servery), ne na chybu v appce --
+// service role klíč je statický, jeho "iat" se mezi voláními nemění.
+// Jeden krátký retry stačí, protože okno bývá jen pár sekund.
+async function withJwtRetry(queryFn, { retries = 2, delayMs = 3000 } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await queryFn();
+    const isTransientJwtError = result.error?.message?.includes("JWT issued at future");
+    if (!isTransientJwtError || attempt >= retries) return result;
+    console.log(
+      `::warning::Supabase dočasně odmítla JWT ("JWT issued at future"), zkouším znovu za ${delayMs} ms (pokus ${attempt + 1}/${retries})...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 function createMailer() {
   const user = process.env.GMAIL_USER;
   // Google zobrazuje heslo pro aplikace s mezerami ("abcd efgh ijkl
@@ -58,7 +77,7 @@ async function loadEmailsByUserId(supabase, userIds) {
   // hrstku uživatelů, takže se prostě projde celý seznam (stránkovaně,
   // pro jistotu do budoucna, ne natvrdo na jednu stránku).
   for (;;) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    const { data, error } = await withJwtRetry(() => supabase.auth.admin.listUsers({ page, perPage }));
     if (error) throw new Error(`Nepodařilo se načíst uživatele: ${error.message}`);
 
     for (const user of data.users) {
@@ -82,18 +101,24 @@ async function main() {
     { data: matches, error: matchesError },
     { data: alreadySent, error: alreadySentError },
   ] = await Promise.all([
-    supabase
-      .from("competition_participants")
-      .select("user_id, competition_id")
-      .eq("email_reminders_enabled", true),
-    supabase
-      .from("matches")
-      .select("id, competition_id, home_team, away_team, kickoff_at")
-      .eq("status", "scheduled")
-      .gte("kickoff_at", todayStart)
-      .lt("kickoff_at", todayEnd)
-      .gt("kickoff_at", now.toISOString()),
-    supabase.from("prediction_reminders_sent").select("user_id").eq("reminder_date", dateString),
+    withJwtRetry(() =>
+      supabase
+        .from("competition_participants")
+        .select("user_id, competition_id")
+        .eq("email_reminders_enabled", true),
+    ),
+    withJwtRetry(() =>
+      supabase
+        .from("matches")
+        .select("id, competition_id, home_team, away_team, kickoff_at")
+        .eq("status", "scheduled")
+        .gte("kickoff_at", todayStart)
+        .lt("kickoff_at", todayEnd)
+        .gt("kickoff_at", now.toISOString()),
+    ),
+    withJwtRetry(() =>
+      supabase.from("prediction_reminders_sent").select("user_id").eq("reminder_date", dateString),
+    ),
   ]);
 
   if (participantsError) throw new Error(`Nepodařilo se načíst participanty: ${participantsError.message}`);
@@ -106,10 +131,9 @@ async function main() {
   }
 
   const matchIds = matches.map((m) => m.id);
-  const { data: predictions, error: predictionsError } = await supabase
-    .from("predictions")
-    .select("match_id, user_id")
-    .in("match_id", matchIds);
+  const { data: predictions, error: predictionsError } = await withJwtRetry(() =>
+    supabase.from("predictions").select("match_id, user_id").in("match_id", matchIds),
+  );
 
   if (predictionsError) throw new Error(`Nepodařilo se načíst tipy: ${predictionsError.message}`);
 
@@ -173,4 +197,21 @@ async function main() {
   }
 }
 
-await main();
+try {
+  await main();
+} catch (err) {
+  // Bez tohohle by chyba vzniklá PŘED per-uživatelskou smyčkou výše
+  // (např. selhání jednoho z úvodních dotazů i po vyčerpaných retry)
+  // jen shodila proces s exit code 1 -- vidět v logu Actions, ale bez
+  // GitHub Issue, přestože skript má vlastní hlášení chyb (viz hlavička
+  // souboru). Objeveno 5.9.2026 při vyšetřování opakovaných pádů.
+  console.log(`::error::${err.message}`);
+  process.exitCode = 1;
+  await reportFailure({
+    title: "⚠️ predict-reminders: běh selhal",
+    body: `Běh selhal s chybou: ${err.message}`,
+    label: LABEL,
+  }).catch((reportErr) => {
+    console.log(`::error::Navíc selhalo i nahlášení chyby: ${reportErr.message}`);
+  });
+}

@@ -3,8 +3,12 @@
 //   supabase gen types typescript --linked > src/lib/supabase/database.types.ts
 
 export type Sport = "hockey" | "football";
+// "mixed" jen u Náhodné ligy -- zápasy pochází z různých lig, každý má
+// vlastní `matches.sport` (viz níže), sport na competition slouží jen
+// jako signál appce/sync-results, že jde o tenhle zvláštní případ.
+export type CompetitionSport = Sport | "mixed";
 export type CompetitionStatus = "active" | "archived";
-export type MatchStatus = "scheduled" | "live" | "finished";
+export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
 
 export interface Database {
   public: {
@@ -34,7 +38,7 @@ export interface Database {
         Row: {
           id: string;
           name: string;
-          sport: Sport;
+          sport: CompetitionSport;
           status: CompetitionStatus;
           points_exact: number;
           points_winner: number;
@@ -49,7 +53,7 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
-          sport: Sport;
+          sport: CompetitionSport;
           status?: CompetitionStatus;
           points_exact?: number;
           points_winner?: number;
@@ -61,7 +65,7 @@ export interface Database {
         };
         Update: {
           name?: string;
-          sport?: Sport;
+          sport?: CompetitionSport;
           status?: CompetitionStatus;
           points_exact?: number;
           points_winner?: number;
@@ -92,6 +96,11 @@ export interface Database {
           home_score: number | null;
           away_score: number | null;
           overtime_flag: boolean | null;
+          // Jen u zápasů "mixed" competition (Náhodná liga) -- viz
+          // migrace 20260830090000_random_league.sql. Jinak null a
+          // appka použije competition.sport.
+          sport: Sport | null;
+          source_scrape_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -106,6 +115,8 @@ export interface Database {
           home_score?: number | null;
           away_score?: number | null;
           overtime_flag?: boolean | null;
+          sport?: Sport | null;
+          source_scrape_path?: string | null;
         };
         Update: {
           external_id?: string | null;
@@ -116,6 +127,8 @@ export interface Database {
           home_score?: number | null;
           away_score?: number | null;
           overtime_flag?: boolean | null;
+          sport?: Sport | null;
+          source_scrape_path?: string | null;
         };
         Relationships: [
           {

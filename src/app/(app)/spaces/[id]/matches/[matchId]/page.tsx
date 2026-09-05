@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Radio } from "lucide-react";
+import { CalendarOff, ChevronLeft, Radio } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
+import { competitionFallbackSport } from "@/lib/sport";
 
 export default async function MatchDetailPage({
   params,
@@ -30,7 +31,7 @@ export default async function MatchDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
       )
       .eq("id", matchId)
       .eq("competition_id", id)
@@ -147,6 +148,12 @@ export default async function MatchDetailPage({
             Zápas právě začal, čekáme na aktuální skóre
           </p>
         )}
+        {match.status === "postponed" && (
+          <p className="mt-2 flex items-center gap-1.5 text-lg font-extrabold text-warning">
+            <CalendarOff className="h-4 w-4" strokeWidth={2.4} />
+            Zápas je odložen, nový termín zatím není znám
+          </p>
+        )}
       </header>
 
       <section>
@@ -161,6 +168,11 @@ export default async function MatchDetailPage({
               {ownPrediction.points !== null &&
                 ` — získal(a) jste ${ownPrediction.points} b.`}
             </p>
+          ) : match.status === "postponed" ? (
+            <p className="mt-2 text-sm font-semibold text-faint-foreground">
+              Zatím jste nestihl(a) zadat tip — půjde znovu, jakmile appka
+              zachytí nový termín.
+            </p>
           ) : (
             <p className="mt-2 text-sm font-semibold text-faint-foreground">
               Nestihl(a) jste tip, zápas je zamčený.
@@ -168,7 +180,7 @@ export default async function MatchDetailPage({
           )
         ) : isJoined ? (
           <PredictionForm
-            sport={competition.sport}
+            sport={match.sport ?? competitionFallbackSport(competition.sport)}
             competitionId={competition.id}
             matchId={match.id}
             existing={ownPrediction}
