@@ -199,14 +199,18 @@ export default async function CompetitionDetailPage({
             <form action={setEmailReminders.bind(null, competition.id, !emailRemindersEnabled)}>
               <button
                 type="submit"
-                className="btn-press flex items-center gap-1.5 rounded-full border border-border-subtle px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-surface-hover"
+                className={`btn-press flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold ${
+                  emailRemindersEnabled
+                    ? "border-accent/30 bg-accent/5 text-accent hover:bg-accent/10"
+                    : "border-border-subtle text-muted-foreground hover:bg-surface-hover"
+                }`}
               >
                 {emailRemindersEnabled ? (
                   <BellOff className="h-3.5 w-3.5" strokeWidth={2.2} />
                 ) : (
                   <Bell className="h-3.5 w-3.5" strokeWidth={2.2} />
                 )}
-                {emailRemindersEnabled ? "Nechci upozornit" : "Chci upozornit"}
+                {emailRemindersEnabled ? "Vypnout upozornění" : "Zapnout upozornění"}
               </button>
             </form>
           )}
