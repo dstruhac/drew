@@ -579,13 +579,17 @@ tří důvodů, které se násobily:
 rozehřáté" — `sync-results` už běží každých 30 minut a databáze se tím
 udržuje v provozu sama.
 
-- [x] **Podtitulek v hlavičce veřejné stránky (5.9.2026)** — hlavička
-  `/` (`src/app/page.tsx`) ukazovala jen "Klopi", uživatel chtěl vrátit
-  i podtitulek se skrytým významem jména ("Klobása a pivo", viz sekce
-  "Jméno appky" výše). Doplněno jako `– Klobása a pivo` za název, jen
-  od `sm:` šířky výš (na mobilu by s tlačítkem "Přihlásit se" na
-  stejném řádku bylo těsno) — patička appky se stejným textem
-  ("Klopi — Klobása + Pivo, věci co nás spojujou.") beze změny.
+- [x] **Podtitulek v hlavičce veřejné stránky i appky (5.9.2026)** —
+  hlavička `/` (`src/app/page.tsx`) ukazovala jen "Klopi", uživatel
+  chtěl vrátit i podtitulek se skrytým významem jména ("Klobása a
+  pivo", viz sekce "Jméno appky" výše). Doplněno jako `– Klobása a
+  pivo` za název, jen od `sm:` šířky výš (na mobilu by s tlačítkem
+  "Přihlásit se"/fotečkou uživatele na stejném řádku bylo těsno) —
+  patička appky se stejným textem ("Klopi — Klobása + Pivo, věci co
+  nás spojujou.") beze změny. Uživatel upozornil, že stejný podtitulek
+  chybí i v hlavičce uvnitř appky (`src/components/app-header.tsx`,
+  sdílená napříč `/dashboard`, `/spaces`, `/profil`...) — první úprava
+  se týkala jen veřejné stránky, doplněno stejným vzorem i sem.
 
 ## Naplánované další kroky
 
