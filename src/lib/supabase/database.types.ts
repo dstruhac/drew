@@ -18,6 +18,7 @@ export interface Database {
           id: string;
           display_name: string;
           avatar_url: string | null;
+          badges_seen_through: string;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +30,7 @@ export interface Database {
         Update: {
           display_name?: string;
           avatar_url?: string | null;
+          badges_seen_through?: string;
         };
         Relationships: [];
       };

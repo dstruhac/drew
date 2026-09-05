@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
+import { BadgeCenter } from "@/components/badge-center";
 import { competitionFallbackSport } from "@/lib/sport";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
@@ -40,7 +40,8 @@ export default async function DashboardPage() {
     { data: predictions },
     { data: upcomingMatches },
     { data: teamLogos },
-    { data: badges },
+    { data: weeklyBadges },
+    { data: profileRow },
   ] = await Promise.all([
     competitionIds.length
       ? supabase
@@ -72,11 +73,21 @@ export default async function DashboardPage() {
           .select("competition_id, team_name, logo_url")
           .in("competition_id", competitionIds)
       : Promise.resolve({ data: [] }),
+    // Bez filtru na user_id -- BadgeCenter potřebuje vidět i cizí
+    // medaile v soutěžích, které hráč hraje, aby ho o nich mohl
+    // informovat (viz níže myBadges/othersNewBadges).
+    competitionIds.length
+      ? supabase
+          .from("weekly_badges")
+          .select("competition_id, week_start, user_id, points, competitions(name), profiles(display_name)")
+          .in("competition_id", competitionIds)
+          .order("week_start", { ascending: false })
+      : Promise.resolve({ data: [] }),
     supabase
-      .from("weekly_badges")
-      .select("competition_id, week_start, points, competitions(name)")
-      .eq("user_id", user?.id ?? "")
-      .order("week_start", { ascending: false }),
+      .from("profiles")
+      .select("badges_seen_through")
+      .eq("id", user?.id ?? "")
+      .maybeSingle(),
   ]);
 
   // Vysvícený zápas: chronologicky nejbližší (matches jsou už seřazené
@@ -137,108 +148,94 @@ export default async function DashboardPage() {
     }
   }
 
+  // Medaile za vítězství týdne: myBadges je celá historie vlastních
+  // medailí (Sbírka artefaktů), myNewBadges/othersNewBadges jsou jen
+  // ty udělené PO badges_seen_through -- to řídí, jestli BadgeCenter
+  // zobrazí gratulační modal (vyhrál jsem), informační banner (vyhrál
+  // někdo jiný), nebo nic (nulový týden / appka to hráč viděl).
+  const allBadges = weeklyBadges ?? [];
+  const myBadges = allBadges.filter((b) => b.user_id === user?.id);
+  const seenThrough = profileRow?.badges_seen_through ?? null;
+  const newBadges = seenThrough
+    ? allBadges.filter((b) => b.week_start > seenThrough)
+    : allBadges;
+  const myNewBadges = newBadges.filter((b) => b.user_id === user?.id);
+  const othersNewBadges = newBadges.filter((b) => b.user_id !== user?.id);
+  // newBadges je seřazené sestupně (viz dotaz výše), takže první
+  // položka nese nejnovější week_start -- přesně po tenhle týden se
+  // má watermark posunout, až hráč modal/banner zavře.
+  const markSeenThrough = newBadges.length > 0 ? newBadges[0].week_start : null;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-5xl sm:px-10">
       <header>
         <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
       </header>
 
-      <section className="flex flex-col gap-3">
-        {spotlightMatch ? (
-          <SpotlightMatchCard
-            match={spotlightMatch}
-            isJoined={true}
-            sport={competitionFallbackSport(sportByCompetition.get(spotlightMatch.competition_id))}
-            competitionId={spotlightMatch.competition_id}
-            logoUrlByTeam={spotlightLogoMap}
-          />
-        ) : myCompetitions.length > 0 ? (
-          <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
-            ✅ Máš vyplněné tipy na všechno, co se blíží.
-          </p>
-        ) : (
-          <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
-            👋 Zatím nehraješ žádnou soutěž. Mrkni na{" "}
+      <BadgeCenter
+        myBadges={myBadges}
+        myNewBadges={myNewBadges}
+        othersNewBadges={othersNewBadges}
+        markSeenThrough={markSeenThrough}
+      >
+        <section className="flex flex-col gap-3">
+          {spotlightMatch ? (
+            <SpotlightMatchCard
+              match={spotlightMatch}
+              isJoined={true}
+              sport={competitionFallbackSport(sportByCompetition.get(spotlightMatch.competition_id))}
+              competitionId={spotlightMatch.competition_id}
+              logoUrlByTeam={spotlightLogoMap}
+            />
+          ) : myCompetitions.length > 0 ? (
+            <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
+              ✅ Máš vyplněné tipy na všechno, co se blíží.
+            </p>
+          ) : (
+            <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
+              👋 Zatím nehraješ žádnou soutěž. Mrkni na{" "}
+              <Link
+                href="/spaces"
+                className="font-bold text-accent underline underline-offset-2"
+              >
+                Všechny soutěže
+              </Link>{" "}
+              a přidej se.
+            </p>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-muted-foreground">
+              Tvoje soutěže
+            </h2>
             <Link
               href="/spaces"
-              className="font-bold text-accent underline underline-offset-2"
+              className="text-xs font-bold text-accent hover:underline"
             >
-              Všechny soutěže
-            </Link>{" "}
-            a přidej se.
-          </p>
-        )}
-      </section>
+              Procházet všechny soutěže →
+            </Link>
+          </div>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-muted-foreground">
-            Tvoje soutěže
-          </h2>
-          <Link
-            href="/spaces"
-            className="text-xs font-bold text-accent hover:underline"
-          >
-            Procházet všechny soutěže →
-          </Link>
-        </div>
-
-        {myCompetitions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Zatím žádná -- vyber si soutěž v seznamu výše.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {myCompetitions.map((competition) => (
-              <li key={competition.id}>
-                <CompetitionCard
-                  competition={competition}
-                  rank={rankByCompetition.get(competition.id) ?? null}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-bold text-muted-foreground">
-          Sbírka artefaktů
-        </h2>
-
-        {!badges?.length ? (
-          <p className="text-sm text-muted-foreground">
-            Zatím žádná medaile -- vyhraj týden a objeví se tu!
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {badges.map((badge) => (
-              <li
-                key={`${badge.competition_id}-${badge.week_start}`}
-                className="flex items-center gap-2 rounded-2xl border border-border-subtle bg-surface p-3 text-sm font-semibold"
-              >
-                <Medal className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.2} />
-                {badge.competitions?.name ?? "Neznámá soutěž"}
-                <span className="text-faint-foreground">
-                  · {formatBadgeWeek(badge.week_start)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          {myCompetitions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Zatím žádná -- vyber si soutěž v seznamu výše.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {myCompetitions.map((competition) => (
+                <li key={competition.id}>
+                  <CompetitionCard
+                    competition={competition}
+                    rank={rankByCompetition.get(competition.id) ?? null}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </BadgeCenter>
     </main>
   );
-}
-
-function formatBadgeWeek(weekStartDate: string) {
-  const format = (date: Date) =>
-    date.toLocaleDateString("cs-CZ", {
-      day: "numeric",
-      month: "numeric",
-      timeZone: "Europe/Prague",
-    });
-  const start = new Date(weekStartDate);
-  const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
-  return `${format(start)}–${format(end)}`;
 }
