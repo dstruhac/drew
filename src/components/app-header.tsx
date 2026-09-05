@@ -1,6 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronDown } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
@@ -36,10 +36,8 @@ export async function AppHeader() {
           href="/dashboard"
           className="btn-press flex items-center gap-2 transition-opacity hover:opacity-80"
         >
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-accent">
-            <ChevronDown className="h-4 w-4 text-accent-foreground" strokeWidth={2.6} />
-          </span>
-          <span className="text-[18px] font-extrabold tracking-tight">Klobása &amp; pivo</span>
+          <Image src="/brand/klopi-icon.svg" alt="Klopi" width={30} height={30} className="h-[30px] w-[30px]" priority />
+          <span className="text-[18px] font-extrabold tracking-tight">Klopi</span>
         </Link>
 
         <div className="flex items-center gap-3">

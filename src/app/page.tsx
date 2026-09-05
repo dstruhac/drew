@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Users, Calendar, Check, Medal } from "lucide-react";
+import { Users, Calendar, Check, Medal } from "lucide-react";
 import { GoogleIcon } from "@/components/google-icon";
 
 // Veřejná úvodní stránka appky (29.8.2026) -- middleware (viz
@@ -24,9 +25,7 @@ export default function LandingPage() {
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-10">
           <div className="flex items-center gap-2">
-            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-accent">
-              <ChevronDown className="h-[17px] w-[17px] text-accent-foreground" strokeWidth={2.6} />
-            </span>
+            <Image src="/brand/klopi-icon.svg" alt="Klopi" width={34} height={34} className="h-[34px] w-[34px]" priority />
             <span className="text-[19px] font-extrabold tracking-tight">Klopi</span>
           </div>
           <Link
@@ -137,9 +136,7 @@ export default function LandingPage() {
       <footer className="border-t border-border-subtle px-4 py-8">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-accent">
-              <ChevronDown className="h-3 w-3 text-accent-foreground" strokeWidth={2.8} />
-            </span>
+            <Image src="/brand/klopi-icon.svg" alt="" width={26} height={26} className="h-[26px] w-[26px]" />
             <span className="text-[13px] font-semibold text-faint-foreground">
               Klopi — Klobása + Pivo, věci co nás spojujou.
             </span>
