@@ -470,6 +470,40 @@ Hotovo:
   stránce KONKRÉTNÍHO zápasu, takže by to vyžadovalo otevřít prohlížeč
   zvlášť pro každý sledovaný zápas (výrazně dražší na čas/requesty).
   Neimplementováno, čeká na rozhodnutí jako samostatný krok.
+- [x] **Konsolidované upozornění na medaile za vítězství týdne
+  (29.8.2026, PR #80)** — appka dřív uměla vlastníka medaile potěšit
+  jen modálním oknem (viz krok 4 v sekci "Grafický redesign" výše) a o
+  cizí výhře nikoho neinformovala vůbec. Rozhodnutí s uživatelem přes
+  `AskUserQuestion`:
+  - **Vlastní výhra** → modal ("Gratuluju, jsi jednooký mezi
+    slepými.") s výčtem soutěží + zmínkou, pokud ve stejném týdnu
+    bodoval i někdo jiný.
+  - **Cizí výhra, uživatel sám 0** → tenký odklikávací banner nad
+    vysvícenou kartičkou zápasu na dashboardu ("Zlepši to a ukaž, že
+    na to máš.") s výčtem vítězů.
+  - Nikdy obojí zároveň (max. jedno upozornění na dashboardu) — řeší
+    obavu uživatele z "3 upozornění najednou".
+  - Proklik z modalu na Sbírku artefaktů → nová medaile se ze šedé
+    probarví (`grayscale` → plná barva, konečně využitý token
+    `--duration-celebration` z `globals.css`).
+
+  **Technické rozhodnutí (moje, vysvětleno v chatu):** dedup přes nový
+  sloupec `profiles.badges_seen_through` (datum,
+  `supabase/migrations/20260829090000_profiles_badges_seen_through.sql`)
+  místo dřívějšího `localStorage` — upozornění se tak neopakuje na
+  jiném zařízení/po smazání dat prohlížeče. Celá logika (dřívější
+  `badge-celebration-modal.tsx`+`badge-celebration-watcher.tsx`,
+  globální na každé stránce) přesunuta jen na `/dashboard` — appka má
+  dashboard jako vstupní stránku po přihlášení, takže flow
+  modal→scroll→reveal běží na jedné stránce beze změny URL. Nová
+  sdílená komponenta `src/components/badge-center.tsx` (modal + banner
+  + samotná Sbírka artefaktů, sdílí stav "revealed" mezi zavřením
+  modalu a probarvením karty), server akce `markBadgesSeen` v
+  `dashboard/actions.ts`.
+
+  **Ruční krok uživatele**: spustit migraci
+  `20260829090000_profiles_badges_seen_through.sql` v Supabase SQL
+  editoru.
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
