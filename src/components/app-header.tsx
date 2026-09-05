@@ -24,7 +24,7 @@ export async function AppHeader() {
     "use server";
     const supabase = await createClient();
     await supabase.auth.signOut();
-    redirect("/login");
+    redirect("/");
   }
 
   const initial = profile?.display_name?.trim().charAt(0).toUpperCase() || "?";
