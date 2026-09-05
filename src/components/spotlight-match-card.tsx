@@ -40,7 +40,7 @@ export function TeamBadge({ url, name }: { url: string | undefined; name: string
     .slice(0, 2)
     .toUpperCase();
   return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 text-sm font-extrabold text-white">
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-sm font-extrabold text-neutral-900">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-8 w-8 object-contain" />
