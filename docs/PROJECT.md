@@ -1279,6 +1279,25 @@ migracích výše přibyla ještě jedna
 "Implementace" výše) — než půjde `predict-reminders.yml` znovu
 zkoušet, musí být aplikovaná v Supabase i tahle.
 
+**Časté pády — vyřešeno (5.9.2026).** Uživatel nahlásil, že
+`predict-reminders` často padá. Ověřeno na historii běhů (GitHub
+Actions): opakovaná chyba `JWT issued at future` na jinak platný
+service role klíč — přicházela v **shlucích** (víc běhů za sebou ve
+stejném časovém okně, pak zase hodiny v pořádku), ne rovnoměrně napříč
+dnem. To ukazuje na dočasný problém na straně **Supabase** (nesoulad
+hodin mezi jejich servery), ne na appku — klíč je statický, jeho `iat`
+se mezi voláními nemění, takže appka sama chybu nezpůsobuje.
+
+Oprava (`scripts/sync/predict-reminders.mjs`): krátký automatický
+retry (`withJwtRetry`, max 2 opakování po 3 s) na všech dotazech, kde
+se tahle chyba objevila — čeká se jen pár sekund na to, až se Supabase
+zase srovná. Vedlejší zjištění při vyšetřování: chyba vzniklá PŘED
+per-uživatelskou smyčkou (např. tahle) dřív jen shodila proces s exit
+code 1, aniž by se založil GitHub Issue — přestože skript má vlastní
+hlášení chyb (`reportFailure`). Doplněn top-level `try/catch` okolo
+`main()`, ať se nahlásí i tenhle typ pádu, ne jen selhání jednotlivého
+odeslání e-mailu.
+
 ### Budoucí featury mimo současný rozsah (model na ně má místo, ale nestavíme)
 
 Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
