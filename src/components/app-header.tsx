@@ -37,7 +37,12 @@ export async function AppHeader() {
           className="btn-press flex items-center gap-2 transition-opacity hover:opacity-80"
         >
           <Image src="/brand/klopi-icon.svg" alt="Klopi" width={30} height={30} className="h-[30px] w-[30px]" priority />
-          <span className="text-[18px] font-extrabold tracking-tight">Klopi</span>
+          <span className="text-[18px] font-extrabold tracking-tight">
+            Klopi
+            <span className="hidden font-semibold text-muted-foreground sm:inline">
+              {" "}– Klobása a pivo
+            </span>
+          </span>
         </Link>
 
         <div className="flex items-center gap-3">
