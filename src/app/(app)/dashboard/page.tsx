@@ -42,6 +42,7 @@ export default async function DashboardPage() {
     { data: teamLogos },
     { data: weeklyBadges },
     { data: profileRow },
+    { count: totalCompetitionsCount },
   ] = await Promise.all([
     competitionIds.length
       ? supabase
@@ -88,6 +89,7 @@ export default async function DashboardPage() {
       .select("badges_seen_through")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
+    supabase.from("competitions").select("*", { count: "exact", head: true }),
   ]);
 
   // Vysvícený zápas: chronologicky nejbližší (matches jsou už seřazené
@@ -208,7 +210,10 @@ export default async function DashboardPage() {
         <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-muted-foreground">
-              Tvoje soutěže
+              Tvoje soutěže{" "}
+              <span className="text-faint-foreground">
+                ({myCompetitions.length}/{totalCompetitionsCount ?? myCompetitions.length})
+              </span>
             </h2>
             <Link
               href="/spaces"
