@@ -29,7 +29,7 @@ on:
       app_url:
         description: "URL produkční appky"
         required: false
-        default: "https://drew-pink.vercel.app"
+        default: "https://klopi.cz"
         type: string
       repeats:
         description: "Kolik měření udělat po sobě (první bývá pomalejší kvůli studenému startu)"

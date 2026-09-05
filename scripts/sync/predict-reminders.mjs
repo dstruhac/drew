@@ -92,7 +92,7 @@ async function loadEmailsByUserId(supabase, userIds) {
 
 async function main() {
   const supabase = createSupabaseClient();
-  const appBaseUrl = process.env.APP_BASE_URL || "https://drew-pink.vercel.app";
+  const appBaseUrl = process.env.APP_BASE_URL || "https://klopi.cz";
   const now = new Date();
   const { dateString, todayStart, todayEnd } = getTodayRange(now);
 
