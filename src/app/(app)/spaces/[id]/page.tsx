@@ -13,7 +13,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ExpandableList } from "@/components/expandable-list";
 import {
   SpotlightMatchCard,
-  TeamLogo,
+  TeamBadge,
   type Match,
 } from "@/components/spotlight-match-card";
 import { PredictionForm } from "./prediction-form";
@@ -552,18 +552,31 @@ function MatchCard({
   const pointsToneClass =
     tone === "exact" ? "text-success" : tone === "partial" ? "text-warning" : "text-muted-foreground";
 
+  const hasScore = match.home_score !== null && match.away_score !== null;
+  const showScore = hasScore && (match.status === "finished" || match.status === "live");
+
   return (
     <li className={`rounded-[18px] border p-4 ${cardToneClass}`}>
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
-        className="btn-press -mx-2 -my-1 flex items-center justify-between gap-3 rounded-[12px] px-2 py-1 transition-colors hover:bg-surface-hover"
+        className="btn-press -mx-2 -my-1 flex flex-col gap-3 rounded-[12px] px-2 py-2 transition-colors hover:bg-surface-hover"
       >
-        <span className="flex items-center gap-1.5 text-sm font-bold">
-          <TeamLogo url={logoUrlByTeam.get(match.home_team)} />
-          {match.home_team} – {match.away_team}
-          <TeamLogo url={logoUrlByTeam.get(match.away_team)} />
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold text-faint-foreground">
+            {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
+              dateStyle: "short",
+              timeStyle: "short",
+              timeZone: "Europe/Prague",
+            })}
+            {!isLocked && (
+              <>
+                {" · "}
+                <span className="font-bold text-accent">
+                  {formatRelativeKickoff(match.kickoff_at)}
+                </span>
+              </>
+            )}
+          </span>
           {isLocked
             ? existing?.points !== null &&
               existing?.points !== undefined &&
@@ -583,22 +596,25 @@ function MatchCard({
               ) : (
                 <Circle className="h-[18px] w-[18px] text-border-strong" strokeWidth={2.2} />
               )}
-          <span className="text-[11px] font-semibold text-faint-foreground">
-            {new Date(match.kickoff_at).toLocaleString("cs-CZ", {
-              dateStyle: "short",
-              timeStyle: "short",
-              timeZone: "Europe/Prague",
-            })}
-            {!isLocked && (
-              <>
-                {" · "}
-                <span className="font-bold text-accent">
-                  {formatRelativeKickoff(match.kickoff_at)}
-                </span>
-              </>
-            )}
+        </div>
+
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
+            <TeamBadge url={logoUrlByTeam.get(match.home_team)} name={match.home_team} />
+            <span className="max-w-[88px] truncate text-center text-xs font-bold">
+              {match.home_team}
+            </span>
+          </div>
+          <span className="shrink-0 text-sm font-extrabold text-muted-foreground">
+            {showScore ? `${match.home_score}:${match.away_score}` : "–"}
           </span>
-        </span>
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
+            <TeamBadge url={logoUrlByTeam.get(match.away_team)} name={match.away_team} />
+            <span className="max-w-[88px] truncate text-center text-xs font-bold">
+              {match.away_team}
+            </span>
+          </div>
+        </div>
       </Link>
 
       {isLocked ? (
