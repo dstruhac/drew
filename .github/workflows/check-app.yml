@@ -1,0 +1,39 @@
+name: Check application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Nainstalovat aplikaci
+        run: pnpm install --frozen-lockfile
+
+      - name: Zkontrolovat TypeScript
+        run: pnpm typecheck
+
+      - name: Nainstalovat testovací závislosti synchronizací
+        working-directory: scripts/sync
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci
+
+      - name: Spustit automatické testy
+        run: pnpm test
