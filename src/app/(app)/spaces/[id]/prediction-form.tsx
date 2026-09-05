@@ -153,34 +153,36 @@ export function PredictionForm({
     <form
       ref={formRef}
       action={formAction}
-      className="mt-3 flex flex-wrap items-center gap-2"
+      className="mt-3 flex flex-col items-center gap-2"
     >
-      <input
-        type="number"
-        inputMode="numeric"
-        name="predicted_home_score"
-        min={0}
-        required
-        defaultValue={existing?.predicted_home_score}
-        aria-label="Tip skóre domácích"
-        onChange={focusAwayOnFirstDigit}
-        onFocus={selectAllOnFocus}
-        onBlur={maybeAutoSave}
-        className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
-      />
-      <span className="text-faint-foreground">:</span>
-      <input
-        type="number"
-        inputMode="numeric"
-        name="predicted_away_score"
-        min={0}
-        required
-        defaultValue={existing?.predicted_away_score}
-        aria-label="Tip skóre hostů"
-        onFocus={selectAllOnFocus}
-        onBlur={maybeAutoSave}
-        className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          inputMode="numeric"
+          name="predicted_home_score"
+          min={0}
+          required
+          defaultValue={existing?.predicted_home_score}
+          aria-label="Tip skóre domácích"
+          onChange={focusAwayOnFirstDigit}
+          onFocus={selectAllOnFocus}
+          onBlur={maybeAutoSave}
+          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+        />
+        <span className="text-faint-foreground">:</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          name="predicted_away_score"
+          min={0}
+          required
+          defaultValue={existing?.predicted_away_score}
+          aria-label="Tip skóre hostů"
+          onFocus={selectAllOnFocus}
+          onBlur={maybeAutoSave}
+          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+        />
+      </div>
 
       {sport === "hockey" && (
         <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -203,7 +205,7 @@ export function PredictionForm({
       </button>
 
       {state.error && (
-        <span className="w-full text-xs font-semibold text-danger">
+        <span className="text-center text-xs font-semibold text-danger">
           {state.error}
         </span>
       )}
