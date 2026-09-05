@@ -1169,8 +1169,8 @@ rozhodnutí a implementace viz krok 13.
     na doménu, uvažovaná varianta byla `klopi.app`) a s poznámkou u
     nápadu č. 4 níže (až bude vlastní doména, zvážit přechod e-mailů
     z Gmail SMTP na Resend s ověřenou doménou).
-21. [ ] **Diagnostika: přihlášení přes Google z klopi.cz skončí zpátky
-    na nepřihlášené stránce (5.9.2026, nahlásil uživatel).** Appka po
+21. [x] **Diagnostika: přihlášení přes Google z klopi.cz skončí zpátky
+    na nepřihlášené stránce — vyřešeno (5.9.2026).** Appka po
     dokončení Google OAuth měla skončit na `/dashboard` (kód v
     `src/app/auth/callback/route.ts` to už dělá — `next` parametr má
     výchozí hodnotu `/dashboard` od 29.8.2026), ale uživatel skončil
@@ -1216,8 +1216,14 @@ rozhodnutí a implementace viz krok 13.
     Configuration, https://supabase.com/dashboard/project/rvcxdlmwxdykkxpqegzr/auth/url-configuration):
     Site URL přepsat na `https://klopi.cz` (bez `www.`) a do Redirect
     URLs přidat `https://klopi.cz/**` (`https://www.klopi.cz/**`
-    přidáno pro jistotu navíc, staré řádky nemazat). Čeká na
-    provedení a ověření.
+    přidáno pro jistotu navíc, staré řádky nemazat).
+
+    **Ověřeno uživatelem 5.9.2026: funguje** — po opravě v Supabase
+    Dashboardu přihlášení přes Google z `klopi.cz` teď doputuje až na
+    `/dashboard`. Čistě konfigurační oprava mimo appku/repo, žádná
+    změna kódu nebyla potřeba (diagnostika v kódu — výchozí `next` na
+    `/dashboard` v `src/app/auth/callback/route.ts` — byla od začátku
+    v pořádku).
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
