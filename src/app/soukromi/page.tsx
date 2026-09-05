@@ -7,9 +7,6 @@ import { ChevronLeft } from "lucide-react";
 // plné verifikaci (žádá jen o základní scope). Viz docs/PROJECT.md,
 // bod "Veřejná marketingová stránka".
 //
-// [KONTAKTNÍ E-MAIL] níže je vědomě nevyplněný placeholder -- appka
-// nemá firemní e-mail ani adresu, jen osobní účet uživatele, a jestli
-// ho chce mít veřejně na týhle stránce, je jeho rozhodnutí, ne moje.
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:px-10">
@@ -75,7 +72,14 @@ export default function PrivacyPolicyPage() {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Dokud appka běží a dokud jsi jejím uživatelem. O výmaz svých
-            údajů můžeš kdykoliv požádat na [KONTAKTNÍ E-MAIL].
+            údajů můžeš kdykoliv požádat na{" "}
+            <a
+              href="mailto:daniel.struhac@gmail.com"
+              className="font-semibold text-foreground hover:underline"
+            >
+              daniel.struhac@gmail.com
+            </a>
+            .
           </p>
         </section>
 
@@ -83,7 +87,14 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-base font-bold">Tvoje práva</h2>
           <p className="mt-2 text-muted-foreground">
             Můžeš kdykoliv požádat o výmaz nebo úpravu svých údajů — napiš
-            na [KONTAKTNÍ E-MAIL].
+            na{" "}
+            <a
+              href="mailto:daniel.struhac@gmail.com"
+              className="font-semibold text-foreground hover:underline"
+            >
+              daniel.struhac@gmail.com
+            </a>
+            .
           </p>
         </section>
       </div>

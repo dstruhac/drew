@@ -1073,11 +1073,12 @@ rozhodnutí a implementace viz krok 13.
       stránka nemá vlastní OAuth logiku, tu má pořád jen `/login`.
     - `src/app/soukromi/page.tsx` — nová stránka se Zásadami ochrany
       osobních údajů (Google vyžaduje odkaz na ni v OAuth consent
-      screenu). **Obsahuje placeholder `[KONTAKTNÍ E-MAIL]`** na dvou
-      místech (výmaz/úprava údajů) — appka nemá firemní e-mail, jen
-      uživatelův osobní účet, a jestli ho chce mít veřejně na stránce,
-      je to jeho rozhodnutí. **Čeká na doplnění, než půjde appka do
-      produkčního Google OAuth módu.**
+      screenu). Kontaktní e-mail pro výmaz/úpravu údajů (5.9.2026,
+      odsouhlaseno přes `AskUserQuestion`): uživatelův osobní Gmail
+      (`daniel.struhac@gmail.com`) — appka nemá firemní e-mail, jen
+      osobní účet, a uživatel potvrdil, že jde použít ten. Případná
+      změna na jinou adresu (např. po koupi vlastní domény, viz krok
+      20) je čistě úprava dvou `mailto:` odkazů v tomhle souboru.
     - `src/lib/supabase/middleware.ts` — `/` a `/soukromi` přidány do
       `PUBLIC_PATHS` (dřív jen `/login`+`/auth/callback`). Přihlášený
       uživatel je z `/` (stejně jako z `/login`) rovnou přesměrován na
