@@ -160,6 +160,7 @@ export default async function SpacesPage() {
                   joinedCompetitionIds.has(competition.id) &&
                   !missingCompetitionIds.has(competition.id)
                 }
+                isJoined={joinedCompetitionIds.has(competition.id)}
               />
             </li>
           ))}
