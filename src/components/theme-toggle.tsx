@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sun, Moon, MonitorSmartphone } from "lucide-react";
+import { Sun, Moon, Contrast } from "lucide-react";
 
 // Ruční přepínač vzhledu appky (5.9.2026) -- appka dřív uměla jen
 // sledovat systémové nastavení telefonu (`prefers-color-scheme`), což
@@ -30,7 +30,11 @@ const NEXT: Record<ThemePreference, ThemePreference> = {
   dark: "system",
 };
 
-const ICON = { system: MonitorSmartphone, light: Sun, dark: Moon };
+// "Contrast" -- napůl vyplněné kolečko -- je zavedený symbol pro
+// "automaticky/podle systému" (stejný jako třeba v Notionu). Dřívější
+// ikona monitoru s telefonem (5.9.2026) matla uživatele -- vypadala
+// spíš jako "přepnout zařízení" než "nech to na telefonu".
+const ICON = { system: Contrast, light: Sun, dark: Moon };
 
 const LABEL: Record<ThemePreference, string> = {
   system: "Podle telefonu",
