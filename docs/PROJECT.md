@@ -187,7 +187,7 @@ otevřené všem uživatelům — není už omezené seznamem testovacích e-mai
 (potvrzeno uživatelem 5.9.2026). Soutěže používají reálné rozpisy a
 výsledky automaticky importované z Livesportu.
 
-## Stav (aktualizováno 2026-09-05, zahájen pilotní provoz)
+## Stav (aktualizováno 2026-09-06, zahájen pilotní provoz)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -576,6 +576,23 @@ udržuje v provozu sama.
   chybí i v hlavičce uvnitř appky (`src/components/app-header.tsx`,
   sdílená napříč `/dashboard`, `/spaces`, `/profil`...) — první úprava
   se týkala jen veřejné stránky, doplněno stejným vzorem i sem.
+- [x] **Ruční přepínač světlý/tmavý režim (6.9.2026)** — appka dřív
+  uměla jen sledovat systémové nastavení telefonu/prohlížeče
+  (`prefers-color-scheme`), takže dva lidé se stejnou appkou vidí různý
+  vzhled podle toho, jak má každý nastavený svůj telefon (přesně tohle
+  uživatel nahlásil — on má telefon v dark módu, žena v light módu).
+  Ikonový přepínač (`src/components/theme-toggle.tsx`) v hlavičce
+  appky i na veřejné úvodní stránce cykluje **Podle telefonu → Světlý →
+  Tmavý**. Volba se ukládá do `localStorage` (`klopi-theme`) **per
+  prohlížeč/telefon**, ne v appce/databázi — jde o preferenci
+  zařízení, ne o věc, kterou by měl mít hráč stejnou všude.
+  `src/app/globals.css`: tmavé tokeny teď platí buď ze systému (ale
+  jen když uživatel ručně nezvolil "Světlý" — `:not([data-theme="light"])`),
+  nebo natvrdo přes `<html data-theme="dark">`; žádná komponenta kromě
+  přepínače samotného se neupravovala. `src/app/layout.tsx` má krátký
+  blokující skript v `<head>`, který nastaví `data-theme` dřív, než
+  appka cokoliv vykreslí, ať appka na zlomek vteřiny nebliká špatnou
+  barvou.
 
 ## Naplánované další kroky
 
