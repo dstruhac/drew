@@ -21,6 +21,7 @@ import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
+import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
@@ -46,24 +47,13 @@ const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 // nahlášený uživatelem ("hodně zápasů zabírá hodně místa").
 const MATCH_GRID_CLASSNAME = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
-// Kolik dní dopředu appka vůbec ukazuje nadcházející zápasy (6.9.2026,
-// na žádost uživatele -- appka jich předtím měla najednou příliš
-// mnoho a mátlo ho to). Musí sedět s WINDOW_DAYS ve
-// scripts/sync/fixtures.mjs -- appka tenhle limit navíc vynucuje i
-// tady v dotazu, ať se hned schovají i zápasy, které appka stihla
-// načíst ještě podle staršího (delšího) okna, ne až se postupně
-// "vyhrají" pryč.
-const UPCOMING_WINDOW_DAYS = 7;
-
 export default async function CompetitionDetailPage({
   params,
 }: PageProps<"/spaces/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const upcomingWindowEnd = new Date(
-    Date.now() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString();
+  const upcomingWindowEnd = upcomingWindowEndIso();
 
   // Všech šest dotazů najednou v JEDNÉ vlně.
   //
