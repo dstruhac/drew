@@ -750,6 +750,25 @@ udržuje v provozu sama.
     stránku a nenašel v ní žádnou ikonu. Ověřeno `curl`em před i po
     opravě (307 na `/login` → 200 s JSON obsahem). Doplněno
     `webmanifest` do stejné výjimky, kde už appka měla `svg`/`png`/atd.
+- [x] **Náhodná liga: přejmenování v DB duplikovalo soutěž, opraveno
+  (6.9.2026)** — uživatel přejmenoval competition "Náhodná liga" přímo
+  v Supabase na "Creme de la Creme liga". `random-league.mjs` ale svoji
+  soutěž hledal podle JMÉNA (`ensureCompetition()`), ne podle
+  `sport='mixed'` -- při dalším běhu tak přejmenovanou soutěž nenašel a
+  založil si NOVOU se starým jménem "Náhodná liga", do které zapsal
+  dnešní výběr 5 zápasů. Appka má z návrhu jen jednu soutěž se
+  `sport='mixed'`, takže hledání podle sportu (ne jména) je robustní
+  vůči budoucím přejmenováním appku bez zásahu do kódu.
+
+  **Oprava kódu**: `ensureCompetition()` teď hledá jen podle
+  `sport='mixed'`. **Úklid vzniklé duplicity**: ověřeno předem přes
+  `db-probe.yml` (duplicitní competition neměla ŽÁDNÉ účastníky ani
+  tipy, jen těch 5 dnešních zápasů) a proveden jednorázový GitHub
+  Actions workflow (`fix-random-league-duplicate.yml`, service role
+  klíč) -- přesunul dnešní zápasy pod správnou (přejmenovanou)
+  competition a duplicitní prázdný řádek smazal. Workflow po použití
+  smazán ze souborového stromu, ať v repu nezůstává trvalá schopnost
+  mazat data (stejná konvence jako u úklidu testovacích dat 28.8.2026).
 
 ## Naplánované další kroky
 
