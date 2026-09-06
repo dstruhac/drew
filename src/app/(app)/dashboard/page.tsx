@@ -4,6 +4,7 @@ import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
 import { BadgeCenter } from "@/components/badge-center";
 import { competitionFallbackSport } from "@/lib/sport";
+import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
@@ -127,6 +128,23 @@ export default async function DashboardPage() {
     (teamLogos ?? [])
       .filter((t) => t.competition_id === spotlightMatch?.competition_id)
       .map((t) => [t.team_name, t.logo_url]),
+  );
+
+  // "Vše natipováno" značka na kartičce soutěže (6.9.2026, na žádost
+  // uživatele) -- stejné okno jako na /spaces/[id]
+  // (UPCOMING_WINDOW_DAYS), na rozdíl od `upcomingMatches` výše
+  // (bez horní hranice -- vysvícený zápas se má najít i dál než 7 dní
+  // dopředu, pokud hráč nemá nic bližšího). Počítá se tu proto
+  // zvlášť, ne přefiltrováním `spotlightMatch`.
+  const upcomingWindowEnd = new Date(
+    Date.now() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const missingCompetitionIds = new Set(
+    (upcomingMatches ?? [])
+      .filter(
+        (m) => !ownPredictedMatchIds.has(m.id) && new Date(m.kickoff_at) <= upcomingWindowEnd,
+      )
+      .map((m) => m.competition_id),
   );
 
   // Pozice v žebříčku za soutěž -- stejný výpočet jako na /spaces,
@@ -253,6 +271,7 @@ export default async function DashboardPage() {
                   <CompetitionCard
                     competition={competition}
                     rank={rankByCompetition.get(competition.id) ?? null}
+                    allCaughtUp={!missingCompetitionIds.has(competition.id)}
                   />
                 </li>
               ))}

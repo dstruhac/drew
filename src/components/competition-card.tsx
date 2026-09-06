@@ -15,6 +15,7 @@ const SPORT_LABELS: Record<CompetitionSport, string> = {
 export function CompetitionCard({
   competition,
   rank,
+  allCaughtUp = false,
 }: {
   competition: {
     id: string;
@@ -26,6 +27,10 @@ export function CompetitionCard({
     points_total_goals: number;
   };
   rank: { rank: number; total: number } | null;
+  /** Hráč má natipováno úplně vše, co jde aktuálně (v okně
+   * nadcházejících zápasů) natipovat -- viz UPCOMING_WINDOW_DAYS.
+   * Nastavuje se jen pro soutěže, které hráč hraje (viz volající). */
+  allCaughtUp?: boolean;
 }) {
   return (
     <Link
@@ -62,6 +67,11 @@ export function CompetitionCard({
           <p className="mt-2 text-[13px] font-semibold text-faint-foreground">
             Ještě nehraješ
           </p>
+        )}
+        {allCaughtUp && (
+          <span className="mt-1.5 inline-block rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-success">
+            Vše natipováno
+          </span>
         )}
         <p className="mt-1 text-xs text-faint-foreground">
           Body za přesný tip {competition.points_exact} · za vítěze{" "}
