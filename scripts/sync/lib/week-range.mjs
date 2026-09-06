@@ -12,11 +12,14 @@
 
 import { pragueWallTimeToUtcIso } from "./scrape-livesport.mjs";
 
-// Hranice AKTUÁLNÍHO kalendářního dne (00:00 -- příští den 00:00,
-// pražský čas) vzhledem k referenceDate. Používá predict-reminders pro
-// "zápasy dnešního dne, na které ještě nemám tip" -- stejný Intl trik
-// jako getPreviousWeekRange výše, jen pro den místo týdne.
-export function getTodayRange(referenceDate = new Date()) {
+// Hranice kalendářního dne (00:00 -- příští den 00:00, pražský čas)
+// vzhledem k referenceDate, posunutého o `dayOffset` kalendářních dní.
+// Používá predict-reminders pro "zápasy dnešního dne, na které ještě
+// nemám tip" (dayOffset 0, výchozí) a random-league pro "zápasy
+// ZÍTŘEJŠÍHO dne" (dayOffset 1 -- úloha běží večer předchozího dne, ať
+// jde zápasy Náhodné ligy tipovat dopředu). Stejný Intl trik jako
+// getPreviousWeekRange výše, jen pro den místo týdne.
+export function getTodayRange(referenceDate = new Date(), dayOffset = 0) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Prague",
     year: "numeric",
@@ -24,9 +27,16 @@ export function getTodayRange(referenceDate = new Date()) {
     day: "2-digit",
   }).formatToParts(referenceDate);
   const get = (type) => Number(parts.find((p) => p.type === type).value);
-  const year = get("year");
-  const month = get("month");
-  const day = get("day");
+  const baseYear = get("year");
+  const baseMonth = get("month");
+  const baseDay = get("day");
+
+  // Posun o celé kalendářní dny (ne o čas) -- počítáno na UTC datu bez
+  // hodiny, ať to nezávisí na tom, v kolik hodin referenceDate je.
+  const target = new Date(Date.UTC(baseYear, baseMonth - 1, baseDay) + dayOffset * 86400000);
+  const year = target.getUTCFullYear();
+  const month = target.getUTCMonth() + 1;
+  const day = target.getUTCDate();
 
   const todayStart = pragueWallTimeToUtcIso(year, month, day, 0, 0);
 
