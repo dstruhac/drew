@@ -95,6 +95,18 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   `award-weekly-badges` (service role); žádná insert/update/delete
   policy pro běžné uživatele. Podrobnosti a odůvodnění rozhodnutí viz
   krok 13 v sekci "Naplánované další kroky".
+- **cards** / **user_cards** / **card_draws** (6.9.2026) — sběratelské
+  kartičky za výhru týdne, doplňují (nenahrazují) `weekly_badges`.
+  `cards` je pevný číslovaný katalog (1-50, zatím 10) se jménem/klubem/
+  pozicí/sportem/hláškou fiktivní postavy + `rarity`
+  (`common`/`rare`/`legendary`) + `image_url`. `user_cards`
+  (`user_id, card_id, quantity, first_obtained_at`) drží vlastnictví a
+  duplicity. `card_draws` (`user_id, week_start` jako primární klíč)
+  je jen technická evidence "komu se za tenhle týden karta vylosovala"
+  — idempotence běhu `award-weekly-badges` a zdroj pro gratulační
+  modal na Dashboardu. Zapisuje jen `award-weekly-badges` (service
+  role); žádná insert/update/delete policy pro běžné uživatele.
+  Podrobnosti viz "Sběratelské kartičky za medaili" ve "Stav" níže.
 
 ### RLS rozhodnutí (odsouhlaseno s uživatelem)
 
@@ -944,6 +956,81 @@ udržuje v provozu sama.
 
   Čeká se na potvrzení, že se problém po nasazení na `klopi.cz`
   na mobilu uživatele reálně vytratil.
+- [x] **Sběratelské kartičky za medaili (6.9.2026)** — appka dřív u
+  vítězství kalendářního týdne ukazovala jen holou ikonku medaile.
+  Uživatel chtěl místo toho skutečnou sběratelskou kartičku (v duchu
+  "Pepík Hnátek z okresního přeboru") — 50 číslovaných karet, zatím
+  postaveno prvních 10. Rozhodnutí s uživatelem přes `AskUserQuestion`:
+  - **Mechanika**: za KAŽDÝ kalendářní týden, kdy hráč vyhraje aspoň
+    jednu soutěž, dostane právě JEDNU kartu (ne jednu za každou
+    vyhranou soutěž). Vzácnost karty se odvíjí od toho, kolik soutěží
+    ten týden vyhrál najednou (appka dnes sleduje 4): 1 = běžná, 2 =
+    vzácná, 3 nebo 4 (všechny) = legendární. Karta je náhodná z dané
+    vzácnostní skupiny, BEZ duplicit dokud hráč nemá všechny karty té
+    vzácnosti — teprve pak se objevují duplicity (appka pamatuje
+    kolikrát kterou kartu má).
+  - **Rozdělení 10 karet**: 6 běžných / 3 vzácné / 1 legendární.
+  - **Zobrazení**: žebříček i veřejný profil dál ukazují jen POČET
+    medailí beze změny (weekly_badges nezměněno) — kartičky navíc jsou
+    v "Sbírce artefaktů" na Dashboardu (mřížka všech karet, vlastněné
+    barevně podle vzácnosti + fotka, nevlastněné "zamčené"), miniatura
+    nejvzácnější/poslední karty vedle jména na žebříčku soutěže a celá
+    galerie na veřejném profilu hráče.
+  - **Fotky**: musí to být fotky reálných lidí/věcí, ne AI ilustrace.
+    Protože appka nemá od uživatele fotky kamarádů, dočasně použity
+    bezplatné stock fotky z Pexels (reální, ale anonymní lidé) —
+    `image_url` jde kdykoliv v budoucnu vyměnit (i za fotku
+    konkrétního kamaráda) bez zásahu do appky, stejná architektura
+    jako `competitions.logo_url`/`team_logos.logo_url`.
+
+  **Datový model**
+  (`supabase/migrations/20260906160000_cards.sql`, **čeká na ruční
+  spuštění v Supabase SQL editoru**): `cards` (pevný číslovaný katalog
+  1-50, zatím 10 řádků se jménem/klubem/pozicí/sportem/hláškou fiktivní
+  postavy + `image_url`), `user_cards` (`user_id, card_id, quantity,
+  first_obtained_at` — vlastnictví a duplicity), `card_draws`
+  (`user_id, week_start` jako primární klíč — technická evidence "komu
+  se už za tenhle týden karta vylosovala", pro idempotenci a pro zpětné
+  dohledání které karty se týkal který gratulační modal). Nový veřejný
+  Storage bucket `cards` (stejná konvence jako `logos`).
+
+  **Losovací logika** — čistá, otestovaná
+  (`scripts/sync/lib/cards.mjs`, `rarityForWinCount`/`drawCard`),
+  zapojená do `award-weekly-badges.mjs`: po zpracování všech
+  competitions se zvlášť spočítá, kolik soutěží každý hráč ten týden
+  vyhrál NAPŘÍČ competitions (ne jen v jedné), a podle toho se mu
+  vylosuje karta dané vzácnosti. Nezávisle idempotentní přes
+  `card_draws` (per uživatel), takže funguje správně i po částečném
+  selhání předchozího běhu.
+
+  **Import fotek** — `scripts/sync/import-card-images.mjs` +
+  `.github/workflows/import-card-images.yml` (ruční spuštění, jako
+  jediný krok v appce/repu, který smí sahat na cizí doménu mimo
+  GitHub/Supabase — proto jen v Actions, ne v tomhle sandboxu). Ke
+  každé kartě bez `image_url` najde a stáhne fotku z Pexels podle
+  přiřazeného vyhledávacího dotazu, nahraje do Storage a zapíše
+  `image_url`. Idempotentní — karta, která už fotku má, se přeskočí.
+  **Vyžaduje nový GitHub secret `PEXELS_API_KEY`** (zdarma na
+  [pexels.com/api](https://www.pexels.com/api/), žádná platební
+  karta) — ruční krok uživatele, appka fotky nemá, dokud tenhle
+  workflow neproběhne.
+
+  **UI**: nová sdílená komponenta `src/components/card-tile.tsx`
+  (jedna kartička — fotka/jméno/klub, nebo "zamčená" u nevlastněné,
+  rámeček podle vzácnosti přes nové tokeny `--rarity-common`/
+  `--rarity-rare`/`--rarity-legendary` v `globals.css`, nezávislé na
+  sportovní barvě `--accent`). `src/lib/rarity.ts` — české popisky a
+  Tailwind třídy pro vzácnost, stejná konvence jako `src/lib/sport.ts`.
+  `badge-center.tsx` přepracován: gratulační modal teď u vlastní výhry
+  rovnou ukáže, kterou kartu (a jakou vzácnost) hráč za daný týden
+  dostal (seskupeno podle týdne, ne podle jednotlivé medaile — víc
+  vyhraných soutěží ve stejném týdnu = jeden řádek s jednou kartou),
+  "Sbírka artefaktů" je mřížka karet místo dřívějších ikonek medaile.
+
+  **Ruční kroky uživatele**: spustit migraci
+  `20260906160000_cards.sql` v Supabase SQL editoru; založit zdarma
+  účet na pexels.com/api a nastavit `PEXELS_API_KEY` jako GitHub
+  secret; pak jednou ručně spustit workflow "Import card images".
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

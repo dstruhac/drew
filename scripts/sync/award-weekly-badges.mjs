@@ -12,10 +12,19 @@
 // Idempotentní: pokud pro (competition_id, week_start) už nějaká
 // medaile existuje, competition se přeskočí -- bezpečné i při ručním
 // opakovaném spuštění.
+//
+// Navazuje sběratelská karta (6.9.2026, viz docs/PROJECT.md): PO
+// zpracování všech competitions se zvlášť vyhodnotí, kolik soutěží
+// každý hráč ten týden vyhrál (napříč competitions, ne jen v jedné) a
+// podle toho se mu vylosuje přesně jedna karta dané vzácnosti -- viz
+// awardCardsForWeek()/lib/cards.mjs. Nezávisle idempotentní přes
+// card_draws (per-user), takže funguje i po částečném selhání
+// předchozího běhu.
 
 import { createSupabaseClient } from "./lib/supabase-client.mjs";
 import { getPreviousWeekRange } from "./lib/week-range.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
+import { rarityForWinCount, drawCard } from "./lib/cards.mjs";
 
 async function main() {
   const supabase = createSupabaseClient();
@@ -118,7 +127,108 @@ async function main() {
     }
   }
 
+  try {
+    await awardCardsForWeek(supabase, weekStartDate);
+  } catch (err) {
+    hadFailure = true;
+    console.log(`::error::Losování karet za týden ${weekStartDate}: ${err.message}`);
+    await reportFailure({
+      title: `⚠️ award-weekly-badges: losování karet za týden ${weekStartDate} selhalo`,
+      body: `Losování sběratelských karet selhalo s chybou:\n\n\`\`\`\n${err.stack || err.message}\n\`\`\``,
+      label: `weekly-badges-cards:${weekStartDate}`,
+    });
+  }
+
   if (hadFailure) process.exitCode = 1;
+}
+
+// Kolik soutěží každý hráč ten týden vyhrál (napříč competitions,
+// weekly_badges už jsou v DB -- ať už je založil běh výše, nebo
+// existovaly z dřívějška) určuje vzácnost jeho karty za tenhle týden.
+// Losuje se přesně jedna karta na hráče a týden, bez duplicit dokud
+// nemá všechny karty dané vzácnosti (drawCard v lib/cards.mjs).
+//
+// Idempotentní per-user přes card_draws (primary key user_id+week_start)
+// -- hráč, kterému se karta v předchozím (třeba částečně selhaném) běhu
+// už vylosovala, se přeskočí, ostatní se dolosují.
+async function awardCardsForWeek(supabase, weekStartDate) {
+  const { data: badges, error: badgesError } = await supabase
+    .from("weekly_badges")
+    .select("user_id")
+    .eq("week_start", weekStartDate);
+  if (badgesError) throw new Error(`Nepodařilo se načíst medaile týdne: ${badgesError.message}`);
+
+  const winCountByUser = new Map();
+  for (const b of badges ?? []) {
+    winCountByUser.set(b.user_id, (winCountByUser.get(b.user_id) ?? 0) + 1);
+  }
+
+  if (winCountByUser.size === 0) {
+    console.log(`Karty: v týdnu ${weekStartDate} nikdo nevyhrál žádnou soutěž, není co losovat.`);
+    return;
+  }
+
+  const { data: existingDraws, error: existingDrawsError } = await supabase
+    .from("card_draws")
+    .select("user_id")
+    .eq("week_start", weekStartDate);
+  if (existingDrawsError) {
+    throw new Error(`Nepodařilo se ověřit existující losování karet: ${existingDrawsError.message}`);
+  }
+  const alreadyDrawn = new Set((existingDraws ?? []).map((d) => d.user_id));
+
+  const { data: cards, error: cardsError } = await supabase.from("cards").select("id, rarity");
+  if (cardsError) throw new Error(`Nepodařilo se načíst katalog karet: ${cardsError.message}`);
+  if (!cards || cards.length === 0) {
+    console.log("Karty: katalog karet je prázdný, není co losovat.");
+    return;
+  }
+
+  let drawnCount = 0;
+  for (const [userId, winCount] of winCountByUser) {
+    if (alreadyDrawn.has(userId)) continue;
+
+    const rarity = rarityForWinCount(winCount);
+    const cardsOfRarity = cards.filter((c) => c.rarity === rarity);
+
+    const { data: ownedRows, error: ownedError } = await supabase
+      .from("user_cards")
+      .select("card_id, quantity")
+      .eq("user_id", userId)
+      .in("card_id", cardsOfRarity.map((c) => c.id));
+    if (ownedError) throw new Error(`Nepodařilo se načíst sbírku hráče: ${ownedError.message}`);
+
+    const ownedByCardId = new Map((ownedRows ?? []).map((r) => [r.card_id, r.quantity]));
+    const drawn = drawCard(cardsOfRarity, new Set(ownedByCardId.keys()));
+    const existingQuantity = ownedByCardId.get(drawn.id);
+
+    if (existingQuantity !== undefined) {
+      const { error: updateError } = await supabase
+        .from("user_cards")
+        .update({ quantity: existingQuantity + 1 })
+        .eq("user_id", userId)
+        .eq("card_id", drawn.id);
+      if (updateError) throw new Error(`Zápis duplicitní karty selhal: ${updateError.message}`);
+    } else {
+      const { error: insertError } = await supabase
+        .from("user_cards")
+        .insert({ user_id: userId, card_id: drawn.id, quantity: 1 });
+      if (insertError) throw new Error(`Zápis nové karty selhal: ${insertError.message}`);
+    }
+
+    const { error: drawInsertError } = await supabase.from("card_draws").insert({
+      user_id: userId,
+      week_start: weekStartDate,
+      card_id: drawn.id,
+      rarity,
+      win_count: winCount,
+    });
+    if (drawInsertError) throw new Error(`Zápis losování karty selhal: ${drawInsertError.message}`);
+
+    drawnCount += 1;
+  }
+
+  console.log(`Karty: vylosováno ${drawnCount} karet za týden ${weekStartDate}.`);
 }
 
 await main();

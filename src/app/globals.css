@@ -44,6 +44,15 @@
   --warning: #d97706;
   --danger: #dc2626;
 
+  /* Vzácnost sběratelských karet (6.9.2026) -- vlastnost SAMOTNÉ karty,
+     záměrně nezávislá na --accent (to je sportovní barva soutěže).
+     Střední sytost barev je čitelná v obou režimech beze změny, na
+     rozdíl od --accent-hockey/--warning výše proto nemá zvlášť tmavou
+     variantu. */
+  --rarity-common: #9ca3af;
+  --rarity-rare: #3b82f6;
+  --rarity-legendary: #f59e0b;
+
   /* Zaoblení -- čtyři úrovně od malých čipů po velké "hero" karty. */
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -78,6 +87,9 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-rarity-common: var(--rarity-common);
+  --color-rarity-rare: var(--rarity-rare);
+  --color-rarity-legendary: var(--rarity-legendary);
   --font-sans: var(--font-manrope);
 }
 
