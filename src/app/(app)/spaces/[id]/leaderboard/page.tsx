@@ -169,13 +169,19 @@ export default async function LeaderboardPage({
       className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10"
     >
       <header>
-        <Link
-          href={`/spaces/${id}`}
-          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-          {competition.name}
-        </Link>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href={`/spaces/${id}`}
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            {competition.name}
+          </Link>
+        </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Žebříček</h1>
       </header>
 

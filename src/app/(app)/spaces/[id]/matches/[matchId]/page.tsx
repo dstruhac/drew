@@ -107,13 +107,19 @@ export default async function MatchDetailPage({
       className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10"
     >
       <header>
-        <Link
-          href={`/spaces/${competition.id}`}
-          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-          {competition.name}
-        </Link>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href={`/spaces/${competition.id}`}
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            {competition.name}
+          </Link>
+        </div>
         <h1 className="mt-2 flex items-center gap-2 text-xl font-extrabold tracking-tight">
           {logoUrlByTeam.get(match.home_team) && (
             // eslint-disable-next-line @next/next/no-img-element

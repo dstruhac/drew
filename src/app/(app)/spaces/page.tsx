@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
@@ -91,7 +92,13 @@ export default async function SpacesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
       <header>
-        <h1 className="text-2xl font-extrabold tracking-tight">Všechny soutěže</h1>
+        <Link
+          href="/dashboard"
+          className="text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
+        >
+          Dashboard
+        </Link>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Všechny soutěže</h1>
       </header>
 
       {error && (
