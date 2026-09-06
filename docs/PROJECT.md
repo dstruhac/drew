@@ -632,6 +632,15 @@ udržuje v provozu sama.
   `both`→2 body, `exact`→3 body přesně, jak uživatel zadal. Text u
   přesné trefy (`exact-score-celebration.tsx`) přešel z pevné zelené
   (`text-success`) na `text-accent` ze stejného důvodu.
+- [x] **Odkaz "Dashboard" v hlavičkách appky (6.9.2026)** — appka uměla
+  proklik zpátky na Dashboard jen skrytě přes klik na logo appky
+  v horní liště, což uživatel nepovažoval za dost zjevné. Doplněn
+  viditelný textový odkaz "Dashboard" (odděleno tečkou od stávajícího
+  odkazu, kde nějaký byl) do hlaviček: `/spaces` (přehled soutěží, dřív
+  žádný odkaz zpátky vůbec), `/spaces/[id]`, `/spaces/[id]/leaderboard`,
+  `/spaces/[id]/matches/[matchId]`, `/profil/[userId]` a `/profil`.
+  Stávající odkazy (`← Soutěže`, `← {competition.name}` atd.) beze
+  změny cíle.
 
 ## Naplánované další kroky
 
