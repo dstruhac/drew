@@ -23,6 +23,22 @@ describe("getTodayRange", () => {
     expect(result.todayStart).toBe("2027-01-14T23:00:00.000Z");
     expect(result.todayEnd).toBe("2027-01-15T23:00:00.000Z");
   });
+
+  it("with dayOffset 1, returns tomorrow's Prague calendar boundaries (random-league use case)", () => {
+    // Job běží večer předchozího dne (18:00 CEST), ale kickoff_at okno
+    // má být pro zítřek, ne pro dnešek.
+    const result = getTodayRange(new Date("2026-08-28T16:00:00Z"), 1); // 18:00 CEST, 28.8.
+    expect(result.dateString).toBe("2026-08-29");
+    expect(result.todayStart).toBe("2026-08-28T22:00:00.000Z"); // 29.8. 00:00 CEST
+    expect(result.todayEnd).toBe("2026-08-29T22:00:00.000Z"); // 30.8. 00:00 CEST
+  });
+
+  it("dayOffset across a month boundary rolls over correctly", () => {
+    const result = getTodayRange(new Date("2026-08-31T16:00:00Z"), 1); // 18:00 CEST, 31.8.
+    expect(result.dateString).toBe("2026-09-01");
+    expect(result.todayStart).toBe("2026-08-31T22:00:00.000Z");
+    expect(result.todayEnd).toBe("2026-09-01T22:00:00.000Z");
+  });
 });
 
 describe("getPreviousWeekRange", () => {

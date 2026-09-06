@@ -769,8 +769,27 @@ udržuje v provozu sama.
   competition a duplicitní prázdný řádek smazal. Workflow po použití
   smazán ze souborového stromu, ať v repu nezůstává trvalá schopnost
   mazat data (stejná konvence jako u úklidu testovacích dat 28.8.2026).
+- [x] **Náhodná liga: výběr zápasů den dopředu, ne v den zápasu
+  (6.9.2026)** — uživatel chtěl mít možnost tipovat zápasy Náhodné
+  ligy s předstihem, stejně jako u ostatních soutěží; appka dřív
+  vybírala 5 zápasů brzy ráno v TÉŽE DEN, kdy se hrálo, takže na ně
+  nešlo tipovat dopředu. `scripts/sync/random-league.mjs` teď místo
+  "dnešního dne" hledá a vybírá zápasy ZÍTŘEJŠÍHO pražského dne
+  (`getTodayRange(new Date(), 1)` — `lib/week-range.mjs` rozšířen o
+  volitelný `dayOffset`, `getTodayRange(ref, 0)` beze změny chování
+  pro stávající volání z `predict-reminders.mjs`).
 
-## Naplánované další kroky
+  **Rozvrh** (`.github/workflows/random-league.yml`): přeladěno z
+  4:20 UTC (ráno) na `0 16 * * *` (16:00 UTC), tak aby vycházelo na
+  18:00 pražského času v aktuálně platném letním čase (CEST, UTC+2).
+  GitHub Actions cron neumí časové pásmo, jen pevné UTC — v zimě (CET,
+  UTC+1) proto vyjde na 17:00 pražského času, o hodinu dřív než
+  zadaných "18:00", ne později. Vědomá volba (moje, vysvětleno v
+  chatu): pro "ať jde tipovat dopředu" je dřívější spuštění v zimě
+  neškodné (zápasy budou k tipování jen o hodinu déle), zatímco pozdější
+  spuštění by riziko neslo. Beze změny zůstává praxe nastavovat GitHub
+  Actions cron na pevné UTC bez sezónního přepočtu (stejně jako
+  `sync-fixtures`/`sync-results`).
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

@@ -1,19 +1,22 @@
-# Jednou denně (brzy ráno) vybere 5 náhodných zápasů z dnešního dne
-# napříč skupinou známých fotbalových a hokejových lig (viz
+# Jednou denně večer vybere 5 náhodných zápasů ZÍTŘEJŠÍHO dne napříč
+# skupinou známých fotbalových a hokejových lig (viz
 # scripts/sync/lib/random-league-pool.mjs) a zapíše je do trvalé
 # soutěže "Náhodná liga". Detaily a odůvodnění viz PROJECT.md.
 #
-# 4:20 UTC -- po sync-fixtures (4:00), ať appka vybírá z už čerstvého
-# rozpisu, a mimo celou/půl hodinu (kolizní bod pro GitHub Actions
-# schedule, viz PROJECT.md u sync-results). První ruční běh (30.8.2026)
-# ověřen -- 5 zápasů napříč poolem zapsáno bez chyby.
-
+# 16:00 UTC = 18:00 pražského času v létě (CEST, UTC+2) -- v zimě (CET,
+# UTC+1) tím pádem vyjde na 17:00 pražského času, o hodinu dřív, než je
+# zadání "18:00" (6.9.2026, na žádost uživatele -- appka běžela ráno a
+# vybírala zápasy TÉHOŽ dne, takže na ně nešlo tipovat dopředu).
+# GitHub Actions cron neumí časové pásmo, jen UTC, takže se sám podle
+# letního/zimního času nepřeladí -- 16:00 UTC vědomě zvoleno tak, aby
+# seděl přesně v aktuálně platném letním čase a v zimě byl jen o
+# hodinu dřív (ne později), což pro "tipuj dopředu" nevadí.
 name: Random league
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "20 4 * * *"
+    - cron: "0 16 * * *"
 
 permissions:
   contents: read
