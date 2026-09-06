@@ -49,7 +49,7 @@ export function ExactScoreCelebration({
 
   return (
     <span
-      className={`text-lg font-extrabold leading-none text-success ${
+      className={`text-lg font-extrabold leading-none text-accent ${
         justCelebrated ? "animate-[celebrate-pop_0.6s_var(--ease-bounce)]" : ""
       }`}
     >

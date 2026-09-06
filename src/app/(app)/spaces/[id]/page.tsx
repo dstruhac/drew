@@ -482,16 +482,24 @@ type Prediction = {
   points: number | null;
 } | null;
 
-// Krok 8 (odsouhlaseno 28.8.2026): barva kartičky ukazuje úspěšnost
-// VLASTNÍHO tipu, ne výsledek zápasu -- zelená = přesné skóre, žlutá =
-// aspoň výherce/remíza nebo součet gólů sedí, šedá = netrefil nic.
-// Stejná pravidla jako `calculate_match_points()`
+// Krok 8 (odsouhlaseno 28.8.2026), přebarveno 6.9.2026 na žádost
+// uživatele: barva kartičky ukazuje úspěšnost VLASTNÍHO tipu, ne
+// výsledek zápasu -- ale místo tří různých barev (zelená/žlutá/šedá,
+// kde žlutá matoucně evokovala chybu/varování) appka teď stupňuje
+// SYTOST jedné barvy (sportovní --accent appky, viz sportAccentStyle()
+// v src/lib/sport.ts -- zelená pro fotbal, modrá pro hokej): čím víc
+// appka trefila, tím tmavší odstín. "one" (trefen jen výherce/remíza
+// NEBO jen součet gólů) je nejsvětlejší, "both" (obojí, ale ne přesné
+// skóre) tmavší, "exact" (přesné skóre) nejtmavší. Stejná pravidla
+// jako `calculate_match_points()`
 // (supabase/migrations/20260825100000_scoring_trigger.sql), jen bez
-// závislosti na bodové hodnotě (ta je per-competition nastavitelná).
+// závislosti na bodové hodnotě (ta je per-competition nastavitelná --
+// u výchozího bodování 3/1/1 tak "one" odpovídá 1 bodu, "both" 2
+// bodům a "exact" 3 bodům, ale appka na tom přímo nezávisí).
 function getResultTone(
   match: Match,
   existing: Prediction,
-): "exact" | "partial" | "miss" | null {
+): "exact" | "both" | "one" | "miss" | null {
   if (
     match.status !== "finished" ||
     match.home_score === null ||
@@ -526,12 +534,15 @@ function getResultTone(
     existing.predicted_home_score + existing.predicted_away_score ===
     match.home_score + match.away_score;
 
-  return winnerMatches || goalsMatch ? "partial" : "miss";
+  if (winnerMatches && goalsMatch) return "both";
+  if (winnerMatches || goalsMatch) return "one";
+  return "miss";
 }
 
 const RESULT_TONE_CLASSES = {
-  exact: "border-success/40 bg-success/10",
-  partial: "border-warning/40 bg-warning/10",
+  exact: "border-accent/60 bg-accent/[0.22]",
+  both: "border-accent/40 bg-accent/[0.14]",
+  one: "border-accent/25 bg-accent/[0.07]",
   miss: "border-border-subtle bg-surface",
 } as const;
 
@@ -565,7 +576,9 @@ function MatchCard({
         : "border-border-subtle bg-surface";
 
   const pointsToneClass =
-    tone === "exact" ? "text-success" : tone === "partial" ? "text-warning" : "text-muted-foreground";
+    tone === "exact" || tone === "both" || tone === "one"
+      ? "text-accent"
+      : "text-muted-foreground";
 
   const hasScore = match.home_score !== null && match.away_score !== null;
   const showScore = hasScore && (match.status === "finished" || match.status === "live");
