@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
+import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function LeaderboardPage({
@@ -25,7 +26,7 @@ export default async function LeaderboardPage({
     badgesResult,
     predictionsResult,
   ] = await Promise.all([
-    supabase.from("competitions").select("id, name").eq("id", id).single(),
+    supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
     supabase
       .from("competition_participants")
       .select("user_id, profiles(display_name)")
@@ -163,7 +164,10 @@ export default async function LeaderboardPage({
   const weekRangeLabel = formatWeekRange(weekStart, weekEnd);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10">
+    <main
+      style={sportAccentStyle(competition.sport)}
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10"
+    >
       <header>
         <Link
           href={`/spaces/${id}`}

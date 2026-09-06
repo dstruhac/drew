@@ -20,7 +20,7 @@ import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
-import { competitionFallbackSport } from "@/lib/sport";
+import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
@@ -144,7 +144,10 @@ export default async function CompetitionDetailPage({
       : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
+    <main
+      style={sportAccentStyle(competition.sport)}
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10"
+    >
       <header>
         <Link
           href="/spaces"
@@ -568,7 +571,10 @@ function MatchCard({
   const showScore = hasScore && (match.status === "finished" || match.status === "live");
 
   return (
-    <li className={`rounded-[18px] border p-4 ${cardToneClass}`}>
+    <li
+      style={sportAccentStyle(effectiveSport)}
+      className={`rounded-[18px] border p-4 ${cardToneClass}`}
+    >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
         className="btn-press -mx-2 -my-1 flex flex-col gap-3 rounded-[12px] px-2 py-2 transition-colors hover:bg-surface-hover"

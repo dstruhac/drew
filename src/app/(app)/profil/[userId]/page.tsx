@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
+import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
@@ -210,6 +211,7 @@ export default async function PublicProfilePage({
               <li key={competition.id}>
                 <Link
                   href={`/spaces/${competition.id}`}
+                  style={sportAccentStyle(competition.sport)}
                   className="card-lift flex h-full flex-col gap-3 rounded-[22px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)]"
                 >
                   <div className="flex items-center justify-between gap-2">
