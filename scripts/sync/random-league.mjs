@@ -25,15 +25,25 @@ import { validateFixtures } from "./lib/validate-fixtures.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 import { RANDOM_LEAGUE_POOL } from "./lib/random-league-pool.mjs";
 
+// Použije se jen při úplně PRVNÍM založení (viz ensureCompetition níže)
+// -- appka pak soutěž dál hledá podle sportu 'mixed', ne podle jména,
+// takže pozdější přejmenování appce nevadí.
 const COMPETITION_NAME = "Náhodná liga";
 const PICK_COUNT = 5;
 const LABEL = "random-league";
 
+// Hledá podle sportu "mixed", NE podle jména (6.9.2026, opraveno po
+// reálném incidentu) -- appka má z návrhu jen JEDNU "Náhodnou ligu"
+// (jedinou competition se sport='mixed'), ale uživatel si ji může
+// kdykoliv přejmenovat přímo v databázi (stalo se, na "Creme de la
+// Creme liga"). Hledání podle jména by po každém takovém přejmenování
+// založilo DUPLICITNÍ novou competition se starým jménem, protože by
+// tu přejmenovanou nenašlo -- přesně tenhle bug appka měla a smazala
+// tím pádem hráčům viditelnost jejich přejmenované soutěže.
 async function ensureCompetition(supabase) {
   const { data: existing, error: selectError } = await supabase
     .from("competitions")
     .select("id")
-    .eq("name", COMPETITION_NAME)
     .eq("sport", "mixed")
     .maybeSingle();
 

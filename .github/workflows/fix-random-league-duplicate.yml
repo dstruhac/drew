@@ -1,0 +1,69 @@
+# JEDNORÁZOVÝ úklidový workflow (6.9.2026) -- smaže se ze souborového
+# stromu hned po použití, ať v repu nezůstává trvalá schopnost mazat
+# data (stejná konvence jako u dřívějšího úklidu testovacích dat
+# 28.8.2026, viz docs/PROJECT.md).
+#
+# Proč existuje: uživatel přejmenoval competition "Náhodná liga" přímo
+# v databázi na "Creme de la Creme liga". random-league.mjs ale svoji
+# soutěž hledal podle JMÉNA, ne podle sport='mixed' (bug, opraven ve
+# stejné PR) -- při dalším běhu tak nenašel přejmenovanou soutěž
+# a založil si NOVOU s původním jménem "Náhodná liga", do které zapsal
+# dnešních 5 zápasů.
+#
+# Ověřeno předem přes db-probe.yml: duplicitní competition
+# (a75a32e1-2d78-4bac-9b26-5327efc26e51) nemá ŽÁDNÉ účastníky ani tipy,
+# jen těch 5 dnešních zápasů -- bezpečné je přesunout pod správnou
+# competition (c5d82a4d-bc67-4a41-b3c4-9777a7d36398, "Creme de la
+# Creme liga") a duplicitní řádek smazat.
+name: Fix random-league duplicate (one-off)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DUPLICATE_ID: a75a32e1-2d78-4bac-9b26-5327efc26e51
+      CORRECT_ID: c5d82a4d-bc67-4a41-b3c4-9777a7d36398
+    steps:
+      - name: Přesunout dnešní zápasy pod správnou competition
+        run: |
+          set -uo pipefail
+          HTTP_CODE=$(curl -sS --max-time 30 -X PATCH \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            -o body.json -w '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/matches?competition_id=eq.${DUPLICATE_ID}" \
+            -d "{\"competition_id\": \"${CORRECT_ID}\"}")
+          echo "PATCH matches HTTP kód: ${HTTP_CODE}"
+          cat body.json
+          echo
+          if [ "${HTTP_CODE}" != "200" ] && [ "${HTTP_CODE}" != "204" ]; then
+            echo "::error::PATCH selhal, competition se NEMAŽE."
+            exit 1
+          fi
+
+      - name: Smazat prázdnou duplicitní competition
+        run: |
+          set -uo pipefail
+          HTTP_CODE=$(curl -sS --max-time 30 -X DELETE \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Prefer: return=representation" \
+            -o body.json -w '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/competitions?id=eq.${DUPLICATE_ID}")
+          echo "DELETE competitions HTTP kód: ${HTTP_CODE}"
+          cat body.json
+          echo
+          if [ "${HTTP_CODE}" != "200" ] && [ "${HTTP_CODE}" != "204" ]; then
+            echo "::error::DELETE selhal."
+            exit 1
+          fi
