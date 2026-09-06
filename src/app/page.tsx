@@ -15,10 +15,42 @@ import { ThemeToggle } from "@/components/theme-toggle";
 // stejné barvy/fonty/zaoblení jako zbytek appky (design tokeny v
 // globals.css). Tlačítka vedou na /login, kde běží skutečná Google
 // OAuth logika -- tahle stránka žádnou vlastní nemá.
+// Popisky sjednocené s competitions.description v databázi (viz
+// migrace 20260906120000_competitions_description.sql) -- tahle
+// stránka je ale veřejná a nepřihlášený návštěvník na ni nemá RLS
+// přístup do DB, proto zůstává natvrdo zapsaná stejně jako zbytek
+// tohohle pole odjakživa.
 const LEAGUES = [
-  { name: "Hokejová extraliga 2026/27", sport: "Hokej" },
-  { name: "Chance Liga", sport: "Fotbal" },
-  { name: "Premier League", sport: "Fotbal" },
+  {
+    name: "Hokejová extraliga 2026/27",
+    sport: "Hokej",
+    description: "Nejvyšší česká hokejová soutěž — tip na každý zápas sezóny.",
+  },
+  {
+    name: "Chance Liga",
+    sport: "Fotbal",
+    description: "Nejvyšší česká fotbalová liga — tip na každé kolo.",
+  },
+  {
+    name: "Premier League",
+    sport: "Fotbal",
+    description: "Nejlepší anglická fotbalová liga — tip na každé kolo.",
+  },
+  {
+    name: "Creme de la Creme liga",
+    sport: "Mix",
+    description: "Každý den 5 nových zápasů namátkou ze 13 fotbalových a hokejových lig.",
+  },
+];
+
+// Stejná čísla jako výchozí competitions.points_* v databázi (dnes
+// shodná napříč všemi soutěžemi) -- veřejná stránka nemá RLS přístup
+// k živým datům, přesné rozpisy pro jednotlivé soutěže vidí přihlášený
+// hráč na /pravidla.
+const SCORING = [
+  { emoji: "⚡", label: "za přesné skóre", points: 3 },
+  { emoji: "🏆", label: "za správného výherce", points: 1 },
+  { emoji: "🥅", label: "za trefený počet gólů", points: 1 },
 ];
 
 export const metadata: Metadata = {
@@ -99,18 +131,33 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mx-auto mt-9 flex max-w-4xl flex-wrap justify-center gap-3.5">
+          <div className="mx-auto mt-9 grid max-w-3xl grid-cols-1 gap-3.5 sm:grid-cols-2">
             {LEAGUES.map((league) => (
               <div
                 key={league.name}
-                className="card-lift flex items-center gap-2.5 rounded-[20px] border border-border-subtle bg-surface px-5 py-3.5 shadow-[var(--shadow-card)]"
+                className="card-lift rounded-[20px] border border-border-subtle bg-surface px-5 py-4 text-left shadow-[var(--shadow-card)]"
               >
-                <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-                <span className="text-sm font-bold">{league.name}</span>
-                <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-                  {league.sport}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold">{league.name}</span>
+                  <span className="shrink-0 rounded-full border border-border-subtle px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                    {league.sport}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+                  {league.description}
+                </p>
               </div>
+            ))}
+          </div>
+
+          <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2.5">
+            {SCORING.map((rule) => (
+              <span
+                key={rule.label}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 py-1.5 text-xs font-bold text-muted-foreground"
+              >
+                {rule.emoji} {rule.points} {rule.points === 1 ? "bod" : "body"} {rule.label}
+              </span>
             ))}
           </div>
         </section>

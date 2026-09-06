@@ -47,6 +47,12 @@ export async function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/pravidla"
+            className="btn-press text-xs font-bold text-muted-foreground hover:text-foreground"
+          >
+            Pravidla
+          </Link>
           <ThemeToggle />
           <Link
             href="/profil"

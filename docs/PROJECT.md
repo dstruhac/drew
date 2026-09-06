@@ -829,6 +829,56 @@ udržuje v provozu sama.
   přeformulována na "Klopi — Klobása. Pivo. Tipy. Věci, co nás spojují."
   Ověřeno vizuálně (Playwright screenshot desktop i mobil) před
   smergováním — žádné rozbité rozvržení ani přetečení textu.
+- [x] **Popisky soutěží na kartičkách + samostatná stránka s pravidly
+  bodování (6.9.2026)** — uživatel nahlásil, že řádek "Body za přesný
+  tip X · za vítěze Y · za góly celkem Z" na kartičce soutěže
+  (`CompetitionCard`) není moc čitelný/zajímavý, a chtěl místo něj
+  krátký popisek toho, co daná soutěž je (zvlášť u "Creme de la Creme
+  ligy", kde číselné body samy o sobě nevysvětlují, jak náhodný výběr
+  zápasů funguje). Zároveň appka neměla ŽÁDNÉ jiné místo, kde by šlo
+  bodování souhrnně dohledat.
+
+  **Datový model**: nový sloupec `competitions.description` (nullable
+  text, `supabase/migrations/20260906120000_competitions_description.sql`)
+  — appka ho teď zobrazuje na kartičce MÍSTO řádku s body. Migrace
+  rovnou vyplní popisek pro všechny 4 existující soutěže. Poznámka:
+  uživatel navrhoval "12 lig" u Náhodné ligy, ověřeno v kódu
+  (`random-league-pool.mjs`), že jich je reálně 13 — použito správné
+  číslo, ne navržené.
+
+  Popisky (odsouhlaseno s uživatelem přes `AskUserQuestion`):
+  - Hokejová extraliga 2026/27 — *"Nejvyšší česká hokejová soutěž — tip
+    na každý zápas sezóny."*
+  - Chance Liga — *"Nejvyšší česká fotbalová liga — tip na každé
+    kolo."*
+  - Premier League — *"Nejlepší anglická fotbalová liga — tip na
+    každé kolo."*
+  - Creme de la Creme liga — *"Každý den 5 nových zápasů namátkou ze
+    13 fotbalových a hokejových lig."* (přiřazeno přes `sport='mixed'`,
+    ne přes jméno — stejná robustnost vůči přejmenování jako
+    `random-league.mjs`, viz oprava z předchozího kroku.)
+
+  **Nová stránka `/pravidla`** (`src/app/(app)/pravidla/page.tsx`,
+  odkaz "Pravidla" v horní liště appky, `app-header.tsx` — umístění
+  odsouhlaseno s uživatelem přes `AskUserQuestion`, vidět na úplně
+  každé přihlášené stránce). Vysvětluje obecné pravidlo (přesné skóre
+  se počítá samostatně, jinak se body za výherce a góly celkem sčítají
+  nezávisle — stejná logika jako `calculate_match_points()`) a pod tím
+  živě z databáze vypisuje konkrétní počty bodů za soutěž (`points_exact`/
+  `points_winner`/`points_total_goals` jsou nastavitelné per competition,
+  dnes shodné 3/1/1 napříč všemi čtyřmi, ale appka na budoucí rozdílné
+  hodnoty místo má). Stránka nemá vlastní auth kontrolu — spoléhá na
+  middleware (`(app)` route group), stejně jako `/spaces`.
+
+  **Landing page** (`src/app/page.tsx`, na dodatečnou žádost
+  uživatele ve stejné konverzaci): kartičky lig v sekci "Co se právě
+  klopí?" přepsány z jednořádkových "pilulek" na dvousloupcovou mřížku
+  se stejnými popisky jako v databázi, doplněna chybějící Creme de la
+  Creme liga (dřív na landing page vůbec nebyla, appka sledovala jen
+  3 soutěže z původního seznamu) a pod mřížku přidán řádek s obecným
+  bodováním (3/1/1, natvrdo stejně jako zbytek týhle veřejné stránky —
+  nemá RLS přístup k živým datům, ty vidí přihlášený hráč na
+  `/pravidla`).
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
