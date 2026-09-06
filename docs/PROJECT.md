@@ -721,6 +721,35 @@ udržuje v provozu sama.
   Stejný vzorec "X z Y zápasů" zůstává zatím i na veřejném profilu
   hráče (`profil/[userId]/page.tsx`) -- uživatel mluvil konkrétně
   o žebříčku soutěže, změna profilu nebyla součástí zadání.
+- [x] **Chybějící logo na telefonu (záložka + "Přidat na plochu"),
+  opraveno (6.9.2026)** — appka měla jen `icon.svg` (favicon do
+  záložky), žádnou ikonu vyhrazenou pro "Přidat na plochu". Ověřeno
+  webovým vyhledáváním: moderní Safari SVG favicon v záložce umí, ale
+  u "Přidat na plochu" ho ÚPLNĚ IGNORUJE a čeká vyhrazený `apple-touch-icon`
+  PNG (180×180) -- bez něj iOS logo appky na plochu nedá. Android
+  bere ikonu z Web App Manifestu, který appka vůbec neměla.
+
+  **Oprava:**
+  - `src/app/apple-icon.png` (180×180) + `public/icon-192.png` a
+    `public/icon-512.png` -- vygenerováno z existujícího
+    `public/brand/klopi-icon.svg` vyfocením přes headless Chromium
+    (v sandboxu bez ImageMagick/rsvg-convert), ne uhodnuto.
+  - `src/app/manifest.ts` -- nový Web App Manifest (`name`,
+    `theme_color: #16a34a`, `background_color: #faf9f6`, `display:
+    "standalone"`, `icons` na výše uvedené PNG). `start_url: "/"`
+    funguje samo -- appka přihlášeného hráče z `/` přesměruje na
+    `/dashboard`, odhlášeného na `/login`.
+  - `src/app/layout.tsx` -- `appleWebApp` metadata (`capable: true`,
+    `title: "Klopi"`), appka se pak na iOS z plochy spustí bez
+    adresního řádku Safari.
+  - **Druhý, skutečný důvod, proč appka logo neukazovala vůbec** (ne
+    jen na iOS): `src/proxy.ts` middleware matcher nevyjímal
+    `.webmanifest` příponu, takže appka `/manifest.webmanifest`
+    nepřihlášenému hráči přesměrovávala na `/login` -- Chrome/Android
+    tak místo JSON manifestu s ikonami dostal HTML přihlašovací
+    stránku a nenašel v ní žádnou ikonu. Ověřeno `curl`em před i po
+    opravě (307 na `/login` → 200 s JSON obsahem). Doplněno
+    `webmanifest` do stejné výjimky, kde už appka měla `svg`/`png`/atd.
 
 ## Naplánované další kroky
 

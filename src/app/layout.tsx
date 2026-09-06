@@ -32,6 +32,14 @@ export const metadata: Metadata = {
     title: "Klopi – tipovačka pro kámoše",
     description: "Tipuj sportovní zápasy s kamarády a porovnej se v žebříčku.",
   },
+  // Hezčí chování při "Přidat na plochu" na iOS (6.9.2026, spolu
+  // s apple-icon.png a manifest.ts) -- appka se pak spustí bez
+  // adresního řádku Safari, jako samostatná appka.
+  appleWebApp: {
+    capable: true,
+    title: "Klopi",
+    statusBarStyle: "default",
+  },
 };
 
 // Ruční přepínač světlý/tmavý (theme-toggle.tsx) ukládá volbu do
