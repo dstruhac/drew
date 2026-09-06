@@ -685,6 +685,18 @@ udržuje v provozu sama.
   7denní okno pro účel týhle značky (vysvícený zápas dál než 7 dní
   zůstává beze změny, aby appka pořád ukázala nejbližší tip i mimo
   okno, pokud nic bližšího není).
+- [x] **Odložený zápas zmizí po dni, kdy se měl hrát (6.9.2026)** —
+  uživatel nahlásil, že odložený zápas z detailu soutěže nikdy nezmizí.
+  Appka status `postponed` uměla jen NASTAVIT (`sync-results`) a zase
+  ODEBRAT, jakmile livesport.cz vyhlásí nový termín (`sync-fixtures`,
+  krok "Podpora pro odložené zápasy" výše) -- bez nového termínu
+  zápas zůstával v sekci "Odloženo" navždy. `src/app/(app)/spaces/[id]/page.tsx`
+  teď takový zápas do "Odloženo" zařadí jen v den, kdy se měl původně
+  hrát (`isSameCalendarDayInPrague()`, porovnává kalendářní den podle
+  pražského času, ne UTC serveru) -- později appka zápas dál nezobrazí
+  vůbec, dokud se nenajde nový termín (v tu chvíli se stejně přesune
+  zpátky mezi nadcházející). Čistě zobrazovací změna, `status` v
+  databázi zůstává `postponed` beze změny.
 
 ## Naplánované další kroky
 
