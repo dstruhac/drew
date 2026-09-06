@@ -611,11 +611,27 @@ udržuje v provozu sama.
   obarví vše uvnitř používající Tailwind třídy `bg-accent`/`text-accent`/
   `border-accent`/`ring-accent`, beze změny kódu jednotlivých komponent
   (`PredictionForm`, `ExpandableList` atd.). Barva podle úspěšnosti tipu
-  (zelená/žlutá, `--success`/`--warning`) je nezávislý systém a zůstává
-  beze změny. Mechanismus ověřen mimo appku na skutečně zkompilovaném
-  CSS appky (Playwright) -- appku samotnou nešlo z tohohle sandboxu
-  vyzkoušet živě (žádný přístup na Supabase), ověřeno až uživatelem na
-  Vercel preview.
+  (zelená/žlutá, `--success`/`--warning`) byla v době týhle featury
+  ještě nezávislý systém oddělený od `--accent` -- **přebarveno hned
+  následující den, viz krok níže.** Mechanismus ověřen mimo appku na
+  skutečně zkompilovaném CSS appky (Playwright) -- appku samotnou
+  nešlo z tohohle sandboxu vyzkoušet živě (žádný přístup na Supabase),
+  ověřeno až uživatelem na Vercel preview.
+- [x] **Kartička zápasu: žlutá nahrazena sytostí sportovní barvy
+  (6.9.2026)** — uživatel nahlásil, že žlutá u "aspoň výherce/góly
+  sedí" evokuje chybu/varování, ne částečný úspěch. Kartička zápasu
+  (`getResultTone()`/`RESULT_TONE_CLASSES` v
+  `src/app/(app)/spaces/[id]/page.tsx`) teď místo tří barev (zelená/
+  žlutá/šedá) stupňuje SYTOST jedné barvy -- sportovní `--accent` z
+  kroku výše (zelená fotbal / modrá hokej): `"one"` (jen výherce NEBO
+  jen góly) nejsvětlejší (`bg-accent/[0.07]`), `"both"` (obojí, ale ne
+  přesně) tmavější (`/[0.14]`), `"exact"` (přesné skóre) nejtmavší
+  (`/[0.22]`). Odpovídá logice `calculate_match_points()`, jen bez
+  čtení bodové hodnoty, takže appka nezávisí na per-competition
+  nastavení bodování -- u výchozích 3/1/1 vychází `one`→1 bod,
+  `both`→2 body, `exact`→3 body přesně, jak uživatel zadal. Text u
+  přesné trefy (`exact-score-celebration.tsx`) přešel z pevné zelené
+  (`text-success`) na `text-accent` ze stejného důvodu.
 
 ## Naplánované další kroky
 
