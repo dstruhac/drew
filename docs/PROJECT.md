@@ -790,6 +790,34 @@ udržuje v provozu sama.
   spuštění by riziko neslo. Beze změny zůstává praxe nastavovat GitHub
   Actions cron na pevné UTC bez sezónního přepočtu (stejně jako
   `sync-fixtures`/`sync-results`).
+- [x] **Všech 5 naplánovaných úloh přesunuto na cron-job.org, GitHubův
+  vlastní `schedule:` odstraněn (6.9.2026)** — navazuje na řešení
+  nespolehlivosti `sync-results` z 5.9.2026 (viz krok 19 výše), kde se
+  ukázalo, že GitHubův `schedule:` trigger dokáže i po zmírňujících
+  úpravách (posun mimo celou/půl hodinu) meškat 2-6 hodin. Uživatel se
+  zeptal, jestli v repu nezůstaly další podobné plánované úlohy, které
+  by měly stejný problém — ověřeno (`grep "schedule:"
+  .github/workflows/*.yml`, ne odhadem): kromě `sync-results.yml` mají
+  vlastní `schedule:` i `sync-fixtures.yml`, `random-league.yml`,
+  `predict-reminders.yml` a `award-weekly-badges.yml`. Pro všechny
+  čtyři založena obdobná cron-job.org úloha (stejný fine-grained GitHub
+  token, jen jiná cílová URL/čas) — `sync-fixtures` denně brzy ráno,
+  `random-league` denně v 18:00 **Europe/Prague** (cron-job.org umí
+  časové pásmo přímo ve svém rozhraní, ověřeno v jejich REST API
+  dokumentaci — díky tomu není potřeba řešit letní/zimní čas ručně jako
+  u GitHubova `schedule:`, který zná jen UTC), `predict-reminders`
+  každou hodinu, `award-weekly-badges` v pondělí ráno. Všechny 4 nové
+  úlohy otestovány ručním "spustit hned" v cron-job.org a ověřeny přes
+  historii běhů na GitHubu (`workflow_dispatch`, `conclusion: success`)
+  ještě předtím, než se cokoliv v repu smazalo — ať nevznikne okno, kdy
+  appka neběží automaticky vůbec.
+
+  Po ověření všech 5 (`sync-results` byl na cron-job.org už od
+  5.9.2026) odstraněny `schedule:` bloky ze všech pěti workflow
+  souborů — appku už nebudí GitHubův vlastní plánovač, jen cron-job.org
+  voláním `POST .../workflows/<jméno>.yml/dispatches`. `workflow_dispatch`
+  (ruční spuštění/ladění) v souborech zůstává — je to zároveň přesně
+  ten typ volání, který cron-job.org používá.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

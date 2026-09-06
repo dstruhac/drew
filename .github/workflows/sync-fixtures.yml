@@ -5,17 +5,18 @@
 # změnil layout), nic se nezapíše a založí/aktualizuje se GitHub Issue
 # místo tichého zapsání špatných dat.
 #
-# Běží automaticky 1×/den v 04:00 UTC (~5-6 ráno českého času podle
-# letního/zimního času) — v tuhle dobu nikdo netipuje ani se nehraje,
-# takže i kdyby běh trval déle, nikomu to nevadí. `workflow_dispatch`
-# zůstává zachovaný pro ruční spuštění/ladění.
+# Spouštění zajišťuje výhradně externí cron-job.org (volá GitHubovo API
+# `POST .../workflows/sync-fixtures.yml/dispatches` 1×/den brzy ráno
+# pražského času) -- GitHubův vlastní `schedule:` trigger byl 6.9.2026
+# po ověření cron-job.org úlohy odstraněn, ať appka nemá dvě souběžné
+# (a navzájem si konkurující) cesty ke spuštění stejné věci; stejný
+# důvod jako u sync-results.yml. `workflow_dispatch` zůstává pro ruční
+# spuštění/ladění a je to zároveň přesně to, co cron-job.org volá.
 
 name: Sync fixtures
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 4 * * *"
 
 permissions:
   contents: read
