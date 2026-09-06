@@ -69,8 +69,14 @@
   --font-sans: var(--font-manrope);
 }
 
+/* Tmavý režim -- ze systémového nastavení telefonu/prohlížeče
+   (nezávazný výchozí stav), NEBO natvrdo přes ruční přepínač
+   (`<html data-theme="dark">`, viz theme-toggle.tsx). `:not([data-theme="light"])`
+   u té systémové varianty zajišťuje, že ruční volba "Světlý" přebije
+   i tmavý systém -- bez toho by šlo tmavý režim jen zapnout navíc
+   k systému, ne ho vypnout. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0b0e14;
     --foreground: #f1f2f4;
 
@@ -91,6 +97,28 @@
     --shadow-card: 0 8px 20px rgb(0 0 0 / 0.3);
     --shadow-card-hover: 0 6px 16px rgb(0 0 0 / 0.35);
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #0b0e14;
+  --foreground: #f1f2f4;
+
+  --surface: #161b24;
+  --surface-hover: #1c222d;
+
+  --border-subtle: #232a36;
+  --border-strong: #2e3846;
+
+  --muted-foreground: #98a0ac;
+  --faint-foreground: #6c7583;
+
+  --accent: #22c55e;
+  --success: #22c55e;
+  --warning: #fbbf24;
+  --danger: #f87171;
+
+  --shadow-card: 0 8px 20px rgb(0 0 0 / 0.3);
+  --shadow-card-hover: 0 6px 16px rgb(0 0 0 / 0.35);
 }
 
 body {
@@ -161,8 +189,13 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  .btn-press:focus-visible,
-  .card-lift:focus-visible {
+  :root:not([data-theme="light"]) .btn-press:focus-visible,
+  :root:not([data-theme="light"]) .card-lift:focus-visible {
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgb(255 255 255 / 0.35);
   }
+}
+
+:root[data-theme="dark"] .btn-press:focus-visible,
+:root[data-theme="dark"] .card-lift:focus-visible {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgb(255 255 255 / 0.35);
 }

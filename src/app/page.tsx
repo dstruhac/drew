@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Users, Calendar, Check, Medal } from "lucide-react";
 import { GoogleIcon } from "@/components/google-icon";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Veřejná úvodní stránka appky (29.8.2026) -- middleware (viz
 // src/lib/supabase/middleware.ts) ji drží veřejnou pro odhlášené a
@@ -38,12 +39,15 @@ export default function LandingPage() {
               </span>
             </span>
           </div>
-          <Link
-            href="/login"
-            className="btn-press rounded-full bg-foreground px-[18px] py-[9px] text-[13px] font-bold text-background"
-          >
-            Přihlásit se
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="btn-press rounded-full bg-foreground px-[18px] py-[9px] text-[13px] font-bold text-background"
+            >
+              Přihlásit se
+            </Link>
+          </div>
         </div>
       </header>
 
