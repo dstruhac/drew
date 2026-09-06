@@ -890,6 +890,45 @@ udržuje v provozu sama.
   nezapnuli, ať appka nikomu nezačne posílat e-maily bez jeho vědomí.
   `joinCompetition` sloupec při insertu nevyplňuje, takže se nový
   default uplatní sám, žádná změna kódu nebyla potřeba — jen migrace.
+- [x] **Oprava: appka na telefonu po delší pauze odhlašovala uživatele
+  (6.9.2026, PR #108)** — uživatel nahlásil opakované odhlašování na
+  mobilu, nejvýrazněji po delší pauze v používání appky. Rozhodující
+  diagnostický vstup: screenshot Supabase Dashboardu (Authentication →
+  Sessions), kde je zapnuté **"Detect and revoke potentially
+  compromised refresh tokens"**.
+
+  **Skutečná příčina** (ověřeno čtením zdrojového kódu
+  `@supabase/auth-js`/`@supabase/ssr` v `node_modules`, ne odhadnuto):
+  appka dřív nechávala `getCurrentUser()` (`src/lib/supabase/server.ts`,
+  volané ze server komponent) volat `supabase.auth.getClaims()` přímo.
+  `getClaims()` ale kromě ověření podpisu tokenu umí i obnovit
+  session, když se blíží vypršení access tokenu — přesně tohle nastává
+  po delší pauze. Server komponenty v Next.js ale nemají povoleno
+  zapisovat cookie zpátky do prohlížeče (framework to tiše zahazuje,
+  `try/catch` v `createClient()`), takže Supabase na svém serveru starý
+  refresh token rotoval, ale prohlížeč se o novém nikdy nedozvěděl.
+  Appka pak s prohlížečem chodila dál se starým, už jednou použitým
+  refresh tokenem — a zapnutá ochrana "Detect and revoke..." na jeho
+  další použití zareagovala tak, že rovnou zneplatnila CELOU session
+  (ne jen ten jeden požadavek), což vypadalo přesně jako nahlášené
+  časté odhlašování.
+
+  **Oprava** (podle vlastního doporučení Supabase pro server-side
+  Next.js auth): jen `src/lib/supabase/middleware.ts` (proxy, běží na
+  každém požadavku jako první) teď smí volat `getClaims()`/obnovovat
+  token, protože jen ono umí výsledek spolehlivě zapsat do cookie.
+  Ověřenou identitu posílá dál přes vlastní hlavičky
+  (`x-klopi-user-id`/`x-klopi-user-email`, mažou se na začátku KAŽDÉHO
+  požadavku a nastavují se znovu jen podle kryptograficky ověřených
+  claims, takže je klient nemůže podvrhnout) — `getCurrentUser()` v
+  `server.ts` je teď jen čte, žádnou vlastní obnovu tokenu nespouští.
+  `src/proxy.ts` kvůli tomu záměrně NEVYNECHÁVÁ prefetch požadavky
+  (dřívější, nedokončený pokus o řešení stejného problému) — proxy teď
+  musí běžet na úplně každém požadavku, protože je to jediné bezpečné
+  místo pro obnovu session.
+
+  Čeká se na potvrzení, že se problém po nasazení na `klopi.cz`
+  na mobilu uživatele reálně vytratil.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
