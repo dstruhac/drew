@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { Medal, X } from "lucide-react";
 import { markBadgesSeen } from "@/app/(app)/dashboard/actions";
+import { sportAccentStyle } from "@/lib/sport";
 
 type BadgeRow = {
   competition_id: string;
   week_start: string;
   user_id: string;
   points: number;
-  competitions: { name: string } | null;
+  competitions: { name: string; sport: "hockey" | "football" | "mixed" } | null;
   profiles: { display_name: string } | null;
 };
 
@@ -200,6 +201,7 @@ export function BadgeCenter({
                 <li
                   key={badgeKey(badge)}
                   title="Medaile za nejvyšší nasbíraný počet bodů v daném týdnu a dané soutěži."
+                  style={sportAccentStyle(badge.competitions?.sport)}
                   className={`flex items-center gap-2 rounded-2xl border border-border-subtle bg-surface p-3 text-sm font-semibold transition-all duration-[var(--duration-celebration)] ${
                     isNew && !revealed ? "grayscale opacity-50" : ""
                   } ${isNew && revealed ? "animate-[celebrate-pop_0.7s_var(--ease-bounce)]" : ""}`}

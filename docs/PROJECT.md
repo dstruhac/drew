@@ -187,7 +187,7 @@ otevřené všem uživatelům — není už omezené seznamem testovacích e-mai
 (potvrzeno uživatelem 5.9.2026). Soutěže používají reálné rozpisy a
 výsledky automaticky importované z Livesportu.
 
-## Stav (aktualizováno 2026-09-05, zahájen pilotní provoz)
+## Stav (aktualizováno 2026-09-06, zahájen pilotní provoz)
 
 Hotovo:
 - [x] Scaffold Next.js + TS + Tailwind
@@ -576,8 +576,259 @@ udržuje v provozu sama.
   chybí i v hlavičce uvnitř appky (`src/components/app-header.tsx`,
   sdílená napříč `/dashboard`, `/spaces`, `/profil`...) — první úprava
   se týkala jen veřejné stránky, doplněno stejným vzorem i sem.
+- [x] **Ruční přepínač světlý/tmavý režim (6.9.2026)** — appka dřív
+  uměla jen sledovat systémové nastavení telefonu/prohlížeče
+  (`prefers-color-scheme`), takže dva lidé se stejnou appkou vidí různý
+  vzhled podle toho, jak má každý nastavený svůj telefon (přesně tohle
+  uživatel nahlásil — on má telefon v dark módu, žena v light módu).
+  Ikonový přepínač (`src/components/theme-toggle.tsx`) v hlavičce
+  appky i na veřejné úvodní stránce cykluje **Podle telefonu → Světlý →
+  Tmavý**. Volba se ukládá do `localStorage` (`klopi-theme`) **per
+  prohlížeč/telefon**, ne v appce/databázi — jde o preferenci
+  zařízení, ne o věc, kterou by měl mít hráč stejnou všude.
+  `src/app/globals.css`: tmavé tokeny teď platí buď ze systému (ale
+  jen když uživatel ručně nezvolil "Světlý" — `:not([data-theme="light"])`),
+  nebo natvrdo přes `<html data-theme="dark">`; žádná komponenta kromě
+  přepínače samotného se neupravovala. `src/app/layout.tsx` má krátký
+  blokující skript v `<head>`, který nastaví `data-theme` dřív, než
+  appka cokoliv vykreslí, ať appka na zlomek vteřiny nebliká špatnou
+  barvou.
+- [x] **Sportovní barevný vibe -- fotbal zelený, hokej modrý (6.9.2026)**
+  — na žádost uživatele, rozsah odsouhlasen přes `AskUserQuestion`:
+  barva sahá úplně všude uvnitř dané soutěže (kartička soutěže,
+  hlavička detailu, tlačítka Chci hrát/Uložit tip/upozornění, kartičky
+  zápasů, hero kartička, žebříček, medaile). Fotbal zůstává ve výchozí
+  zelené appky (`--accent` beze změny -- appka je zelená odjakživa),
+  hokej dostal nový token `--accent-hockey`
+  (`src/app/globals.css`, Tailwind blue-600 světlý režim / blue-400
+  tmavý, stejná konvence jako `--warning`/`--danger`). "Náhodná liga"
+  (sport `mixed`) zůstává na úrovni soutěže neutrální/zelená, ale
+  jednotlivé zápasy uvnitř se obarví podle SVÉHO sportu.
 
-## Naplánované další kroky
+  **Mechanismus** (`sportAccentStyle()` v `src/lib/sport.ts`): přepíše
+  `--accent` na nejbližším obalujícím elementu (kartička/hlavička/
+  zápas) podle sportu. Díky dědění CSS proměnných se tím automaticky
+  obarví vše uvnitř používající Tailwind třídy `bg-accent`/`text-accent`/
+  `border-accent`/`ring-accent`, beze změny kódu jednotlivých komponent
+  (`PredictionForm`, `ExpandableList` atd.). Barva podle úspěšnosti tipu
+  (zelená/žlutá, `--success`/`--warning`) byla v době týhle featury
+  ještě nezávislý systém oddělený od `--accent` -- **přebarveno hned
+  následující den, viz krok níže.** Mechanismus ověřen mimo appku na
+  skutečně zkompilovaném CSS appky (Playwright) -- appku samotnou
+  nešlo z tohohle sandboxu vyzkoušet živě (žádný přístup na Supabase),
+  ověřeno až uživatelem na Vercel preview.
+- [x] **Kartička zápasu: žlutá nahrazena sytostí sportovní barvy
+  (6.9.2026)** — uživatel nahlásil, že žlutá u "aspoň výherce/góly
+  sedí" evokuje chybu/varování, ne částečný úspěch. Kartička zápasu
+  (`getResultTone()`/`RESULT_TONE_CLASSES` v
+  `src/app/(app)/spaces/[id]/page.tsx`) teď místo tří barev (zelená/
+  žlutá/šedá) stupňuje SYTOST jedné barvy -- sportovní `--accent` z
+  kroku výše (zelená fotbal / modrá hokej): `"one"` (jen výherce NEBO
+  jen góly) nejsvětlejší (`bg-accent/[0.07]`), `"both"` (obojí, ale ne
+  přesně) tmavější (`/[0.14]`), `"exact"` (přesné skóre) nejtmavší
+  (`/[0.22]`). Odpovídá logice `calculate_match_points()`, jen bez
+  čtení bodové hodnoty, takže appka nezávisí na per-competition
+  nastavení bodování -- u výchozích 3/1/1 vychází `one`→1 bod,
+  `both`→2 body, `exact`→3 body přesně, jak uživatel zadal. Text u
+  přesné trefy (`exact-score-celebration.tsx`) přešel z pevné zelené
+  (`text-success`) na `text-accent` ze stejného důvodu.
+- [x] **Odkaz "Dashboard" v hlavičkách appky (6.9.2026)** — appka uměla
+  proklik zpátky na Dashboard jen skrytě přes klik na logo appky
+  v horní liště, což uživatel nepovažoval za dost zjevné. Doplněn
+  viditelný textový odkaz "Dashboard" (odděleno tečkou od stávajícího
+  odkazu, kde nějaký byl) do hlaviček: `/spaces` (přehled soutěží, dřív
+  žádný odkaz zpátky vůbec), `/spaces/[id]`, `/spaces/[id]/leaderboard`,
+  `/spaces/[id]/matches/[matchId]`, `/profil/[userId]` a `/profil`.
+  Stávající odkazy (`← Soutěže`, `← {competition.name}` atd.) beze
+  změny cíle.
+- [x] **Okno nadcházejících zápasů zkráceno na 7 dní (6.9.2026)** —
+  uživatel nahlásil, že appka ukazuje příliš mnoho nadcházejících
+  zápasů najednou a mate ho to. `sync-fixtures` (`scripts/sync/fixtures.mjs`)
+  stahovalo klouzavé okno 21 dní dopředu; appka navíc nikdy nemazala
+  starší načtené zápasy, takže "Nadcházející" sekce na `/spaces/[id]`
+  postupně rostla. Řešení bez mazání dat (bezpečnější než jednorázový
+  úklid v databázi):
+  - `WINDOW_DAYS` v `sync-fixtures` zkráceno z 21 na 7 -- appka
+    přestane přibírat nové zápasy nad 7 dní dopředu. `minExpected`
+    validace snížen z 1 na 0, protože "0 zápasů v 7denním okně" může
+    být legitimní reprezentační pauza/bye week, ne rozbitý scraper
+    (u 21denního okna to prakticky nehrozilo).
+  - `src/app/(app)/spaces/[id]/page.tsx` (`UPCOMING_WINDOW_DAYS`)
+    stejný limit vynucuje i při zobrazení -- zápasy, které appka
+    stihla načíst ještě podle staršího (delšího) okna, se tak schovají
+    hned, ne až se postupně "vyhrají" pryč. Dotaz do databáze zůstal
+    beze změny (natvrdo neomezený), filtr je až v kategorizaci zápasů,
+    aby hláška "Zatím tu nejsou žádné zápasy" zůstala pravdivá i pro
+    soutěž, která má zápasy jen dál než 7 dní dopředu (typicky
+    hokejová extraliga před začátkem sezóny).
+  - **Hláška "vše natipováno"** (`✅ Máš vyplněné tipy na všechny
+    nadcházející zápasy.`) existovala už dřív, ale byla schovaná za
+    podmínkou, která zmizela úplně, když appka neměla v okně vůbec
+    žádný zápas (ani tipnutý, ani netipnutý) -- typicky reprezentační
+    pauza. Opraveno: sekce se teď zobrazí i v tomhle případě, s
+    odlišenou hláškou (`✅ Není nic k tipování — v příštích 7 dnech se
+    nehraje žádný zápas.`) podle toho, jestli šlo o "vše tipnuto", nebo
+    "v okně nic není".
+- [x] **Značka "Vše natipováno" na kartičce soutěže (6.9.2026)** —
+  uživatel chtěl na první pohled (bez prokliku do detailu soutěže)
+  poznat, že u dané soutěže nemá co dalšího tipnout. `CompetitionCard`
+  (sdílená mezi `/spaces` a Dashboardem) dostala nový volitelný prop
+  `allCaughtUp` -- zelená pilulka "Vše natipováno" pod pozicí
+  v žebříčku, zelená fixní (`success`), nezávislá na sportovní barvě
+  soutěže. `UPCOMING_WINDOW_DAYS` přesunuto z `spaces/[id]/page.tsx`
+  do sdíleného `src/lib/upcoming-window.ts`, ať appka na kartičce a na
+  detailu soutěže nepoužívá dvě různá okna omylem. `/spaces` kvůli
+  tomu poprvé načítá i `matches` (dřív žádné, celý dotaz odpadl při
+  výkonové optimalizaci 28.8.2026) -- jen sloupce `id, competition_id`
+  a jen zápasy v 7denním okně, ať to nic nestojí navíc. Dashboard nový
+  dotaz nepotřeboval, jen zúžil už načtené `upcomingMatches` na
+  7denní okno pro účel týhle značky (vysvícený zápas dál než 7 dní
+  zůstává beze změny, aby appka pořád ukázala nejbližší tip i mimo
+  okno, pokud nic bližšího není).
+- [x] **Odložený zápas zmizí po dni, kdy se měl hrát (6.9.2026)** —
+  uživatel nahlásil, že odložený zápas z detailu soutěže nikdy nezmizí.
+  Appka status `postponed` uměla jen NASTAVIT (`sync-results`) a zase
+  ODEBRAT, jakmile livesport.cz vyhlásí nový termín (`sync-fixtures`,
+  krok "Podpora pro odložené zápasy" výše) -- bez nového termínu
+  zápas zůstával v sekci "Odloženo" navždy. `src/app/(app)/spaces/[id]/page.tsx`
+  teď takový zápas do "Odloženo" zařadí jen v den, kdy se měl původně
+  hrát (`isSameCalendarDayInPrague()`, porovnává kalendářní den podle
+  pražského času, ne UTC serveru) -- později appka zápas dál nezobrazí
+  vůbec, dokud se nenajde nový termín (v tu chvíli se stejně přesune
+  zpátky mezi nadcházející). Čistě zobrazovací změna, `status` v
+  databázi zůstává `postponed` beze změny.
+- [x] **Konfety u přesně trefeného tipu odebrány (6.9.2026)** —
+  uživateli se efekt nelíbil. `exact-score-celebration.tsx` (krok
+  "Banger" momenty v redesignu 29.8.2026) dál zvýrazní bodovou částku
+  krátkou "pop" animací při prvním zobrazení, jen bez `canvas-confetti`
+  výbuchu. Konfety u medaile za vítězství týdne (`badge-center.tsx`)
+  zůstávají beze změny -- uživatel mluvil konkrétně o přesném výsledku.
+- [x] **Trofej na kartičce soutěže jen na 1. místě (6.9.2026)** —
+  drobná úprava `CompetitionCard`, ikona `Trophy` u "X. místo z Y" se
+  vykreslí jen když `rank.rank === 1`.
+- [x] **Žebříček: průměr bodů místo "X z Y vyhodnoceno" (6.9.2026)** —
+  uživatel navrhoval nahradit řádek "X z Y zápasů vyhodnoceno"
+  průměrem bodů na tipnutý zápas, mj. jako možný způsob spravedlivého
+  srovnání hráčů, kteří se do soutěže přidali později. Rozhodnuto
+  s uživatelem přes `AskUserQuestion`: **žebříček se dál řadí podle
+  CELKOVÝCH bodů beze změny** -- řazení podle průměru bylo zamítnuto,
+  protože trpí malým vzorkem (hráč s jedním přesně trefeným tipem by
+  měl průměr 3 b./zápas a přeskočil by poctivého hráče s průměrem 2
+  b./zápas za celou sezónu). Průměr je jen nová informace v řádku pod
+  skóre (`spaces/[id]/leaderboard/page.tsx`, `Ø X,XX b./zápas`,
+  počítáno z `entry.scoredCount`, ne z `predictionCount` -- ať appka
+  nepočítá nevyhodnocené zápasy jako 0 bodů), `X× přesně` beze změny.
+  Stejný vzorec "X z Y zápasů" zůstává zatím i na veřejném profilu
+  hráče (`profil/[userId]/page.tsx`) -- uživatel mluvil konkrétně
+  o žebříčku soutěže, změna profilu nebyla součástí zadání.
+- [x] **Chybějící logo na telefonu (záložka + "Přidat na plochu"),
+  opraveno (6.9.2026)** — appka měla jen `icon.svg` (favicon do
+  záložky), žádnou ikonu vyhrazenou pro "Přidat na plochu". Ověřeno
+  webovým vyhledáváním: moderní Safari SVG favicon v záložce umí, ale
+  u "Přidat na plochu" ho ÚPLNĚ IGNORUJE a čeká vyhrazený `apple-touch-icon`
+  PNG (180×180) -- bez něj iOS logo appky na plochu nedá. Android
+  bere ikonu z Web App Manifestu, který appka vůbec neměla.
+
+  **Oprava:**
+  - `src/app/apple-icon.png` (180×180) + `public/icon-192.png` a
+    `public/icon-512.png` -- vygenerováno z existujícího
+    `public/brand/klopi-icon.svg` vyfocením přes headless Chromium
+    (v sandboxu bez ImageMagick/rsvg-convert), ne uhodnuto.
+  - `src/app/manifest.ts` -- nový Web App Manifest (`name`,
+    `theme_color: #16a34a`, `background_color: #faf9f6`, `display:
+    "standalone"`, `icons` na výše uvedené PNG). `start_url: "/"`
+    funguje samo -- appka přihlášeného hráče z `/` přesměruje na
+    `/dashboard`, odhlášeného na `/login`.
+  - `src/app/layout.tsx` -- `appleWebApp` metadata (`capable: true`,
+    `title: "Klopi"`), appka se pak na iOS z plochy spustí bez
+    adresního řádku Safari.
+  - **Druhý, skutečný důvod, proč appka logo neukazovala vůbec** (ne
+    jen na iOS): `src/proxy.ts` middleware matcher nevyjímal
+    `.webmanifest` příponu, takže appka `/manifest.webmanifest`
+    nepřihlášenému hráči přesměrovávala na `/login` -- Chrome/Android
+    tak místo JSON manifestu s ikonami dostal HTML přihlašovací
+    stránku a nenašel v ní žádnou ikonu. Ověřeno `curl`em před i po
+    opravě (307 na `/login` → 200 s JSON obsahem). Doplněno
+    `webmanifest` do stejné výjimky, kde už appka měla `svg`/`png`/atd.
+- [x] **Náhodná liga: přejmenování v DB duplikovalo soutěž, opraveno
+  (6.9.2026)** — uživatel přejmenoval competition "Náhodná liga" přímo
+  v Supabase na "Creme de la Creme liga". `random-league.mjs` ale svoji
+  soutěž hledal podle JMÉNA (`ensureCompetition()`), ne podle
+  `sport='mixed'` -- při dalším běhu tak přejmenovanou soutěž nenašel a
+  založil si NOVOU se starým jménem "Náhodná liga", do které zapsal
+  dnešní výběr 5 zápasů. Appka má z návrhu jen jednu soutěž se
+  `sport='mixed'`, takže hledání podle sportu (ne jména) je robustní
+  vůči budoucím přejmenováním appku bez zásahu do kódu.
+
+  **Oprava kódu**: `ensureCompetition()` teď hledá jen podle
+  `sport='mixed'`. **Úklid vzniklé duplicity**: ověřeno předem přes
+  `db-probe.yml` (duplicitní competition neměla ŽÁDNÉ účastníky ani
+  tipy, jen těch 5 dnešních zápasů) a proveden jednorázový GitHub
+  Actions workflow (`fix-random-league-duplicate.yml`, service role
+  klíč) -- přesunul dnešní zápasy pod správnou (přejmenovanou)
+  competition a duplicitní prázdný řádek smazal. Workflow po použití
+  smazán ze souborového stromu, ať v repu nezůstává trvalá schopnost
+  mazat data (stejná konvence jako u úklidu testovacích dat 28.8.2026).
+- [x] **Náhodná liga: výběr zápasů den dopředu, ne v den zápasu
+  (6.9.2026)** — uživatel chtěl mít možnost tipovat zápasy Náhodné
+  ligy s předstihem, stejně jako u ostatních soutěží; appka dřív
+  vybírala 5 zápasů brzy ráno v TÉŽE DEN, kdy se hrálo, takže na ně
+  nešlo tipovat dopředu. `scripts/sync/random-league.mjs` teď místo
+  "dnešního dne" hledá a vybírá zápasy ZÍTŘEJŠÍHO pražského dne
+  (`getTodayRange(new Date(), 1)` — `lib/week-range.mjs` rozšířen o
+  volitelný `dayOffset`, `getTodayRange(ref, 0)` beze změny chování
+  pro stávající volání z `predict-reminders.mjs`).
+
+  **Rozvrh** (`.github/workflows/random-league.yml`): přeladěno z
+  4:20 UTC (ráno) na `0 16 * * *` (16:00 UTC), tak aby vycházelo na
+  18:00 pražského času v aktuálně platném letním čase (CEST, UTC+2).
+  GitHub Actions cron neumí časové pásmo, jen pevné UTC — v zimě (CET,
+  UTC+1) proto vyjde na 17:00 pražského času, o hodinu dřív než
+  zadaných "18:00", ne později. Vědomá volba (moje, vysvětleno v
+  chatu): pro "ať jde tipovat dopředu" je dřívější spuštění v zimě
+  neškodné (zápasy budou k tipování jen o hodinu déle), zatímco pozdější
+  spuštění by riziko neslo. Beze změny zůstává praxe nastavovat GitHub
+  Actions cron na pevné UTC bez sezónního přepočtu (stejně jako
+  `sync-fixtures`/`sync-results`).
+- [x] **Všech 5 naplánovaných úloh přesunuto na cron-job.org, GitHubův
+  vlastní `schedule:` odstraněn (6.9.2026)** — navazuje na řešení
+  nespolehlivosti `sync-results` z 5.9.2026 (viz krok 19 výše), kde se
+  ukázalo, že GitHubův `schedule:` trigger dokáže i po zmírňujících
+  úpravách (posun mimo celou/půl hodinu) meškat 2-6 hodin. Uživatel se
+  zeptal, jestli v repu nezůstaly další podobné plánované úlohy, které
+  by měly stejný problém — ověřeno (`grep "schedule:"
+  .github/workflows/*.yml`, ne odhadem): kromě `sync-results.yml` mají
+  vlastní `schedule:` i `sync-fixtures.yml`, `random-league.yml`,
+  `predict-reminders.yml` a `award-weekly-badges.yml`. Pro všechny
+  čtyři založena obdobná cron-job.org úloha (stejný fine-grained GitHub
+  token, jen jiná cílová URL/čas) — `sync-fixtures` denně brzy ráno,
+  `random-league` denně v 18:00 **Europe/Prague** (cron-job.org umí
+  časové pásmo přímo ve svém rozhraní, ověřeno v jejich REST API
+  dokumentaci — díky tomu není potřeba řešit letní/zimní čas ručně jako
+  u GitHubova `schedule:`, který zná jen UTC), `predict-reminders`
+  každou hodinu, `award-weekly-badges` v pondělí ráno. Všechny 4 nové
+  úlohy otestovány ručním "spustit hned" v cron-job.org a ověřeny přes
+  historii běhů na GitHubu (`workflow_dispatch`, `conclusion: success`)
+  ještě předtím, než se cokoliv v repu smazalo — ať nevznikne okno, kdy
+  appka neběží automaticky vůbec.
+
+  Po ověření všech 5 (`sync-results` byl na cron-job.org už od
+  5.9.2026) odstraněny `schedule:` bloky ze všech pěti workflow
+  souborů — appku už nebudí GitHubův vlastní plánovač, jen cron-job.org
+  voláním `POST .../workflows/<jméno>.yml/dispatches`. `workflow_dispatch`
+  (ruční spuštění/ladění) v souborech zůstává — je to zároveň přesně
+  ten typ volání, který cron-job.org používá.
+- [x] **Přepis veřejné úvodní stránky do hravějšího tónu (6.9.2026,
+  PR #128)** — `src/app/page.tsx`. Nový hero text ("Klobása. Pivo.
+  Tipovačka. Klopi."), tlačítko přejmenováno z "Přihlásit se přes
+  Google" na "Jdu do toho" (ikona Google zůstává jako vizuální nápověda,
+  co se pod tlačítkem skrývá), zavedeno sloveso "klopnout"
+  (CTA "Tak to klopni", nadpis "Co se právě klopí?"), přidána nová
+  sekce s hecovacími citáty ("Tohle je tutovka.", ...) a závěrečná
+  sekce "Nejde o peníze. Jde o něco důležitějšího." Patička
+  přeformulována na "Klopi — Klobása. Pivo. Tipy. Věci, co nás spojují."
+  Ověřeno vizuálně (Playwright screenshot desktop i mobil) před
+  smergováním — žádné rozbité rozvržení ani přetečení textu.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

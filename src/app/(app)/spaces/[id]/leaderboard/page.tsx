@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
+import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function LeaderboardPage({
@@ -25,7 +26,7 @@ export default async function LeaderboardPage({
     badgesResult,
     predictionsResult,
   ] = await Promise.all([
-    supabase.from("competitions").select("id, name").eq("id", id).single(),
+    supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
     supabase
       .from("competition_participants")
       .select("user_id, profiles(display_name)")
@@ -163,15 +164,24 @@ export default async function LeaderboardPage({
   const weekRangeLabel = formatWeekRange(weekStart, weekEnd);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10">
+    <main
+      style={sportAccentStyle(competition.sport)}
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-3xl sm:px-10"
+    >
       <header>
-        <Link
-          href={`/spaces/${id}`}
-          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-          {competition.name}
-        </Link>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href={`/spaces/${id}`}
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            {competition.name}
+          </Link>
+        </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Žebříček</h1>
       </header>
 
@@ -216,7 +226,9 @@ export default async function LeaderboardPage({
                 <div className="text-right">
                   <span className="font-extrabold">{entry.totalPoints} b.</span>
                   <p className="text-xs font-semibold text-faint-foreground">
-                    {entry.scoredCount} z {entry.predictionCount} zápasů vyhodnoceno
+                    {entry.scoredCount > 0
+                      ? `Ø ${(entry.totalPoints / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
+                      : "Zatím bez odehraného zápasu"}
                     {" · "}
                     {entry.exactCount}× přesně
                   </p>

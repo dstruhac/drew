@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { PredictionForm } from "@/app/(app)/spaces/[id]/prediction-form";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
+import { sportAccentStyle } from "@/lib/sport";
 import type { Sport } from "@/lib/supabase/database.types";
 
 // Sdíleno mezi detailem soutěže (spaces/[id]/page.tsx) a Dashboardem
@@ -73,7 +74,10 @@ export function SpotlightMatchCard({
   // soutěže, jak appka dělala vždycky.
   const effectiveSport = match.sport ?? sport;
   return (
-    <div className="relative overflow-hidden rounded-[26px] bg-[#15171c] p-6 sm:p-8">
+    <div
+      style={sportAccentStyle(effectiveSport)}
+      className="relative overflow-hidden rounded-[26px] bg-[#15171c] p-6 sm:p-8"
+    >
       <div className="pointer-events-none absolute -top-10 -right-10 h-36 w-36 rounded-full bg-accent/25" />
 
       <div className="relative flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-extrabold tracking-wide text-accent uppercase sm:justify-between">

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
+import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
@@ -158,13 +159,19 @@ export default async function PublicProfilePage({
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-3xl sm:px-10">
       <header>
-        <Link
-          href="/spaces"
-          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-          Soutěže
-        </Link>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href="/spaces"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            Soutěže
+          </Link>
+        </div>
         <div className="mt-2 flex items-center gap-3">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border-subtle">
             {profile.avatar_url ? (
@@ -210,6 +217,7 @@ export default async function PublicProfilePage({
               <li key={competition.id}>
                 <Link
                   href={`/spaces/${competition.id}`}
+                  style={sportAccentStyle(competition.sport)}
                   className="card-lift flex h-full flex-col gap-3 rounded-[22px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)]"
                 >
                   <div className="flex items-center justify-between gap-2">

@@ -1,6 +1,9 @@
-// Entrypoint pro random-league.yml. Jednou denně (brzy ráno) vybere 5
-// náhodných zápasů z dnešního dne napříč skupinou známých lig
-// (RANDOM_LEAGUE_POOL) a zapíše je do trvalé soutěže "Náhodná liga".
+// Entrypoint pro random-league.yml. Běží večer (18:00 pražského času)
+// den PŘEDEM a vybere 5 náhodných zápasů ZÍTŘEJŠÍHO dne napříč skupinou
+// známých lig (RANDOM_LEAGUE_POOL), zapíše je do trvalé soutěže
+// "Náhodná liga". Uživatel je tak může tipovat s předstihem, stejně
+// jako u ostatních soutěží (6.9.2026) -- dřív úloha běžela brzy ráno
+// A vybírala zápasy TÉHOŽ dne, takže na ně nešlo tipovat dopředu.
 //
 // Na rozdíl od sync-fixtures/sync-results appka tu nemá jednu
 // competition = jedna liga -- "Náhodná liga" kombinuje víc lig najednou,
@@ -9,12 +12,12 @@
 // sync-results později věděl, kde hledat výsledek (viz syncRandomPool
 // v results.mjs).
 //
-// Idempotence: pokud "Náhodná liga" už má pro dnešní pražský den
+// Idempotence: pokud "Náhodná liga" už má pro zítřejší pražský den
 // nějaký zápas zapsaný, běh se přeskočí -- výběr je náhodný, takže
 // druhé spuštění stejný den by (kdyby se nekontrolovalo) přidalo jiných
 // 5 zápasů navíc místo žádné změny.
 //
-// "Míň než 5 zápasů dnes napříč celým poolem" NENÍ chyba (rozhodnuto s
+// "Míň než 5 zápasů zítra napříč celým poolem" NENÍ chyba (rozhodnuto s
 // uživatelem 30.8.2026) -- appka prostě zapíše, kolik jich je (klidně
 // 0), místo aby si něco vymýšlela nebo failovala.
 
@@ -25,15 +28,25 @@ import { validateFixtures } from "./lib/validate-fixtures.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 import { RANDOM_LEAGUE_POOL } from "./lib/random-league-pool.mjs";
 
+// Použije se jen při úplně PRVNÍM založení (viz ensureCompetition níže)
+// -- appka pak soutěž dál hledá podle sportu 'mixed', ne podle jména,
+// takže pozdější přejmenování appce nevadí.
 const COMPETITION_NAME = "Náhodná liga";
 const PICK_COUNT = 5;
 const LABEL = "random-league";
 
+// Hledá podle sportu "mixed", NE podle jména (6.9.2026, opraveno po
+// reálném incidentu) -- appka má z návrhu jen JEDNU "Náhodnou ligu"
+// (jedinou competition se sport='mixed'), ale uživatel si ji může
+// kdykoliv přejmenovat přímo v databázi (stalo se, na "Creme de la
+// Creme liga"). Hledání podle jména by po každém takovém přejmenování
+// založilo DUPLICITNÍ novou competition se starým jménem, protože by
+// tu přejmenovanou nenašlo -- přesně tenhle bug appka měla a smazala
+// tím pádem hráčům viditelnost jejich přejmenované soutěže.
 async function ensureCompetition(supabase) {
   const { data: existing, error: selectError } = await supabase
     .from("competitions")
     .select("id")
-    .eq("name", COMPETITION_NAME)
     .eq("sport", "mixed")
     .maybeSingle();
 
@@ -66,24 +79,26 @@ async function main() {
   const supabase = createSupabaseClient();
   const competitionId = await ensureCompetition(supabase);
 
-  const { dateString, todayStart, todayEnd } = getTodayRange();
+  // dayOffset 1 -- úloha běží večer (18:00 pražského času) den předem,
+  // takže "cílový den" je pražský ZÍTŘEK vzhledem k okamžiku běhu.
+  const { dateString, todayStart: targetDayStart, todayEnd: targetDayEnd } = getTodayRange(new Date(), 1);
 
   const { data: alreadyPicked, error: existingError } = await supabase
     .from("matches")
     .select("id")
     .eq("competition_id", competitionId)
-    .gte("kickoff_at", todayStart)
-    .lt("kickoff_at", todayEnd)
+    .gte("kickoff_at", targetDayStart)
+    .lt("kickoff_at", targetDayEnd)
     .limit(1);
 
-  if (existingError) throw new Error(`Nepodařilo se ověřit dnešní výběr: ${existingError.message}`);
+  if (existingError) throw new Error(`Nepodařilo se ověřit zítřejší výběr: ${existingError.message}`);
 
   if (alreadyPicked && alreadyPicked.length > 0) {
-    console.log(`${dateString}: "Náhodná liga" už má dnešní zápasy vybrané, nic dalšího nedělám.`);
+    console.log(`${dateString}: "Náhodná liga" už má zítřejší zápasy vybrané, nic dalšího nedělám.`);
     return;
   }
 
-  console.log(`----- ${dateString}: hledám dnešní zápasy napříč ${RANDOM_LEAGUE_POOL.length} ligami -----`);
+  console.log(`----- ${dateString}: hledám zítřejší zápasy napříč ${RANDOM_LEAGUE_POOL.length} ligami -----`);
 
   const candidates = [];
   const leagueErrors = [];
@@ -91,12 +106,12 @@ async function main() {
   for (const league of RANDOM_LEAGUE_POOL) {
     try {
       const fixtures = await scrapeLivesportFixtures(league.scrapePath);
-      const today = fixtures.filter((m) => {
+      const onTargetDay = fixtures.filter((m) => {
         const t = new Date(m.kickoffAt).getTime();
-        return t >= new Date(todayStart).getTime() && t < new Date(todayEnd).getTime();
+        return t >= new Date(targetDayStart).getTime() && t < new Date(targetDayEnd).getTime();
       });
-      console.log(`${league.name}: ${today.length} zápasů dnes.`);
-      for (const m of today) {
+      console.log(`${league.name}: ${onTargetDay.length} zápasů zítra.`);
+      for (const m of onTargetDay) {
         candidates.push({ ...m, sport: league.sport, sourceScrapePath: league.scrapePath });
       }
     } catch (err) {
@@ -109,7 +124,7 @@ async function main() {
     const summary =
       leagueErrors.length === RANDOM_LEAGUE_POOL.length
         ? "Scrapování selhalo úplně u všech lig v poolu."
-        : "Dnes napříč celým poolem nemá žádná liga zápas -- vzácné, ale ne chyba (viz PROJECT.md).";
+        : "Zítra napříč celým poolem nemá žádná liga zápas -- vzácné, ale ne chyba (viz PROJECT.md).";
     console.log(summary);
     if (leagueErrors.length === RANDOM_LEAGUE_POOL.length) {
       await reportFailure({

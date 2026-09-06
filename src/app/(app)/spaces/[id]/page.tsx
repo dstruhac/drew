@@ -20,8 +20,19 @@ import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
-import { competitionFallbackSport } from "@/lib/sport";
+import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
+import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+
+// Porovná dvě data podle kalendářního dne v pražském čase -- appka
+// ukazuje odložený zápas jen v den, kdy se měl původně hrát (viz
+// sekce "Odloženo" níže), a "dnes" musí být podle Prahy, ne podle
+// UTC serveru (appka jinde v appce taky vždycky zobrazuje časy podle
+// Europe/Prague, viz spaces/[id]/page.tsx).
+function isSameCalendarDayInPrague(a: Date, b: Date): boolean {
+  const format = (d: Date) => d.toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague" });
+  return format(a) === format(b);
+}
 
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
 
@@ -51,6 +62,8 @@ export default async function CompetitionDetailPage({
 }: PageProps<"/spaces/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const upcomingWindowEnd = upcomingWindowEndIso();
 
   // Všech šest dotazů najednou v JEDNÉ vlně.
   //
@@ -144,15 +157,27 @@ export default async function CompetitionDetailPage({
       : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10">
+    <main
+      style={sportAccentStyle(competition.sport)}
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10"
+    >
       <header>
-        <Link
-          href="/spaces"
-          className="inline-flex items-center gap-1 text-xs font-bold text-faint-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-          Soutěže
-        </Link>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link
+            href="/dashboard"
+            className="transition-colors hover:text-foreground"
+          >
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href="/spaces"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            Soutěže
+          </Link>
+        </div>
 
         <div className="mt-2 flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white">
@@ -268,7 +293,18 @@ export default async function CompetitionDetailPage({
             // nevyhlásí nový termín (viz results.mjs), takže appka o
             // něm neví o nic víc než "zatím se neděje" -- na rozdíl od
             // "Probíhající" tam proto nemá smysl čekat na skóre.
-            postponed.push(match);
+            //
+            // Zobrazuje se ale JEN v den, kdy se měl původně hrát
+            // (6.9.2026, na žádost uživatele) -- appka bez nového
+            // termínu status nemá jak sama posunout (viz komentář
+            // výše), takže by bez týhle podmínky zápas zůstal v
+            // "Odloženo" navždy, dokud livesport.cz nevyhlásí nový
+            // termín. Zpráva "je odložen" je užitečná ten den, kdy by
+            // se hráč jinak divil, proč zápas nezačal -- později už je
+            // to jen šum.
+            if (isSameCalendarDayInPrague(new Date(match.kickoff_at), new Date())) {
+              postponed.push(match);
+            }
           } else if (match.status === "finished") {
             past.push(match);
           } else if (isLocked) {
@@ -279,6 +315,11 @@ export default async function CompetitionDetailPage({
             // do "Proběhlé" (tam by bez skóre a bez tipu ostatních
             // vypadal jako chyba).
             live.push(match);
+          } else if (new Date(match.kickoff_at) > new Date(upcomingWindowEnd)) {
+            // Zápas je dál než zobrazované okno (UPCOMING_WINDOW_DAYS
+            // výše) -- appka ho zatím neukazuje, i kdyby ho už měla
+            // načtený ze staršího (delšího) synchronizačního okna.
+            continue;
           } else if (ownPredictionByMatch.has(match.id)) {
             upcomingPredicted.push(match);
           } else {
@@ -311,10 +352,18 @@ export default async function CompetitionDetailPage({
         }
 
         const hasUpcoming = upcomingMissing.length > 0 || upcomingPredicted.length > 0;
+        // "Nic k tipování" hláška (6.9.2026, na žádost uživatele) --
+        // dřív byla celá sekce (i hláška "vše natipováno") schovaná za
+        // `hasUpcoming`, takže když appka v okně neměla vůbec žádný
+        // zápas (ani netipovaný, ani tipnutý -- typicky reprezentační
+        // pauza nebo mimosezóna), celá sekce zmizela beze slova. Teď se
+        // sekce zobrazí i v tom případě, aby přihlášený hráč vždycky
+        // dostal jasnou odpověď, ne ticho.
+        const showCaughtUpMessage = isJoined && upcomingMissing.length === 0;
 
         return (
           <>
-            {hasUpcoming && (
+            {(hasUpcoming || showCaughtUpMessage) && (
               <section className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-muted-foreground">
                   Nadcházející ({upcomingMissing.length + upcomingPredicted.length})
@@ -349,9 +398,11 @@ export default async function CompetitionDetailPage({
                     )}
                   </>
                 ) : (
-                  isJoined && (
+                  showCaughtUpMessage && (
                     <p className="text-sm font-medium text-muted-foreground">
-                      ✅ Máš vyplněné tipy na všechny nadcházející zápasy.
+                      {upcomingPredicted.length > 0
+                        ? "✅ Máš vyplněné tipy na všechny nadcházející zápasy."
+                        : `✅ Není nic k tipování — v příštích ${UPCOMING_WINDOW_DAYS} dnech se nehraje žádný zápas.`}
                     </p>
                   )
                 )}
@@ -479,16 +530,24 @@ type Prediction = {
   points: number | null;
 } | null;
 
-// Krok 8 (odsouhlaseno 28.8.2026): barva kartičky ukazuje úspěšnost
-// VLASTNÍHO tipu, ne výsledek zápasu -- zelená = přesné skóre, žlutá =
-// aspoň výherce/remíza nebo součet gólů sedí, šedá = netrefil nic.
-// Stejná pravidla jako `calculate_match_points()`
+// Krok 8 (odsouhlaseno 28.8.2026), přebarveno 6.9.2026 na žádost
+// uživatele: barva kartičky ukazuje úspěšnost VLASTNÍHO tipu, ne
+// výsledek zápasu -- ale místo tří různých barev (zelená/žlutá/šedá,
+// kde žlutá matoucně evokovala chybu/varování) appka teď stupňuje
+// SYTOST jedné barvy (sportovní --accent appky, viz sportAccentStyle()
+// v src/lib/sport.ts -- zelená pro fotbal, modrá pro hokej): čím víc
+// appka trefila, tím tmavší odstín. "one" (trefen jen výherce/remíza
+// NEBO jen součet gólů) je nejsvětlejší, "both" (obojí, ale ne přesné
+// skóre) tmavší, "exact" (přesné skóre) nejtmavší. Stejná pravidla
+// jako `calculate_match_points()`
 // (supabase/migrations/20260825100000_scoring_trigger.sql), jen bez
-// závislosti na bodové hodnotě (ta je per-competition nastavitelná).
+// závislosti na bodové hodnotě (ta je per-competition nastavitelná --
+// u výchozího bodování 3/1/1 tak "one" odpovídá 1 bodu, "both" 2
+// bodům a "exact" 3 bodům, ale appka na tom přímo nezávisí).
 function getResultTone(
   match: Match,
   existing: Prediction,
-): "exact" | "partial" | "miss" | null {
+): "exact" | "both" | "one" | "miss" | null {
   if (
     match.status !== "finished" ||
     match.home_score === null ||
@@ -523,12 +582,15 @@ function getResultTone(
     existing.predicted_home_score + existing.predicted_away_score ===
     match.home_score + match.away_score;
 
-  return winnerMatches || goalsMatch ? "partial" : "miss";
+  if (winnerMatches && goalsMatch) return "both";
+  if (winnerMatches || goalsMatch) return "one";
+  return "miss";
 }
 
 const RESULT_TONE_CLASSES = {
-  exact: "border-success/40 bg-success/10",
-  partial: "border-warning/40 bg-warning/10",
+  exact: "border-accent/60 bg-accent/[0.22]",
+  both: "border-accent/40 bg-accent/[0.14]",
+  one: "border-accent/25 bg-accent/[0.07]",
   miss: "border-border-subtle bg-surface",
 } as const;
 
@@ -562,13 +624,18 @@ function MatchCard({
         : "border-border-subtle bg-surface";
 
   const pointsToneClass =
-    tone === "exact" ? "text-success" : tone === "partial" ? "text-warning" : "text-muted-foreground";
+    tone === "exact" || tone === "both" || tone === "one"
+      ? "text-accent"
+      : "text-muted-foreground";
 
   const hasScore = match.home_score !== null && match.away_score !== null;
   const showScore = hasScore && (match.status === "finished" || match.status === "live");
 
   return (
-    <li className={`rounded-[18px] border p-4 ${cardToneClass}`}>
+    <li
+      style={sportAccentStyle(effectiveSport)}
+      className={`rounded-[18px] border p-4 ${cardToneClass}`}
+    >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
         className="btn-press -mx-2 -my-1 flex flex-col gap-3 rounded-[12px] px-2 py-2 transition-colors hover:bg-surface-hover"

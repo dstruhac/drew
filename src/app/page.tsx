@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Users, Calendar, Check, Medal } from "lucide-react";
 import { GoogleIcon } from "@/components/google-icon";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Veřejná úvodní stránka appky (29.8.2026) -- middleware (viz
 // src/lib/supabase/middleware.ts) ji drží veřejnou pro odhlášené a
@@ -38,12 +39,15 @@ export default function LandingPage() {
               </span>
             </span>
           </div>
-          <Link
-            href="/login"
-            className="btn-press rounded-full bg-foreground px-[18px] py-[9px] text-[13px] font-bold text-background"
-          >
-            Přihlásit se
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="btn-press rounded-full bg-foreground px-[18px] py-[9px] text-[13px] font-bold text-background"
+            >
+              Přihlásit se
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -56,41 +60,42 @@ export default function LandingPage() {
 
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 py-1.5 text-xs font-bold text-muted-foreground">
             <Users className="h-3.5 w-3.5" strokeWidth={2.2} />
-            Tipovací hra pro partu kamarádů
+            Tipovačka pro partu, co má jasno
           </span>
 
-          <h1 className="mx-auto mt-6 max-w-2xl text-[2.4rem] leading-[1.08] font-extrabold tracking-tight sm:text-[3.4rem]">
-            Klopi.
+          <h1 className="mx-auto mt-6 max-w-3xl text-[2.55rem] leading-[1.04] font-extrabold tracking-tight sm:text-[3.7rem]">
+            Klobása. Pivo. Tipovačka.
             <br />
-            Klobása a pivo nás spojuje.
+            <span className="text-accent">Klopi.</span>
           </h1>
 
-          <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-relaxed font-medium text-muted-foreground">
-            Tak si s náma i zatipuj. Klopi je tipovací hra na sportovní
-            zápasy. Žádné sázení, jen body, žebříček, medaile za vítěze
-            týdne a hecovačky.
+          <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-relaxed font-medium text-muted-foreground sm:text-lg">
+            Tipni výsledky. Poraz kámoše. A pak jim to nezapomeň připomenout.
           </p>
 
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex flex-col items-center gap-3">
             <Link
               href="/login"
-              className="btn-press flex items-center gap-3 rounded-full bg-accent px-[22px] py-[13px] text-sm font-bold text-accent-foreground hover:opacity-90"
+              className="btn-press flex items-center gap-3 rounded-full bg-accent px-[24px] py-[13px] text-sm font-bold text-accent-foreground hover:opacity-90"
             >
               <span className="flex h-4 w-4 items-center justify-center rounded-[3px] bg-white">
                 <GoogleIcon className="h-3 w-3" />
               </span>
-              Přihlásit se přes Google
+              Jdu do toho
             </Link>
+            <span className="text-xs font-semibold text-faint-foreground">
+              Žádné sázení. Jen body, tabulka a právo se vytahovat.
+            </span>
           </div>
         </section>
 
         <section className="border-t border-border-subtle px-4 py-14">
           <div className="mx-auto max-w-[520px] text-center">
             <h2 className="text-2xl font-extrabold tracking-tight">
-              Nyní se tipuje
+              Co se právě klopí?
             </h2>
             <p className="mt-2.5 text-[15px] font-medium text-muted-foreground">
-              Appka umí tipy na tyhle soutěže — postupně přibydou další.
+              Vyber soutěž a ukaž, co v tobě je.
             </p>
           </div>
 
@@ -110,32 +115,79 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section className="border-t border-border-subtle px-4 py-14 text-center sm:py-16">
+          <div className="mx-auto max-w-3xl">
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-accent">
+              Kecat umí každý
+            </p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+              Každý tomu rozumí. Před zápasem.
+            </h2>
+
+            <div className="mx-auto mt-8 grid max-w-2xl gap-3 text-left sm:grid-cols-3">
+              {["„Tohle je tutovka.“", "„Dneska dostanou trojku.“", "„Já jsem vám to říkal.“"].map((quote) => (
+                <div
+                  key={quote}
+                  className="rounded-[18px] border border-border-subtle bg-surface px-5 py-4 text-center text-sm font-bold shadow-[var(--shadow-card)]"
+                >
+                  {quote}
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-8 text-xl font-extrabold sm:text-2xl">
+              Tak to <span className="text-accent">klopni.</span>
+            </p>
+          </div>
+        </section>
+
         <section className="border-t border-border-subtle px-4 py-14">
-          <div className="mx-auto max-w-[520px] text-center">
-            <h2 className="text-2xl font-extrabold tracking-tight">
-              Jak to funguje
+          <div className="mx-auto max-w-[620px] text-center">
+            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+              Jednodušší než objednat další pivo.
             </h2>
             <p className="mt-2.5 text-[15px] font-medium text-muted-foreground">
-              Tři kroky, žádná složitost.
+              Tři kroky. Žádné kurzy, žádné tikety.
             </p>
           </div>
 
           <div className="mx-auto mt-9 grid max-w-4xl grid-cols-1 gap-5 sm:grid-cols-3">
             <StepCard
               icon={<Calendar className="h-5 w-5 text-accent" strokeWidth={2.2} />}
-              title="Tipni skóre"
-              description="Před výkopem zadáš, jak podle tebe zápas skončí."
+              title="Klopni výsledek"
+              description="Před zápasem střelíš skóre. Bez kurzů, bez sázek."
             />
             <StepCard
               icon={<Check className="h-5 w-5 text-accent" strokeWidth={2.2} />}
-              title="Appka spočítá body"
-              description="Přesné skóre, trefený výherce i součet gólů — každé zvlášť."
+              title="My spočítáme zbytek"
+              description="Trefa, body, pořadí. Ty jen čekáš, jestli jsi génius."
             />
             <StepCard
               icon={<Medal className="h-5 w-5 text-accent" strokeWidth={2.2} />}
-              title="Sleduj žebříček"
-              description="Celkový i týdenní — kdo vede týden, dostane medaili."
+              title="Tabulka rozhodne"
+              description="Kdo měl pravdu a kdo jen kecal? Tady už se neschováš."
             />
+          </div>
+        </section>
+
+        <section className="border-t border-border-subtle px-4 py-16 text-center sm:py-20">
+          <div className="mx-auto max-w-2xl">
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+              Nejde o peníze.
+              <br />
+              Jde o něco důležitějšího.
+            </h2>
+            <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-relaxed font-medium text-muted-foreground">
+              O právo připomínat kámošům celý týden, že jsi měl pravdu.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <Link
+                href="/login"
+                className="btn-press rounded-full bg-accent px-6 py-3.5 text-sm font-extrabold text-accent-foreground hover:opacity-90"
+              >
+                Tak to klopni
+              </Link>
+            </div>
           </div>
         </section>
       </main>
@@ -145,7 +197,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2.5">
             <Image src="/brand/klopi-icon.svg" alt="" width={26} height={26} className="h-[26px] w-[26px]" />
             <span className="text-[13px] font-semibold text-faint-foreground">
-              Klopi — Klobása + Pivo, věci co nás spojujou.
+              Klopi — Klobása. Pivo. Tipy. Věci, co nás spojují.
             </span>
           </div>
           <Link

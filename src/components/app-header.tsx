@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -46,6 +47,7 @@ export async function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link
             href="/profil"
             title="Nastavení profilu"

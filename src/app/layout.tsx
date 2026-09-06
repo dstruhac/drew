@@ -32,11 +32,37 @@ export const metadata: Metadata = {
     title: "Klopi – tipovačka pro kámoše",
     description: "Tipuj sportovní zápasy s kamarády a porovnej se v žebříčku.",
   },
+  // Hezčí chování při "Přidat na plochu" na iOS (6.9.2026, spolu
+  // s apple-icon.png a manifest.ts) -- appka se pak spustí bez
+  // adresního řádku Safari, jako samostatná appka.
+  appleWebApp: {
+    capable: true,
+    title: "Klopi",
+    statusBarStyle: "default",
+  },
 };
+
+// Ruční přepínač světlý/tmavý (theme-toggle.tsx) ukládá volbu do
+// localStorage klíče "klopi-theme" ("light"/"dark"; chybí = "podle
+// telefonu"). Tenhle skript musí běžet synchronně před vykreslením
+// stránky (proto přímo v <head>, ne v Reactu) -- jinak by appka na
+// zlomek vteřiny bliknula špatnou barvou a až pak se přepnula podle
+// uložené volby.
+const themeInitScript = `
+try {
+  var t = localStorage.getItem("klopi-theme");
+  if (t === "light" || t === "dark") {
+    document.documentElement.setAttribute("data-theme", t);
+  }
+} catch (e) {}
+`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="cs" className={`${manrope.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

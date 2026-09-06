@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Trophy } from "lucide-react";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
+import { sportAccentStyle } from "@/lib/sport";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
   hockey: "Hokej",
@@ -14,6 +15,7 @@ const SPORT_LABELS: Record<CompetitionSport, string> = {
 export function CompetitionCard({
   competition,
   rank,
+  allCaughtUp = false,
 }: {
   competition: {
     id: string;
@@ -25,10 +27,15 @@ export function CompetitionCard({
     points_total_goals: number;
   };
   rank: { rank: number; total: number } | null;
+  /** Hráč má natipováno úplně vše, co jde aktuálně (v okně
+   * nadcházejících zápasů) natipovat -- viz UPCOMING_WINDOW_DAYS.
+   * Nastavuje se jen pro soutěže, které hráč hraje (viz volající). */
+  allCaughtUp?: boolean;
 }) {
   return (
     <Link
       href={`/spaces/${competition.id}`}
+      style={sportAccentStyle(competition.sport)}
       className="card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
@@ -53,13 +60,18 @@ export function CompetitionCard({
         </div>
         {rank ? (
           <p className="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">
-            <Trophy className="h-3.5 w-3.5" strokeWidth={2} />
+            {rank.rank === 1 && <Trophy className="h-3.5 w-3.5" strokeWidth={2} />}
             {rank.rank}. místo z {rank.total}
           </p>
         ) : (
           <p className="mt-2 text-[13px] font-semibold text-faint-foreground">
             Ještě nehraješ
           </p>
+        )}
+        {allCaughtUp && (
+          <span className="mt-1.5 inline-block rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-success">
+            Vše natipováno
+          </span>
         )}
         <p className="mt-1 text-xs text-faint-foreground">
           Body za přesný tip {competition.points_exact} · za vítěze{" "}
