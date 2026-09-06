@@ -641,6 +641,34 @@ udržuje v provozu sama.
   `/spaces/[id]/matches/[matchId]`, `/profil/[userId]` a `/profil`.
   Stávající odkazy (`← Soutěže`, `← {competition.name}` atd.) beze
   změny cíle.
+- [x] **Okno nadcházejících zápasů zkráceno na 7 dní (6.9.2026)** —
+  uživatel nahlásil, že appka ukazuje příliš mnoho nadcházejících
+  zápasů najednou a mate ho to. `sync-fixtures` (`scripts/sync/fixtures.mjs`)
+  stahovalo klouzavé okno 21 dní dopředu; appka navíc nikdy nemazala
+  starší načtené zápasy, takže "Nadcházející" sekce na `/spaces/[id]`
+  postupně rostla. Řešení bez mazání dat (bezpečnější než jednorázový
+  úklid v databázi):
+  - `WINDOW_DAYS` v `sync-fixtures` zkráceno z 21 na 7 -- appka
+    přestane přibírat nové zápasy nad 7 dní dopředu. `minExpected`
+    validace snížen z 1 na 0, protože "0 zápasů v 7denním okně" může
+    být legitimní reprezentační pauza/bye week, ne rozbitý scraper
+    (u 21denního okna to prakticky nehrozilo).
+  - `src/app/(app)/spaces/[id]/page.tsx` (`UPCOMING_WINDOW_DAYS`)
+    stejný limit vynucuje i při zobrazení -- zápasy, které appka
+    stihla načíst ještě podle staršího (delšího) okna, se tak schovají
+    hned, ne až se postupně "vyhrají" pryč. Dotaz do databáze zůstal
+    beze změny (natvrdo neomezený), filtr je až v kategorizaci zápasů,
+    aby hláška "Zatím tu nejsou žádné zápasy" zůstala pravdivá i pro
+    soutěž, která má zápasy jen dál než 7 dní dopředu (typicky
+    hokejová extraliga před začátkem sezóny).
+  - **Hláška "vše natipováno"** (`✅ Máš vyplněné tipy na všechny
+    nadcházející zápasy.`) existovala už dřív, ale byla schovaná za
+    podmínkou, která zmizela úplně, když appka neměla v okně vůbec
+    žádný zápas (ani tipnutý, ani netipnutý) -- typicky reprezentační
+    pauza. Opraveno: sekce se teď zobrazí i v tomhle případě, s
+    odlišenou hláškou (`✅ Není nic k tipování — v příštích 7 dnech se
+    nehraje žádný zápas.`) podle toho, jestli šlo o "vše tipnuto", nebo
+    "v okně nic není".
 
 ## Naplánované další kroky
 

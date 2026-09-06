@@ -22,8 +22,9 @@ křehké — kolo se může hrát přes víkend, ale i ve středu, a jednotlivé
 zápasy se **přesouvají** (počasí, televizní přenosy, poháry).
 
 Místo toho se používá **klouzavé okno**: každý den se znovu načte
-rozpis na následujících ~21 dní a zapíše se přes `upsert`. Tím se
-samo vyřeší všechno najednou:
+rozpis na následujících ~7 dní (zkráceno z původních 21 dní 6.9.2026 --
+appka hráčům ukazovala příliš mnoho nadcházejících zápasů najednou) a
+zapíše se přes `upsert`. Tím se samo vyřeší všechno najednou:
 
 - **nový zápas** v rozpisu → vloží se
 - **přesunutý zápas** → jen se přepíše `kickoff_at` u stávajícího
@@ -42,7 +43,7 @@ Tohle funguje díky tomu, že `matches` už dneska má sloupec
 
 - **Kdy**: 1× denně, ~04:00
 - **Co dělá**: pro každou aktivní soutěž s vyplněným mapováním na API
-  stáhne rozpis zápasů v okně `[dnes, dnes+21 dní]`
+  stáhne rozpis zápasů v okně `[dnes, dnes+7 dní]`
 - **Kam zapisuje**: `upsert` do `matches` podle
   `(competition_id, external_id)` — aktualizuje `home_team`,
   `away_team`, `kickoff_at`, `status`
@@ -327,8 +328,8 @@ nemá. Workflow proto teď u oříznutého výběru vypisuje varování.
 Místo placeného API (závěr výše) appka od 26.8.2026 skutečně používá
 **scraping livesport.cz přes Playwright** — kód v `scripts/sync/`,
 spouští ho `.github/workflows/sync-fixtures.yml`. Klouzavé okno
-(21 dní) a upsert na `(competition_id, external_id)` popsané výše v
-tomto dokumentu platí beze změny, jen zdroj dat je jiný. Scraper je
+(7 dní, viz výše) a upsert na `(competition_id, external_id)` popsané
+výše v tomto dokumentu platí beze změny, jen zdroj dat je jiný. Scraper je
 napsaný obecně pro sport (`scrapeLivesportFixtures(scrapePath)` v
 `scripts/sync/lib/scrape-livesport.mjs`) — funguje pro libovolnou ligu
 na livesport.cz, jen se liší `scrape_path`.
