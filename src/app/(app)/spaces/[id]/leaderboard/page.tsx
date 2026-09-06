@@ -226,7 +226,9 @@ export default async function LeaderboardPage({
                 <div className="text-right">
                   <span className="font-extrabold">{entry.totalPoints} b.</span>
                   <p className="text-xs font-semibold text-faint-foreground">
-                    {entry.scoredCount} z {entry.predictionCount} zápasů vyhodnoceno
+                    {entry.scoredCount > 0
+                      ? `Ø ${(entry.totalPoints / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
+                      : "Zatím bez odehraného zápasu"}
                     {" · "}
                     {entry.exactCount}× přesně
                   </p>
