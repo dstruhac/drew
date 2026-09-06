@@ -894,6 +894,17 @@ udržuje v provozu sama.
   Klik na tlačítko zůstává na `/spaces` (žádné přesměrování) — server
   akce revaliduje `/spaces`, takže karta se sama překreslí bez tlačítka
   hned po přihlášení.
+- [x] **E-mailové upozornění na nevyplněný tip přehozeno na výchozí
+  ZAPNUTO pro nové účastníky (6.9.2026)** — dřív bylo opt-in (vypnuto,
+  viz rozhodnutí 28.8.2026), uživatel chtěl výchozí stav otočit.
+  Rozsah odsouhlasen přes `AskUserQuestion`: platí jen pro NOVĚ
+  vznikající řádky `competition_participants` (sloupcový default
+  `email_reminders_enabled` přehozen z `false` na `true`,
+  `supabase/migrations/20260906140000_email_reminders_default_enabled.sql`)
+  — vědomě NEmění stávající účastníky, kteří si upozornění sami
+  nezapnuli, ať appka nikomu nezačne posílat e-maily bez jeho vědomí.
+  `joinCompetition` sloupec při insertu nevyplňuje, takže se nový
+  default uplatní sám, žádná změna kódu nebyla potřeba — jen migrace.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

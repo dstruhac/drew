@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import type { Database } from "@/lib/supabase/database.types";
+import { USER_ID_HEADER, USER_EMAIL_HEADER } from "@/lib/supabase/middleware";
 
 // Use in Server Components, Server Actions and Route Handlers.
 export async function createClient() {
@@ -32,35 +33,36 @@ export async function createClient() {
 
 export type CurrentUser = { id: string; email: string | null };
 
-// Ověření přihlášeného uživatele BEZ síťového dotazu na Supabase.
+// Ověření přihlášeného uživatele BEZ volání Supabase Auth odsud.
 //
-// Dřív se tu volalo `supabase.auth.getUser()`, což je pokaždé skutečný
-// síťový round trip na Auth server. Při měření 28.8.2026 stál 0,15 s
-// (rozehřátá Supabase) až 3,6 s (studená) -- a appka ho platila dvakrát
-// na každé načtení stránky (jednou v proxy.ts, jednou tady).
+// 6.9.2026: appka dřív tady volala `supabase.auth.getClaims()` (viz
+// historie souboru) -- ale getClaims() umí kromě ověření tokenu i
+// obnovit ho, když se blíží vypršení, a server komponenty (tenhle kód
+// běží jen v nich) nemají jak novou cookii spolehlivě uložit zpátky do
+// prohlížeče (Next.js to v jejich renderovacím kontextu nedovolí, viz
+// try/catch v createClient() níže). Výsledek: appka na Supabase serveru
+// tiše "spotřebovala" starý refresh token, aniž by prohlížeč dostal
+// nový -- a appka má zapnutou ochranu proti zneužitým refresh tokenům,
+// která na to reagovala tak, že rovnou zneplatnila celou session.
+// Uživatel to hlásil jako "na telefonu se pořád odhlašuju".
 //
-// `getClaims()` místo toho ověří podpis tokenu lokálně přes WebCrypto.
-// Funguje to jen u projektů s asymetrickými podpisovými klíči -- ověřeno
-// 28.8.2026, že tenhle projekt je má (endpoint .well-known/jwks.json
-// vrací klíč ES256). U symetrického klíče by se knihovna sama vrátila
-// k síťovému dotazu, takže je to bezpečné i kdyby se to v budoucnu
-// změnilo, jen by to bylo zase pomalejší.
-//
-// Bezpečnost: tohle NENÍ `getSession()` (které se nesmí věřit, protože
-// jen přečte cookie). `getClaims()` kryptograficky ověří podpis, takže
-// `sub` z tokenu je důvěryhodná identita uživatele. Skutečná autorizace
-// dat navíc pořád stojí na RLS politikách v databázi.
+// Oprava: jedině `src/lib/supabase/middleware.ts` (proxy, běží na
+// každém požadavku jako první) smí volat getClaims()/obnovovat token,
+// protože jedině ono umí výsledek zapsat do cookie. Ověřenou identitu
+// odsud posílá dál přes hlavičky (USER_ID_HEADER/USER_EMAIL_HEADER),
+// které middleware maže na začátku KAŽDÉHO požadavku a nastavuje znovu
+// jen podle kryptograficky ověřených claims -- klient si je tedy nemůže
+// podvrhnout. getCurrentUser() teď jen čte, co middleware už ověřilo.
 //
 // React `cache()` navíc zajistí, že se to v rámci jednoho requestu
 // spočítá jen jednou, i když si o uživatele řekne víc komponent.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const headerList = await headers();
+  const id = headerList.get(USER_ID_HEADER);
+  if (!id) return null;
 
-  if (error || !data) return null;
+  const encodedEmail = headerList.get(USER_EMAIL_HEADER);
+  const email = encodedEmail ? decodeURIComponent(encodedEmail) : "";
 
-  return {
-    id: data.claims.sub,
-    email: data.claims.email ?? null,
-  };
+  return { id, email: email || null };
 });
