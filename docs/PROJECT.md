@@ -669,6 +669,22 @@ udržuje v provozu sama.
     odlišenou hláškou (`✅ Není nic k tipování — v příštích 7 dnech se
     nehraje žádný zápas.`) podle toho, jestli šlo o "vše tipnuto", nebo
     "v okně nic není".
+- [x] **Značka "Vše natipováno" na kartičce soutěže (6.9.2026)** —
+  uživatel chtěl na první pohled (bez prokliku do detailu soutěže)
+  poznat, že u dané soutěže nemá co dalšího tipnout. `CompetitionCard`
+  (sdílená mezi `/spaces` a Dashboardem) dostala nový volitelný prop
+  `allCaughtUp` -- zelená pilulka "Vše natipováno" pod pozicí
+  v žebříčku, zelená fixní (`success`), nezávislá na sportovní barvě
+  soutěže. `UPCOMING_WINDOW_DAYS` přesunuto z `spaces/[id]/page.tsx`
+  do sdíleného `src/lib/upcoming-window.ts`, ať appka na kartičce a na
+  detailu soutěže nepoužívá dvě různá okna omylem. `/spaces` kvůli
+  tomu poprvé načítá i `matches` (dřív žádné, celý dotaz odpadl při
+  výkonové optimalizaci 28.8.2026) -- jen sloupce `id, competition_id`
+  a jen zápasy v 7denním okně, ať to nic nestojí navíc. Dashboard nový
+  dotaz nepotřeboval, jen zúžil už načtené `upcomingMatches` na
+  7denní okno pro účel týhle značky (vysvícený zápas dál než 7 dní
+  zůstává beze změny, aby appka pořád ukázala nejbližší tip i mimo
+  okno, pokud nic bližšího není).
 
 ## Naplánované další kroky
 
