@@ -879,6 +879,21 @@ udržuje v provozu sama.
   bodováním (3/1/1, natvrdo stejně jako zbytek týhle veřejné stránky —
   nemá RLS přístup k živým datům, ty vidí přihlášený hráč na
   `/pravidla`).
+- [x] **Tlačítko "Chci hrát" přímo na kartičce soutěže (6.9.2026)** —
+  uživatel nahlásil, že se do soutěže dá přihlásit jen z jejího
+  detailu, chtěl to rovnou z `/spaces` bez prokliku. `CompetitionCard`
+  byla dřív celá jeden `<Link>` -- vnořit `<form>` (tlačítko) do `<a>`
+  není platné HTML, prohlížeč by to vykreslil nepředvídatelně. Karta
+  je teď `<div>` (vizuální rámeček/stín/barva) obsahující `<Link>`
+  jen kolem klikatelného obsahu (logo/název/pozice/popisek) a vedle
+  něj (mimo odkaz) samostatný `<form>` s tlačítkem "Chci hrát" —
+  používá stejnou existující server akci `joinCompetition` jako detail
+  soutěže, žádná nová logika. Nový nepovinný prop `isJoined`: `false`
+  zobrazí tlačítko, `undefined` (výchozí, používá Dashboard) ho nikdy
+  nezobrazí, protože Dashboard posílá jen soutěže, které hráč už hraje.
+  Klik na tlačítko zůstává na `/spaces` (žádné přesměrování) — server
+  akce revaliduje `/spaces`, takže karta se sama překreslí bez tlačítka
+  hned po přihlášení.
 - [x] **E-mailové upozornění na nevyplněný tip přehozeno na výchozí
   ZAPNUTO pro nové účastníky (6.9.2026)** — dřív bylo opt-in (vypnuto,
   viz rozhodnutí 28.8.2026), uživatel chtěl výchozí stav otočit.
