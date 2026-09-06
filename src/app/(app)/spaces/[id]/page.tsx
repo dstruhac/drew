@@ -24,6 +24,16 @@ import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
+// Porovná dvě data podle kalendářního dne v pražském čase -- appka
+// ukazuje odložený zápas jen v den, kdy se měl původně hrát (viz
+// sekce "Odloženo" níže), a "dnes" musí být podle Prahy, ne podle
+// UTC serveru (appka jinde v appce taky vždycky zobrazuje časy podle
+// Europe/Prague, viz spaces/[id]/page.tsx).
+function isSameCalendarDayInPrague(a: Date, b: Date): boolean {
+  const format = (d: Date) => d.toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague" });
+  return format(a) === format(b);
+}
+
 const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as const;
 
 // Výchozí počet zobrazených zápasů, než se musí kliknout na "Zobrazit
@@ -283,7 +293,18 @@ export default async function CompetitionDetailPage({
             // nevyhlásí nový termín (viz results.mjs), takže appka o
             // něm neví o nic víc než "zatím se neděje" -- na rozdíl od
             // "Probíhající" tam proto nemá smysl čekat na skóre.
-            postponed.push(match);
+            //
+            // Zobrazuje se ale JEN v den, kdy se měl původně hrát
+            // (6.9.2026, na žádost uživatele) -- appka bez nového
+            // termínu status nemá jak sama posunout (viz komentář
+            // výše), takže by bez týhle podmínky zápas zůstal v
+            // "Odloženo" navždy, dokud livesport.cz nevyhlásí nový
+            // termín. Zpráva "je odložen" je užitečná ten den, kdy by
+            // se hráč jinak divil, proč zápas nezačal -- později už je
+            // to jen šum.
+            if (isSameCalendarDayInPrague(new Date(match.kickoff_at), new Date())) {
+              postponed.push(match);
+            }
           } else if (match.status === "finished") {
             past.push(match);
           } else if (isLocked) {
