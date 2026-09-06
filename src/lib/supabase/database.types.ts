@@ -46,6 +46,7 @@ export interface Database {
           scrape_source: string | null;
           scrape_path: string | null;
           logo_url: string | null;
+          description: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -61,6 +62,7 @@ export interface Database {
           scrape_source?: string | null;
           scrape_path?: string | null;
           logo_url?: string | null;
+          description?: string | null;
           created_by?: string | null;
         };
         Update: {
@@ -73,6 +75,7 @@ export interface Database {
           scrape_source?: string | null;
           scrape_path?: string | null;
           logo_url?: string | null;
+          description?: string | null;
         };
         Relationships: [
           {

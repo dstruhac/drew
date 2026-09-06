@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   const { data: participantRows, error: participantRowsError } = await supabase
     .from("competition_participants")
     .select(
-      "competitions(id, name, sport, logo_url, points_exact, points_winner, points_total_goals)",
+      "competitions(id, name, sport, logo_url, description)",
     )
     .eq("user_id", user?.id ?? "");
 

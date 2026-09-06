@@ -22,9 +22,7 @@ export function CompetitionCard({
     name: string;
     sport: CompetitionSport;
     logo_url: string | null;
-    points_exact: number;
-    points_winner: number;
-    points_total_goals: number;
+    description: string | null;
   };
   rank: { rank: number; total: number } | null;
   /** Hráč má natipováno úplně vše, co jde aktuálně (v okně
@@ -73,11 +71,9 @@ export function CompetitionCard({
             Vše natipováno
           </span>
         )}
-        <p className="mt-1 text-xs text-faint-foreground">
-          Body za přesný tip {competition.points_exact} · za vítěze{" "}
-          {competition.points_winner} · za góly celkem{" "}
-          {competition.points_total_goals}
-        </p>
+        {competition.description && (
+          <p className="mt-1 text-xs text-faint-foreground">{competition.description}</p>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-xs font-bold text-accent">

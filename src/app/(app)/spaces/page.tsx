@@ -14,7 +14,7 @@ export default async function SpacesPage() {
     getCurrentUser(),
     supabase
       .from("competitions")
-      .select("id, name, sport, status, points_exact, points_winner, points_total_goals, logo_url")
+      .select("id, name, sport, status, logo_url, description")
       .order("created_at", { ascending: false }),
   ]);
 
