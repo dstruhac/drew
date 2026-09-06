@@ -703,6 +703,24 @@ udržuje v provozu sama.
   krátkou "pop" animací při prvním zobrazení, jen bez `canvas-confetti`
   výbuchu. Konfety u medaile za vítězství týdne (`badge-center.tsx`)
   zůstávají beze změny -- uživatel mluvil konkrétně o přesném výsledku.
+- [x] **Trofej na kartičce soutěže jen na 1. místě (6.9.2026)** —
+  drobná úprava `CompetitionCard`, ikona `Trophy` u "X. místo z Y" se
+  vykreslí jen když `rank.rank === 1`.
+- [x] **Žebříček: průměr bodů místo "X z Y vyhodnoceno" (6.9.2026)** —
+  uživatel navrhoval nahradit řádek "X z Y zápasů vyhodnoceno"
+  průměrem bodů na tipnutý zápas, mj. jako možný způsob spravedlivého
+  srovnání hráčů, kteří se do soutěže přidali později. Rozhodnuto
+  s uživatelem přes `AskUserQuestion`: **žebříček se dál řadí podle
+  CELKOVÝCH bodů beze změny** -- řazení podle průměru bylo zamítnuto,
+  protože trpí malým vzorkem (hráč s jedním přesně trefeným tipem by
+  měl průměr 3 b./zápas a přeskočil by poctivého hráče s průměrem 2
+  b./zápas za celou sezónu). Průměr je jen nová informace v řádku pod
+  skóre (`spaces/[id]/leaderboard/page.tsx`, `Ø X,XX b./zápas`,
+  počítáno z `entry.scoredCount`, ne z `predictionCount` -- ať appka
+  nepočítá nevyhodnocené zápasy jako 0 bodů), `X× přesně` beze změny.
+  Stejný vzorec "X z Y zápasů" zůstává zatím i na veřejném profilu
+  hráče (`profil/[userId]/page.tsx`) -- uživatel mluvil konkrétně
+  o žebříčku soutěže, změna profilu nebyla součástí zadání.
 
 ## Naplánované další kroky
 
