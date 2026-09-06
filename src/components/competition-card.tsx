@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Trophy } from "lucide-react";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
+import { sportAccentStyle } from "@/lib/sport";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
   hockey: "Hokej",
@@ -29,6 +30,7 @@ export function CompetitionCard({
   return (
     <Link
       href={`/spaces/${competition.id}`}
+      style={sportAccentStyle(competition.sport)}
       className="card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">

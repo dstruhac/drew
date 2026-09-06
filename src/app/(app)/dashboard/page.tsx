@@ -83,7 +83,7 @@ export default async function DashboardPage() {
     competitionIds.length
       ? supabase
           .from("weekly_badges")
-          .select("competition_id, week_start, user_id, points, competitions(name), profiles(display_name)")
+          .select("competition_id, week_start, user_id, points, competitions(name, sport), profiles(display_name)")
           .in("competition_id", competitionIds)
           .order("week_start", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
