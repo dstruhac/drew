@@ -593,6 +593,29 @@ udržuje v provozu sama.
   blokující skript v `<head>`, který nastaví `data-theme` dřív, než
   appka cokoliv vykreslí, ať appka na zlomek vteřiny nebliká špatnou
   barvou.
+- [x] **Sportovní barevný vibe -- fotbal zelený, hokej modrý (6.9.2026)**
+  — na žádost uživatele, rozsah odsouhlasen přes `AskUserQuestion`:
+  barva sahá úplně všude uvnitř dané soutěže (kartička soutěže,
+  hlavička detailu, tlačítka Chci hrát/Uložit tip/upozornění, kartičky
+  zápasů, hero kartička, žebříček, medaile). Fotbal zůstává ve výchozí
+  zelené appky (`--accent` beze změny -- appka je zelená odjakživa),
+  hokej dostal nový token `--accent-hockey`
+  (`src/app/globals.css`, Tailwind blue-600 světlý režim / blue-400
+  tmavý, stejná konvence jako `--warning`/`--danger`). "Náhodná liga"
+  (sport `mixed`) zůstává na úrovni soutěže neutrální/zelená, ale
+  jednotlivé zápasy uvnitř se obarví podle SVÉHO sportu.
+
+  **Mechanismus** (`sportAccentStyle()` v `src/lib/sport.ts`): přepíše
+  `--accent` na nejbližším obalujícím elementu (kartička/hlavička/
+  zápas) podle sportu. Díky dědění CSS proměnných se tím automaticky
+  obarví vše uvnitř používající Tailwind třídy `bg-accent`/`text-accent`/
+  `border-accent`/`ring-accent`, beze změny kódu jednotlivých komponent
+  (`PredictionForm`, `ExpandableList` atd.). Barva podle úspěšnosti tipu
+  (zelená/žlutá, `--success`/`--warning`) je nezávislý systém a zůstává
+  beze změny. Mechanismus ověřen mimo appku na skutečně zkompilovaném
+  CSS appky (Playwright) -- appku samotnou nešlo z tohohle sandboxu
+  vyzkoušet živě (žádný přístup na Supabase), ověřeno až uživatelem na
+  Vercel preview.
 
 ## Naplánované další kroky
 
