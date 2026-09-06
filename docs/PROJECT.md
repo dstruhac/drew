@@ -818,6 +818,17 @@ udržuje v provozu sama.
   voláním `POST .../workflows/<jméno>.yml/dispatches`. `workflow_dispatch`
   (ruční spuštění/ladění) v souborech zůstává — je to zároveň přesně
   ten typ volání, který cron-job.org používá.
+- [x] **Přepis veřejné úvodní stránky do hravějšího tónu (6.9.2026,
+  PR #128)** — `src/app/page.tsx`. Nový hero text ("Klobása. Pivo.
+  Tipovačka. Klopi."), tlačítko přejmenováno z "Přihlásit se přes
+  Google" na "Jdu do toho" (ikona Google zůstává jako vizuální nápověda,
+  co se pod tlačítkem skrývá), zavedeno sloveso "klopnout"
+  (CTA "Tak to klopni", nadpis "Co se právě klopí?"), přidána nová
+  sekce s hecovacími citáty ("Tohle je tutovka.", ...) a závěrečná
+  sekce "Nejde o peníze. Jde o něco důležitějšího." Patička
+  přeformulována na "Klopi — Klobása. Pivo. Tipy. Věci, co nás spojují."
+  Ověřeno vizuálně (Playwright screenshot desktop i mobil) před
+  smergováním — žádné rozbité rozvržení ani přetečení textu.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
