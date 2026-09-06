@@ -60,7 +60,7 @@ export function CompetitionCard({
         </div>
         {rank ? (
           <p className="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">
-            <Trophy className="h-3.5 w-3.5" strokeWidth={2} />
+            {rank.rank === 1 && <Trophy className="h-3.5 w-3.5" strokeWidth={2} />}
             {rank.rank}. místo z {rank.total}
           </p>
         ) : (
