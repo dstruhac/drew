@@ -697,6 +697,12 @@ udržuje v provozu sama.
   vůbec, dokud se nenajde nový termín (v tu chvíli se stejně přesune
   zpátky mezi nadcházející). Čistě zobrazovací změna, `status` v
   databázi zůstává `postponed` beze změny.
+- [x] **Konfety u přesně trefeného tipu odebrány (6.9.2026)** —
+  uživateli se efekt nelíbil. `exact-score-celebration.tsx` (krok
+  "Banger" momenty v redesignu 29.8.2026) dál zvýrazní bodovou částku
+  krátkou "pop" animací při prvním zobrazení, jen bez `canvas-confetti`
+  výbuchu. Konfety u medaile za vítězství týdne (`badge-center.tsx`)
+  zůstávají beze změny -- uživatel mluvil konkrétně o přesném výsledku.
 
 ## Naplánované další kroky
 
