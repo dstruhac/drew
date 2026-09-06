@@ -8,7 +8,16 @@ import { scrapeLivesportFixtures } from "./lib/scrape-livesport.mjs";
 import { validateFixtures } from "./lib/validate-fixtures.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 
-const WINDOW_DAYS = 21;
+// Zkráceno z 21 na 7 dní (6.9.2026, na žádost uživatele) -- appka
+// hráčům ukazovala příliš mnoho nadcházejících zápasů najednou
+// ("Nadcházející" sekce na /spaces/[id] rostla s každým dnem, protože
+// appka nic nemaže -- jen nikdy nepřestane přibírat další den dopředu).
+// Zúžení okna zastaví přibírání nových zápasů nad 7 dní dopředu;
+// zápasy už dřív načtené za tuhle hranicí appka na stránce soutěže
+// navíc rovnou skryje (viz UPCOMING_WINDOW_DAYS ve
+// src/app/(app)/spaces/[id]/page.tsx), takže efekt je vidět hned, ne
+// až se stará data postupně "vyhrají" pryč.
+const WINDOW_DAYS = 7;
 
 async function main() {
   const supabase = createSupabaseClient();
@@ -45,9 +54,14 @@ async function main() {
         return t >= now - 24 * 60 * 60 * 1000 && t <= windowEnd; // malá rezerva do minulosti pro dnešní zápasy
       });
 
-      // Očekávaný rozsah je záměrně široký (liga může mít i přestávku
-      // v okně) — jde hlavně o odchycení "0 zápasů" nebo "řádově moc".
-      const { ok, errors } = validateFixtures(inWindow, { minExpected: 1, maxExpected: 60 });
+      // minExpected snížen na 0 (6.9.2026, spolu se zkrácením okna na 7
+      // dní) -- při 21denním okně bylo "0 zápasů" prakticky vždycky
+      // známka rozbitého scraperu, ale v 7denním okně to může být
+      // naprosto legitimní bye week/reprezentační pauza. Appka by jinak
+      // zakládala planý GitHub Issue pokaždé, když liga zrovna nehraje.
+      // maxExpected zůstává jako záchranná brzda proti "řádově moc"
+      // (např. omylem nascrapovaná kola navíc).
+      const { ok, errors } = validateFixtures(inWindow, { minExpected: 0, maxExpected: 60 });
 
       if (!ok) {
         hadFailure = true;

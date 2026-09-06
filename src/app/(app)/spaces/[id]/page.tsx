@@ -46,11 +46,24 @@ const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 // nahlášený uživatelem ("hodně zápasů zabírá hodně místa").
 const MATCH_GRID_CLASSNAME = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
+// Kolik dní dopředu appka vůbec ukazuje nadcházející zápasy (6.9.2026,
+// na žádost uživatele -- appka jich předtím měla najednou příliš
+// mnoho a mátlo ho to). Musí sedět s WINDOW_DAYS ve
+// scripts/sync/fixtures.mjs -- appka tenhle limit navíc vynucuje i
+// tady v dotazu, ať se hned schovají i zápasy, které appka stihla
+// načíst ještě podle staršího (delšího) okna, ne až se postupně
+// "vyhrají" pryč.
+const UPCOMING_WINDOW_DAYS = 7;
+
 export default async function CompetitionDetailPage({
   params,
 }: PageProps<"/spaces/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const upcomingWindowEnd = new Date(
+    Date.now() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   // Všech šest dotazů najednou v JEDNÉ vlně.
   //
@@ -291,6 +304,11 @@ export default async function CompetitionDetailPage({
             // do "Proběhlé" (tam by bez skóre a bez tipu ostatních
             // vypadal jako chyba).
             live.push(match);
+          } else if (new Date(match.kickoff_at) > new Date(upcomingWindowEnd)) {
+            // Zápas je dál než zobrazované okno (UPCOMING_WINDOW_DAYS
+            // výše) -- appka ho zatím neukazuje, i kdyby ho už měla
+            // načtený ze staršího (delšího) synchronizačního okna.
+            continue;
           } else if (ownPredictionByMatch.has(match.id)) {
             upcomingPredicted.push(match);
           } else {
@@ -323,10 +341,18 @@ export default async function CompetitionDetailPage({
         }
 
         const hasUpcoming = upcomingMissing.length > 0 || upcomingPredicted.length > 0;
+        // "Nic k tipování" hláška (6.9.2026, na žádost uživatele) --
+        // dřív byla celá sekce (i hláška "vše natipováno") schovaná za
+        // `hasUpcoming`, takže když appka v okně neměla vůbec žádný
+        // zápas (ani netipovaný, ani tipnutý -- typicky reprezentační
+        // pauza nebo mimosezóna), celá sekce zmizela beze slova. Teď se
+        // sekce zobrazí i v tom případě, aby přihlášený hráč vždycky
+        // dostal jasnou odpověď, ne ticho.
+        const showCaughtUpMessage = isJoined && upcomingMissing.length === 0;
 
         return (
           <>
-            {hasUpcoming && (
+            {(hasUpcoming || showCaughtUpMessage) && (
               <section className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-muted-foreground">
                   Nadcházející ({upcomingMissing.length + upcomingPredicted.length})
@@ -361,9 +387,11 @@ export default async function CompetitionDetailPage({
                     )}
                   </>
                 ) : (
-                  isJoined && (
+                  showCaughtUpMessage && (
                     <p className="text-sm font-medium text-muted-foreground">
-                      ✅ Máš vyplněné tipy na všechny nadcházející zápasy.
+                      {upcomingPredicted.length > 0
+                        ? "✅ Máš vyplněné tipy na všechny nadcházející zápasy."
+                        : `✅ Není nic k tipování — v příštích ${UPCOMING_WINDOW_DAYS} dnech se nehraje žádný zápas.`}
                     </p>
                   )
                 )}
