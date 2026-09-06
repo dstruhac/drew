@@ -3,20 +3,18 @@
 # scripts/sync/lib/random-league-pool.mjs) a zapíše je do trvalé
 # soutěže "Náhodná liga". Detaily a odůvodnění viz PROJECT.md.
 #
-# 16:00 UTC = 18:00 pražského času v létě (CEST, UTC+2) -- v zimě (CET,
-# UTC+1) tím pádem vyjde na 17:00 pražského času, o hodinu dřív, než je
-# zadání "18:00" (6.9.2026, na žádost uživatele -- appka běžela ráno a
-# vybírala zápasy TÉHOŽ dne, takže na ně nešlo tipovat dopředu).
-# GitHub Actions cron neumí časové pásmo, jen UTC, takže se sám podle
-# letního/zimního času nepřeladí -- 16:00 UTC vědomě zvoleno tak, aby
-# seděl přesně v aktuálně platném letním čase a v zimě byl jen o
-# hodinu dřív (ne později), což pro "tipuj dopředu" nevadí.
+# Spouštění zajišťuje výhradně externí cron-job.org (volá GitHubovo API
+# `POST .../workflows/random-league.yml/dispatches` denně v 18:00
+# pražského času -- cron-job.org umí časové pásmo přímo, takže si samo
+# poradí s letním/zimním časem, na rozdíl od GitHubova vlastního
+# `schedule:`, který zná jen UTC). Ten byl 6.9.2026 po ověření
+# cron-job.org úlohy odstraněn, stejný důvod jako u sync-results.yml.
+# `workflow_dispatch` zůstává pro ruční spuštění/ladění a je to zároveň
+# přesně to, co cron-job.org volá.
 name: Random league
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 16 * * *"
 
 permissions:
   contents: read

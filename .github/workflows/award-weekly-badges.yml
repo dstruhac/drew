@@ -7,15 +7,18 @@
 # Na rozdíl od sync-fixtures/sync-results tenhle skript nepotřebuje
 # Playwright/prohlížeč -- jen čte a zapisuje do Supabase.
 #
-# Běží automaticky v pondělí ráno (05:00 UTC, tedy už po celém
-# uplynulém víkendu). workflow_dispatch zůstává pro ruční spuštění.
+# Spouštění zajišťuje výhradně externí cron-job.org (volá GitHubovo API
+# `POST .../workflows/award-weekly-badges.yml/dispatches` v pondělí
+# ráno, tedy už po celém uplynulém víkendu). GitHubův vlastní
+# `schedule:` trigger byl 6.9.2026 po ověření cron-job.org úlohy
+# odstraněn, stejný důvod jako u sync-results.yml. `workflow_dispatch`
+# zůstává pro ruční spuštění a je to zároveň přesně to, co cron-job.org
+# volá.
 
 name: Award weekly badges
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 5 * * 1"
 
 permissions:
   contents: read
