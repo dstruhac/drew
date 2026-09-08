@@ -1634,6 +1634,42 @@ rozhodnutí a implementace viz krok 13.
       z napevno "5 nových zápasů" na "0–5 nových zápasů... ze 16 lig" —
       uživatel chtěl mít proměnlivý počet zápasů rovnou zapsaný
       v popisku appky, ať den s méně než 5 zápasy nepůsobí jako chyba.
+23. [x] **Liga mistrů, Evropská liga a Konferenční liga jako 3 nové
+    samostatné soutěže (8.9.2026)** — na žádost uživatele, pár hodin po
+    kroku 22 výše, kde se stejné tři poháry přidaly jen jako zdroj
+    zápasů uvnitř Creme de la Creme ligy. Uživatel chtěl navíc/odděleně
+    i plnohodnotné sledované soutěže s vlastním žebříčkem — rozsah
+    odsouhlasen přes `AskUserQuestion`:
+    - **3 samostatné soutěže** (ne jedna sloučená "Evropské poháry"),
+      stejná konvence jako Chance Liga vs. Premier League — každá má
+      vlastní žebříček/kartičku/přihlašování hráčů.
+
+    **Žádná změna kódu nebyla potřeba** — appka je od začátku napsaná
+    obecně pro libovolnou soutěž na livesport.cz
+    (`scripts/sync/fixtures.mjs`/`results.mjs` iterují přes VŠECHNY
+    competitions s vyplněným `scrape_source`/`scrape_path`, ne přes
+    natvrdo vyjmenovaný seznam). `scrape_path` hodnoty
+    (`fotbal/evropa/liga-mistru` / `evropska-liga` / `konferencni-liga`)
+    už byly ověřené z kroku 22 týž den. Postup stejný jako u dřívějšího
+    přidání Premier League:
+    1. `ensure-competition.yml` spuštěn 3× (založil "Liga mistrů",
+       "Evropská liga", "Konferenční liga", `sport=football`,
+       `scrape_source=livesport`).
+    2. `sync-fixtures.yml` spuštěn ručně — rovnou zapsal rozpis i pro
+       tyhle tři nové soutěže spolu se zbytkem.
+    3. `sync-results.yml` spuštěn ručně — zpětně dotáhl případné už
+       odehrané zápasy (ligová fáze Ligy mistrů/Evropské ligy/
+       Konferenční ligy 2026/27 začíná v druhé půlce září, takže v
+       době přidání šlo nanejvýš o předkola).
+    4. Popisky (`competitions.description`) doplněny migrací
+       `supabase/migrations/20260908130000_european_cups_description.sql`
+       stejným vzorem jako u ostatních soutěží
+       (`20260906120000_competitions_description.sql`) — **čeká na
+       ruční spuštění v Supabase SQL editoru**.
+
+    Appka teď sleduje sedm soutěží: Hokejová extraliga 2026/27, Chance
+    Liga, Premier League, Creme de la Creme liga, Liga mistrů, Evropská
+    liga, Konferenční liga.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
