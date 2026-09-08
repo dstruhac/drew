@@ -5,6 +5,14 @@
 // světa, viz PROJECT.md) + brazilská Série A speciálně kvůli pokrytí
 // evropského léta (červen–půlka srpna), kdy evropský fotbal i hokej
 // mají mimosezónu najednou.
+//
+// Tři evropské poháry (Liga mistrů/Evropská liga/Konferenční liga)
+// doplněny 8.9.2026 -- na rozdíl od domácích lig se hrají i během
+// mezinárodních reprezentačních přestávek (kdy appka jinak narazila na
+// den s jen 1 kandidátem z celého poolu, viz PROJECT.md), takže
+// pokrývají přesně tu mezeru, kde je pool bez nich nejslabší.
+// scrape_path ověřen přes playwright-probe.yml 8.9.2026 (reálné
+// zápasy: Real Madrid-Inter, AC Milán-Benfica, CSKA Sofia-Monako).
 export const RANDOM_LEAGUE_POOL = [
   { sport: "football", name: "Chance Liga", scrapePath: "fotbal/cesko/chance-liga" },
   { sport: "football", name: "Premier League", scrapePath: "fotbal/anglie/premier-league" },
@@ -14,6 +22,9 @@ export const RANDOM_LEAGUE_POOL = [
   { sport: "football", name: "Ligue 1", scrapePath: "fotbal/francie/ligue-1" },
   { sport: "football", name: "Niké liga", scrapePath: "fotbal/slovensko/nike-liga" },
   { sport: "football", name: "Brazilská Série A", scrapePath: "fotbal/brazilie/serie-a" },
+  { sport: "football", name: "Liga mistrů", scrapePath: "fotbal/evropa/liga-mistru" },
+  { sport: "football", name: "Evropská liga", scrapePath: "fotbal/evropa/evropska-liga" },
+  { sport: "football", name: "Konferenční liga", scrapePath: "fotbal/evropa/konferencni-liga" },
   { sport: "hockey", name: "Tipsport extraliga", scrapePath: "hokej/cesko/tipsport-extraliga" },
   { sport: "hockey", name: "NHL", scrapePath: "hokej/usa/nhl" },
   { sport: "hockey", name: "Tipos extraliga", scrapePath: "hokej/slovensko/tipos-extraliga" },

@@ -22,7 +22,7 @@
 // 0), místo aby si něco vymýšlela nebo failovala.
 
 import { createSupabaseClient } from "./lib/supabase-client.mjs";
-import { scrapeLivesportFixtures } from "./lib/scrape-livesport.mjs";
+import { scrapeLivesportFixtures, getPragueHour } from "./lib/scrape-livesport.mjs";
 import { getTodayRange } from "./lib/week-range.mjs";
 import { validateFixtures } from "./lib/validate-fixtures.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
@@ -34,6 +34,18 @@ import { RANDOM_LEAGUE_POOL } from "./lib/random-league-pool.mjs";
 const COMPETITION_NAME = "Náhodná liga";
 const PICK_COUNT = 5;
 const LABEL = "random-league";
+
+// Zápasy s kickoffem v pražské hluboké noci appka vůbec nezahrne do
+// výběru (8.9.2026, reálný incident) -- zahraniční liga v jiném
+// časovém pásmu (typicky brazilská Série A, kde večerní zápas kvůli
+// -5h posunu vychází na naši 1:00) by jinak vyšla jako "zítřejší", ale
+// zápas skončí ještě před tím, než se hráč ráno podívá do appky --
+// appka mu tak ukáže dohraný zápas místo možnosti tipnout. Vyřazení
+// znamená, že v takový den appka klidně ukáže 0 zápasů (viz
+// PICK_COUNT komentář výše -- to už appka umí a je to v pořádku),
+// místo aby nabídla zápas, který se fakticky nedá tipnout.
+const NIGHT_HOUR_START = 0;
+const NIGHT_HOUR_END = 6; // exkluzivní horní mez -- vyřazeno je 0:00–5:59
 
 // Hledá podle sportu "mixed", NE podle jména (6.9.2026, opraveno po
 // reálném incidentu) -- appka má z návrhu jen JEDNU "Náhodnou ligu"
@@ -110,8 +122,15 @@ async function main() {
         const t = new Date(m.kickoffAt).getTime();
         return t >= new Date(targetDayStart).getTime() && t < new Date(targetDayEnd).getTime();
       });
-      console.log(`${league.name}: ${onTargetDay.length} zápasů zítra.`);
-      for (const m of onTargetDay) {
+      const daytimeMatches = onTargetDay.filter((m) => {
+        const hour = getPragueHour(m.kickoffAt);
+        return hour < NIGHT_HOUR_START || hour >= NIGHT_HOUR_END;
+      });
+      const nightExcluded = onTargetDay.length - daytimeMatches.length;
+      console.log(
+        `${league.name}: ${onTargetDay.length} zápasů zítra${nightExcluded > 0 ? ` (${nightExcluded} vyřazeno kvůli nočnímu kickoffu)` : ""}.`,
+      );
+      for (const m of daytimeMatches) {
         candidates.push({ ...m, sport: league.sport, sourceScrapePath: league.scrapePath });
       }
     } catch (err) {
