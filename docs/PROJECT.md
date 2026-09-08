@@ -1597,6 +1597,43 @@ rozhodnutí a implementace viz krok 13.
     změna kódu nebyla potřeba (diagnostika v kódu — výchozí `next` na
     `/dashboard` v `src/app/auth/callback/route.ts` — byla od začátku
     v pořádku).
+22. [x] **"Creme de la Creme liga": noční kickoffy z výběru vyřazeny,
+    doplněny 3 evropské poháry (8.9.2026)** — uživatel nahlásil, že mu
+    ráno appka ukázala prázdno, i když `random-league.yml` proběhl
+    večer předtím v pořádku. Diagnóza (log běhu +
+    `db-probe.yml`): appka napříč všemi 13 tehdejšími ligami v poolu
+    našla jen 1 kandidáta (Vitória–Grêmio, brazilská Série A) — všech
+    12 evropských/severoamerických lig hlásilo 0 zápasů kvůli
+    mezinárodní reprezentační přestávce. Ten 1 zápas appka správně
+    zapsala, ale jeho kickoff (`2026-09-07 23:00 UTC` = `01:00`
+    pražského času) vychází kvůli časovému posunu Brazílie (-5h) vždy
+    na naši hlubokou noc — než se hráč ráno podíval do appky, zápas byl
+    už dávno dohraný (appka ho stihla i vyhodnotit), takže "Nadcházející"
+    sekce vypadala prázdná, i když appka technicky nic nerozbila.
+
+    Rozhodnuto s uživatelem (přes `AskUserQuestion` + upřesnění v
+    chatu):
+    - **Noční kickoffy (0:00–5:59 pražského času) appka od teď do
+      denního výběru vůbec nezahrne** (`NIGHT_HOUR_START`/`NIGHT_HOUR_END`
+      v `random-league.mjs`, nová `getPragueHour()` v
+      `scrape-livesport.mjs`) — týká se hlavně brazilské ligy, kde je to
+      systémová vlastnost (kdykoliv appka vybere brazilský zápas, bude
+      mít takhle nevhodný kickoff), ne jednorázová náhoda. V den, kdy by
+      to znamenalo 0 zápasů, appka ukáže 0 — to už uměla a je to v
+      pořádku (viz `PICK_COUNT` komentář).
+    - **Doplněny 3 evropské poháry do poolu**: Liga mistrů, Evropská
+      liga, Konferenční liga (`fotbal/evropa/liga-mistru` /
+      `evropska-liga` / `konferencni-liga`, všechny 3 `scrape_path`
+      ověřeny přes `playwright-probe.yml` 8.9.2026 na reálných zápasech
+      — Real Madrid–Inter, AC Milán–Benfica, CSKA Sofia–Monako). Na
+      rozdíl od domácích lig se hrají i během reprezentačních přestávek,
+      takže doplňují přesně tu díru v poolu, kde dnešní incident vznikl.
+      Pool má teď 16 lig (dřív 13).
+    - **Popisek soutěže upraven** (`competitions.description`,
+      `supabase/migrations/20260908070000_creme_description_variable_count.sql`)
+      z napevno "5 nových zápasů" na "0–5 nových zápasů... ze 16 lig" —
+      uživatel chtěl mít proměnlivý počet zápasů rovnou zapsaný
+      v popisku appky, ať den s méně než 5 zápasy nepůsobí jako chyba.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
