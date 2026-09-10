@@ -153,8 +153,11 @@ export function BadgeCenter({
             <h2 className="relative mt-4 text-lg font-extrabold text-white">
               Gratuluju, jsi jednooký mezi slepými.
             </h2>
+            <p className="relative mt-1 text-sm font-semibold text-white/70">
+              Jsi vítěz týdne za {newWeeks.length > 1 ? "tyto týdny" : "tento týden"}:
+            </p>
 
-            <ul className="relative mt-4 flex flex-col gap-3">
+            <ul className="relative mt-2 flex flex-col gap-3">
               {newWeeks.map((week) => (
                 <li key={week.weekStart} className="flex items-center gap-3 text-left">
                   {week.card && (
