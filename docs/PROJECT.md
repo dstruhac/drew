@@ -368,8 +368,9 @@ Hotovo:
   ne jen jednorázovou ruční opravu SQL:
   - Nová hodnota `matches.status = 'postponed'`
     (`supabase/migrations/20260829220000_add_postponed_match_status.sql`,
-    rozšiřuje `matches_status_check`; **čeká na ruční spuštění v
-    Supabase SQL editoru**).
+    rozšiřuje `matches_status_check`). **Potvrzeno spuštěno** (ověřeno
+    přes `db-probe.yml` 10.9.2026 — v databázi existuje reálný zápas
+    se `status='postponed'`).
   - **Detekce** (`scripts/sync/results.mjs`): zápas se označí jako
     odložený, když má `status='scheduled'`, `kickoff_at` je víc než 4
     hodiny v minulosti (bezpečná rezerva nad běžnou délku zápasu i s
@@ -500,7 +501,11 @@ Hotovo:
 
   **Ruční krok uživatele**: spustit migraci
   `20260829090000_profiles_badges_seen_through.sql` v Supabase SQL
-  editoru.
+  editoru. **Hotovo (10.9.2026)** — uživatel potvrdil, že sloupec
+  založil (idempotentní `alter table ... add column if not exists`,
+  doplněný do chatu 10.9.2026, protože zpětně nešlo ověřit přes
+  `db-probe.yml`, jestli migrace už dřív neproběhla — viz nově
+  zjištěný chybějící grant `service_role` → `profiles` níže).
 
 ### Výkon: proč byla appka pomalá a co s tím (28.8.2026)
 
@@ -1004,6 +1009,51 @@ udržuje v provozu sama.
   — uživatel v tu chvíli hraje všechny soutěže appky, takže prázdný
   stav nešel reálně vyvolat jinak. Stránka i dočasná výjimka
   v middlewaru byly po pořízení screenshotů smazané, nešly do PR.
+
+  **Doladění textu (10.9.2026, PR #145):** uživatel chtěl v modalu
+  s gratulací k medaili za vítězství týdne (`badge-center.tsx`, jiná
+  featura, ne tenhle modal) jasnější popisek — doplněno "Jsi vítěz
+  týdne za soutěž(e): ...". Zmíněno tady jen kvůli časové návaznosti,
+  detaily viz `BadgeCenter` výše (krok "Konsolidované upozornění na
+  medaile za vítězství týdne", 29.8.2026).
+
+- [x] **Revize a úklid zastaralých poznámek v tomhle dokumentu
+  (10.9.2026)** — uživatel chtěl zrevidovat, co je na seznamu úkolů
+  ještě opravdu otevřené (dokument je dlouhý a průběžně rostl, staré
+  poznámky "čeká na ruční spuštění" se po doplnění migrace často
+  nemazaly). Ověřeno přes `db-probe.yml` proti živým datům, ne jen
+  čtením kódu/dokumentace:
+  - `20260829220000_add_postponed_match_status.sql` (podpora pro
+    odložené zápasy) — **potvrzeno spuštěno** (existuje reálný zápas
+    se `status='postponed'`), poznámka "čeká na ruční spuštění" u
+    kroku "Podpora pro odložené zápasy" výše je zastaralá.
+  - `20260908130000_european_cups_description.sql` (popisky Ligy
+    mistrů/Evropské ligy/Konferenční ligy) — **potvrzeno spuštěno**
+    (popisky v databázi odpovídají migraci), poznámka "čeká na ruční
+    spuštění" u kroku 23 níže je zastaralá.
+  - `20260908070000_creme_description_variable_count.sql` (popisek
+    Creme de la Creme ligy, "0–5 zápasů ze 16 lig") — **nebyla
+    spuštěná**, uživatel ji spustil až při týhle revizi (10.9.2026).
+  - `20260829090000_profiles_badges_seen_through.sql` — nešlo ověřit
+    přes `db-probe.yml` (viz nový nález níže), uživatel potvrdil, že
+    migraci nespustil dřív, a spustil ji teď (viz krok "Konsolidované
+    upozornění na medaile" výše).
+  - **Nový nález:** `service_role` nemá `SELECT` grant na
+    `public.profiles` (osmý výskyt stejné třídy chyby jako u
+    matches/competitions/predictions/weekly_badges/
+    competition_participants, viz "Grants" výše) — proto šlo výše
+    uvedenou migraci ověřit jen podle uživatelova slova, ne přes
+    probe. Zatím neškodí, žádný sync skript pod service role klíčem
+    tabulku `profiles` nečte. Uživatel se rozhodl **vyřešit později**
+    (10.9.2026) — až bude potřeba, chybějící grant je stejný vzorec
+    jako u předchozích sedmi výskytů (`GRANT SELECT ON
+    public.profiles TO service_role;`).
+  - Poznámka u kroku 18 ("Veřejná marketingová stránka") o appce
+    zůstávající v Google OAuth "Testing" módu a plánu koupit
+    `klopi.app` je **zastaralá** — OAuth je od 5.9.2026 veřejný (viz
+    "Aktuální cíl" výše) a appka nakonec koupila `klopi.cz`, ne
+    `klopi.app` (viz krok 20 níže). Ponecháno v textu jako historický
+    záznam rozhodovacího procesu, ale neplatí už jako aktuální stav.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
@@ -1724,8 +1774,9 @@ rozhodnutí a implementace viz krok 13.
     4. Popisky (`competitions.description`) doplněny migrací
        `supabase/migrations/20260908130000_european_cups_description.sql`
        stejným vzorem jako u ostatních soutěží
-       (`20260906120000_competitions_description.sql`) — **čeká na
-       ruční spuštění v Supabase SQL editoru**.
+       (`20260906120000_competitions_description.sql`). **Potvrzeno
+       spuštěno** (ověřeno přes `db-probe.yml` 10.9.2026 — viz revize
+       níže).
 
     Appka teď sleduje sedm soutěží: Hokejová extraliga 2026/27, Chance
     Liga, Premier League, Creme de la Creme liga, Liga mistrů, Evropská
