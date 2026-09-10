@@ -133,6 +133,9 @@ export function BadgeCenter({
             <h2 className="relative mt-4 text-lg font-extrabold text-white">
               Gratuluju, jsi jednooký mezi slepými.
             </h2>
+            <p className="relative mt-1 text-sm font-semibold text-white/70">
+              Jsi vítěz týdne za{myNewBadges.length > 1 ? " soutěže" : " soutěž"}:
+            </p>
             <ul className="relative mt-2 flex flex-col gap-1 text-sm font-semibold text-white/60">
               {myNewBadges.map((b) => (
                 <li key={badgeKey(b)}>
