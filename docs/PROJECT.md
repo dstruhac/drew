@@ -1032,6 +1032,42 @@ udržuje v provozu sama.
   účet na pexels.com/api a nastavit `PEXELS_API_KEY` jako GitHub
   secret; pak jednou ručně spustit workflow "Import card images".
 
+  **Přepompéznění vzhledu (10.9.2026, ještě před smergováním PR #135)**
+  — uživatel reagoval na první verzi (hodně se líbila), ale chtěl, aby
+  kartičky "seděly na prdel" víc: záře/podsvícení, žádná šedá u běžné
+  vzácnosti (působilo to jako prohra, ne jako medaile), klikací
+  interakce s vtipným popisem.
+  - **Barvy**: `--rarity-common` přebarvena z ploché šedé (`#9ca3af`)
+    na bronz (`#c9772f`), `--rarity-legendary` doladěna na teplejší
+    zlatou (`#f3a712`). Nové `--rarity-*-light/-dark/-glow` tokeny v
+    `globals.css` pro kovový přechodový rámeček a trvalou barevnou
+    záři kolem vlastněné karty (ne jen plochý 2px obrys jako dřív) —
+    platí pro všechny tři vzácnosti stejně, takže i "běžná" karta
+    vypadá jako medaile.
+  - **Trvalá animace**: nový `@keyframes card-shimmer` — nekonečný
+    jemný "přejezd" světla přes fotku, rychlost/sytost podle vzácnosti
+    (`RARITY_SHIMMER_DURATION` v `rarity.ts`). Dřív appka měla lesk jen
+    statický (jen u legendary), teď kartička "září"/dýchá i v klidu,
+    ne jen při najetí myší.
+  - **Klikací detail** — nová komponenta
+    `src/components/clickable-card-tile.tsx` (klientská, obaluje čistě
+    vizuální `CardTile`): klik na vlastněnou kartičku spustí "zvednutí"
+    (`@keyframes card-reveal-lift`) a otevře modal s větší kartou,
+    jménem, klubem a vtipným popisem (`card.flavor_text` — appka ho
+    už měla v datovém modelu, jen ho dřív nikde nezobrazovala). Klik na
+    ještě nezískanou (zamčenou) kartičku jen "zavrtí hlavou"
+    (`@keyframes card-shake`) a ukáže jednu ze tří vtipných hlášek
+    (`LOCKED_CARD_TAUNTS`) — appka schválně neprozradí jméno/fotku
+    dopředu, to je součást chtěné emoce "musím si tuhle ještě
+    vysloužit". Zapojeno do obou mřížek sbírky (`badge-center.tsx`
+    "Sbírka artefaktů" na Dashboardu, `profil/[userId]/page.tsx`
+    "Sbírka karet" na veřejném profilu) — malá kartička v gratulačním
+    modalu zůstává needitovatelná/needitovatelný náhled, beze změny.
+  - Ověřeno vizuálně přes aktualizovaný Claude Design náhled
+    (https://claude.ai/code/artifact/b9f63c3d-6355-490e-9805-18820babd6e0)
+    — appku samotnou z tohoto sandboxu nešlo vyzkoušet živě (žádný
+    přístup na Supabase), ověří se na Vercel preview PR #135.
+
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
 nevymýšlí za něj):
