@@ -3,6 +3,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
 import { BadgeCenter } from "@/components/badge-center";
+import { JoinCompetitionsModal } from "@/components/join-competitions-modal";
 import { competitionFallbackSport } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
@@ -50,6 +51,7 @@ export default async function DashboardPage() {
     allCardsResult,
     myCardsResult,
     myCardDrawsResult,
+    allCompetitionsResult,
   ] = await Promise.all([
     competitionIds.length
       ? supabase
@@ -106,6 +108,10 @@ export default async function DashboardPage() {
       .from("card_draws")
       .select("week_start, card_id")
       .eq("user_id", user?.id ?? ""),
+    supabase
+      .from("competitions")
+      .select("id, name, sport, logo_url, description")
+      .order("created_at", { ascending: false }),
   ]);
 
   throwIfSupabaseError(allParticipantsResult.error ?? null, "Načtení účastníků soutěží");
@@ -118,6 +124,7 @@ export default async function DashboardPage() {
   throwIfSupabaseError(allCardsResult.error ?? null, "Načtení katalogu karet");
   throwIfSupabaseError(myCardsResult.error ?? null, "Načtení sbírky karet");
   throwIfSupabaseError(myCardDrawsResult.error ?? null, "Načtení losování karet");
+  throwIfSupabaseError(allCompetitionsResult.error ?? null, "Načtení seznamu soutěží");
 
   const allParticipants = allParticipantsResult.data;
   const predictions = predictionsResult.data;
@@ -131,6 +138,13 @@ export default async function DashboardPage() {
   const myCardDraws = myCardDrawsResult.data ?? [];
   const cardById = new Map(allCards.map((c) => [c.id, c]));
   const ownedCards = new Map(myCards.map((c) => [c.card_id, c.quantity]));
+
+  // Soutěže, které hráč ještě nehraje -- nabídne se mu je
+  // JoinCompetitionsModal, pokud zatím nehraje žádnou (viz níže).
+  const myCompetitionIds = new Set(competitionIds);
+  const unjoinedCompetitions = (allCompetitionsResult.data ?? []).filter(
+    (c) => !myCompetitionIds.has(c.id),
+  );
 
   // Vysvícený zápas: chronologicky nejbližší (matches jsou už seřazené
   // vzestupně z dotazu výše) zápas napříč soutěžemi hráče, který ještě
@@ -250,6 +264,11 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
       </header>
 
+      <JoinCompetitionsModal
+        competitions={unjoinedCompetitions}
+        shouldOpenInitially={myCompetitions.length === 0}
+      />
+
       <BadgeCenter
         myBadges={myBadges}
         othersNewBadges={othersNewBadges}
@@ -303,7 +322,11 @@ export default async function DashboardPage() {
 
           {myCompetitions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Zatím žádná -- vyber si soutěž v seznamu výše.
+              Zatím žádná -- vyber si soutěž v nabídce, nebo klikni na{" "}
+              <Link href="/spaces" className="font-bold text-accent underline underline-offset-2">
+                Procházet všechny soutěže
+              </Link>
+              .
             </p>
           ) : (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

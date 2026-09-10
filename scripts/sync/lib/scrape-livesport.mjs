@@ -47,6 +47,18 @@ export function pragueWallTimeToUtcIso(year, month, day, hour, minute) {
   return new Date(naiveUtcMs - offsetMinutes * 60 * 1000).toISOString();
 }
 
+// Hodina kickoffu v pražském čase (0–23) — používá random-league.mjs na
+// vyřazení "nočních" zápasů (zahraniční ligy v jiném časovém pásmu můžou
+// vyjít na kickoff uprostřed pražské noci, viz tam).
+export function getPragueHour(isoString) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Prague",
+    hourCycle: "h23",
+    hour: "2-digit",
+  });
+  return Number(dtf.format(new Date(isoString)));
+}
+
 // "29.08. 15:00" neobsahuje rok — dopočítá se podle dnešního data: když
 // by vyšlo datum víc než ~2 měsíce v minulosti, jde o zápas dalšího
 // roku (řeší přechod sezóny přes Nový rok, např. leden 2027).

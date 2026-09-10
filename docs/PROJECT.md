@@ -917,6 +917,33 @@ udržuje v provozu sama.
   nezapnuli, ať appka nikomu nezačne posílat e-maily bez jeho vědomí.
   `joinCompetition` sloupec při insertu nevyplňuje, takže se nový
   default uplatní sám, žádná změna kódu nebyla potřeba — jen migrace.
+
+  **Zjištěno 10.9.2026: migrace se mezitím nikdy nespustila.**
+  Uživatel nahlásil "nefungují upozornění pro ostatní hráče" — ověřeno
+  přes `db-probe.yml`: z 15 řádků `competition_participants` má
+  `email_reminders_enabled = true` jen JEDEN (ručně zapnutý tlačítkem u
+  jedné soutěže), včetně čtyř hráčů, kteří se přidali PO 6.9.2026 a
+  podle tehdejšího rozhodnutí měli dostat `true` automaticky. Sloupcový
+  default v produkční databázi byl pořád starý (`false`) — migrace
+  `20260906140000_email_reminders_default_enabled.sql` čekala na ruční
+  spuštění v Supabase SQL editoru (jako všechny migrace v tomhle
+  projektu) a nikdy k němu nedošlo.
+
+  **Řešení (10.9.2026):** uživatel migraci ručně spustil (`alter
+  column ... set default true`) — default teď platí pro NOVĚ přidané
+  účastníky od 10.9.2026 dál. Čtyři hráči, kteří se přidali mezi 6.9. a
+  10.9. (tedy v okně, kdy default fakticky ještě neplatil), zůstávají
+  vědomě `false` — uživatel se rozhodl NEzapínat jim to zpětně
+  (`ať se to nastavuje až od teď novým hráčům`), ať appka nikomu
+  nezmění chování bez jeho vlastního kliknutí. Beze změny kódu.
+
+  **Poučení pro příště:** appka nemá žádný mechanismus, který by
+  upozornil na migraci čekající v repu, ale nikdy nespuštěnou v
+  Supabase — je to čistě na ruční evidenci v tomhle dokumentu/chatu.
+  Při podezření na "appka se nechová podle posledního rozhodnutí" stojí
+  za to nejdřív ověřit přes `db-probe.yml`, jestli sloupcový
+  default/skutečná data v databázi odpovídají tomu, co říká poslední
+  migrace v repu — ne jen číst kód.
 - [x] **Oprava: appka na telefonu po delší pauze odhlašovala uživatele
   (6.9.2026, PR #108)** — uživatel nahlásil opakované odhlašování na
   mobilu, nejvýrazněji po delší pauze v používání appky. Rozhodující
@@ -1067,6 +1094,39 @@ udržuje v provozu sama.
     (https://claude.ai/code/artifact/b9f63c3d-6355-490e-9805-18820babd6e0)
     — appku samotnou z tohoto sandboxu nešlo vyzkoušet živě (žádný
     přístup na Supabase), ověří se na Vercel preview PR #135.
+- [x] **Nabídka soutěží novému hráči na Dashboardu (10.9.2026, PR #143)**
+  — uživatel nahlásil, že nově příchozí hráč (0 soutěží) na Dashboardu
+  prakticky nic nevidí, jen textovou větu s odkazem na `/spaces`.
+  Uživatel navrhl a odsouhlasil v chatu: modal, který se hráči bez
+  natipované soutěže ukáže hned po prvním vstupu na Dashboard a nabídne
+  mu VŠECHNY soutěže s tlačítkem "Chci hrát" najednou — místo aby appka
+  po prvním kliknutí zmizela zpátky na prázdný dashboard.
+
+  Nová komponenta `src/components/join-competitions-modal.tsx` sdílí
+  `CompetitionCard` (stejný vzhled/mechanismus jako na `/spaces`).
+  **Technické řešení (moje, vysvětleno v chatu):** modal se otevře
+  podle `myCompetitions.length === 0` čteného jen PŘI PRVNÍM vykreslení
+  (`useState(shouldOpenInitially)`) — zůstane tak otevřený, i když hráč
+  uvnitř přiklikne první soutěž a Dashboard (server komponenta) se
+  kvůli `revalidatePath("/dashboard")` (nově doplněno do
+  `joinCompetition`, dřív revalidoval jen `/spaces`) znovu vykreslí se
+  zúženým seznamem. Jde tak přidat víc soutěží najednou. Zavře se jen
+  ručně a při dalším načtení stránky se znovu ukáže pouze pokud hráč
+  pořád nehraje nic — jakmile má aspoň jednu soutěž, appka ho tím dál
+  neotravuje, na zbylé soutěže slouží `/spaces`.
+
+  **Doladění na žádost uživatele ve stejném PR:** odkaz "Otevřít" na
+  kartě uvnitř modalu byl matoucí (jediná nabízená akce má být "Chci
+  hrát", proklik pryč by navíc modal opustil) — nový volitelný prop
+  `CompetitionCard.linkToDetail` (výchozí `true`, beze změny na
+  `/spaces`/Dashboardu) v modalu nastaven na `false`, vypíná proklik i
+  odkaz zároveň.
+
+  Před schválením ověřeno vizuálně (Playwright screenshot desktop/
+  mobil/dark mode) přes dočasnou náhledovou stránku se smyšlenými daty
+  — uživatel v tu chvíli hraje všechny soutěže appky, takže prázdný
+  stav nešel reálně vyvolat jinak. Stránka i dočasná výjimka
+  v middlewaru byly po pořízení screenshotů smazané, nešly do PR.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
@@ -1720,6 +1780,79 @@ rozhodnutí a implementace viz krok 13.
     změna kódu nebyla potřeba (diagnostika v kódu — výchozí `next` na
     `/dashboard` v `src/app/auth/callback/route.ts` — byla od začátku
     v pořádku).
+22. [x] **"Creme de la Creme liga": noční kickoffy z výběru vyřazeny,
+    doplněny 3 evropské poháry (8.9.2026)** — uživatel nahlásil, že mu
+    ráno appka ukázala prázdno, i když `random-league.yml` proběhl
+    večer předtím v pořádku. Diagnóza (log běhu +
+    `db-probe.yml`): appka napříč všemi 13 tehdejšími ligami v poolu
+    našla jen 1 kandidáta (Vitória–Grêmio, brazilská Série A) — všech
+    12 evropských/severoamerických lig hlásilo 0 zápasů kvůli
+    mezinárodní reprezentační přestávce. Ten 1 zápas appka správně
+    zapsala, ale jeho kickoff (`2026-09-07 23:00 UTC` = `01:00`
+    pražského času) vychází kvůli časovému posunu Brazílie (-5h) vždy
+    na naši hlubokou noc — než se hráč ráno podíval do appky, zápas byl
+    už dávno dohraný (appka ho stihla i vyhodnotit), takže "Nadcházející"
+    sekce vypadala prázdná, i když appka technicky nic nerozbila.
+
+    Rozhodnuto s uživatelem (přes `AskUserQuestion` + upřesnění v
+    chatu):
+    - **Noční kickoffy (0:00–5:59 pražského času) appka od teď do
+      denního výběru vůbec nezahrne** (`NIGHT_HOUR_START`/`NIGHT_HOUR_END`
+      v `random-league.mjs`, nová `getPragueHour()` v
+      `scrape-livesport.mjs`) — týká se hlavně brazilské ligy, kde je to
+      systémová vlastnost (kdykoliv appka vybere brazilský zápas, bude
+      mít takhle nevhodný kickoff), ne jednorázová náhoda. V den, kdy by
+      to znamenalo 0 zápasů, appka ukáže 0 — to už uměla a je to v
+      pořádku (viz `PICK_COUNT` komentář).
+    - **Doplněny 3 evropské poháry do poolu**: Liga mistrů, Evropská
+      liga, Konferenční liga (`fotbal/evropa/liga-mistru` /
+      `evropska-liga` / `konferencni-liga`, všechny 3 `scrape_path`
+      ověřeny přes `playwright-probe.yml` 8.9.2026 na reálných zápasech
+      — Real Madrid–Inter, AC Milán–Benfica, CSKA Sofia–Monako). Na
+      rozdíl od domácích lig se hrají i během reprezentačních přestávek,
+      takže doplňují přesně tu díru v poolu, kde dnešní incident vznikl.
+      Pool má teď 16 lig (dřív 13).
+    - **Popisek soutěže upraven** (`competitions.description`,
+      `supabase/migrations/20260908070000_creme_description_variable_count.sql`)
+      z napevno "5 nových zápasů" na "0–5 nových zápasů... ze 16 lig" —
+      uživatel chtěl mít proměnlivý počet zápasů rovnou zapsaný
+      v popisku appky, ať den s méně než 5 zápasy nepůsobí jako chyba.
+23. [x] **Liga mistrů, Evropská liga a Konferenční liga jako 3 nové
+    samostatné soutěže (8.9.2026)** — na žádost uživatele, pár hodin po
+    kroku 22 výše, kde se stejné tři poháry přidaly jen jako zdroj
+    zápasů uvnitř Creme de la Creme ligy. Uživatel chtěl navíc/odděleně
+    i plnohodnotné sledované soutěže s vlastním žebříčkem — rozsah
+    odsouhlasen přes `AskUserQuestion`:
+    - **3 samostatné soutěže** (ne jedna sloučená "Evropské poháry"),
+      stejná konvence jako Chance Liga vs. Premier League — každá má
+      vlastní žebříček/kartičku/přihlašování hráčů.
+
+    **Žádná změna kódu nebyla potřeba** — appka je od začátku napsaná
+    obecně pro libovolnou soutěž na livesport.cz
+    (`scripts/sync/fixtures.mjs`/`results.mjs` iterují přes VŠECHNY
+    competitions s vyplněným `scrape_source`/`scrape_path`, ne přes
+    natvrdo vyjmenovaný seznam). `scrape_path` hodnoty
+    (`fotbal/evropa/liga-mistru` / `evropska-liga` / `konferencni-liga`)
+    už byly ověřené z kroku 22 týž den. Postup stejný jako u dřívějšího
+    přidání Premier League:
+    1. `ensure-competition.yml` spuštěn 3× (založil "Liga mistrů",
+       "Evropská liga", "Konferenční liga", `sport=football`,
+       `scrape_source=livesport`).
+    2. `sync-fixtures.yml` spuštěn ručně — rovnou zapsal rozpis i pro
+       tyhle tři nové soutěže spolu se zbytkem.
+    3. `sync-results.yml` spuštěn ručně — zpětně dotáhl případné už
+       odehrané zápasy (ligová fáze Ligy mistrů/Evropské ligy/
+       Konferenční ligy 2026/27 začíná v druhé půlce září, takže v
+       době přidání šlo nanejvýš o předkola).
+    4. Popisky (`competitions.description`) doplněny migrací
+       `supabase/migrations/20260908130000_european_cups_description.sql`
+       stejným vzorem jako u ostatních soutěží
+       (`20260906120000_competitions_description.sql`) — **čeká na
+       ruční spuštění v Supabase SQL editoru**.
+
+    Appka teď sleduje sedm soutěží: Hokejová extraliga 2026/27, Chance
+    Liga, Premier League, Creme de la Creme liga, Liga mistrů, Evropská
+    liga, Konferenční liga.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 

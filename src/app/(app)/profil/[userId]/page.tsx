@@ -250,7 +250,9 @@ export default async function PublicProfilePage({
                     <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                       {rankIndex !== -1 ? (
                         <span className="flex items-center gap-1">
-                          <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          {rankIndex === 0 && (
+                            <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          )}
                           {rankIndex + 1}. místo z {standings.length}
                         </span>
                       ) : (
