@@ -971,6 +971,39 @@ udržuje v provozu sama.
 
   Čeká se na potvrzení, že se problém po nasazení na `klopi.cz`
   na mobilu uživatele reálně vytratil.
+- [x] **Nabídka soutěží novému hráči na Dashboardu (10.9.2026, PR #143)**
+  — uživatel nahlásil, že nově příchozí hráč (0 soutěží) na Dashboardu
+  prakticky nic nevidí, jen textovou větu s odkazem na `/spaces`.
+  Uživatel navrhl a odsouhlasil v chatu: modal, který se hráči bez
+  natipované soutěže ukáže hned po prvním vstupu na Dashboard a nabídne
+  mu VŠECHNY soutěže s tlačítkem "Chci hrát" najednou — místo aby appka
+  po prvním kliknutí zmizela zpátky na prázdný dashboard.
+
+  Nová komponenta `src/components/join-competitions-modal.tsx` sdílí
+  `CompetitionCard` (stejný vzhled/mechanismus jako na `/spaces`).
+  **Technické řešení (moje, vysvětleno v chatu):** modal se otevře
+  podle `myCompetitions.length === 0` čteného jen PŘI PRVNÍM vykreslení
+  (`useState(shouldOpenInitially)`) — zůstane tak otevřený, i když hráč
+  uvnitř přiklikne první soutěž a Dashboard (server komponenta) se
+  kvůli `revalidatePath("/dashboard")` (nově doplněno do
+  `joinCompetition`, dřív revalidoval jen `/spaces`) znovu vykreslí se
+  zúženým seznamem. Jde tak přidat víc soutěží najednou. Zavře se jen
+  ručně a při dalším načtení stránky se znovu ukáže pouze pokud hráč
+  pořád nehraje nic — jakmile má aspoň jednu soutěž, appka ho tím dál
+  neotravuje, na zbylé soutěže slouží `/spaces`.
+
+  **Doladění na žádost uživatele ve stejném PR:** odkaz "Otevřít" na
+  kartě uvnitř modalu byl matoucí (jediná nabízená akce má být "Chci
+  hrát", proklik pryč by navíc modal opustil) — nový volitelný prop
+  `CompetitionCard.linkToDetail` (výchozí `true`, beze změny na
+  `/spaces`/Dashboardu) v modalu nastaven na `false`, vypíná proklik i
+  odkaz zároveň.
+
+  Před schválením ověřeno vizuálně (Playwright screenshot desktop/
+  mobil/dark mode) přes dočasnou náhledovou stránku se smyšlenými daty
+  — uživatel v tu chvíli hraje všechny soutěže appky, takže prázdný
+  stav nešel reálně vyvolat jinak. Stránka i dočasná výjimka
+  v middlewaru byly po pořízení screenshotů smazané, nešly do PR.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
