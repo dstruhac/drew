@@ -905,6 +905,33 @@ udržuje v provozu sama.
   nezapnuli, ať appka nikomu nezačne posílat e-maily bez jeho vědomí.
   `joinCompetition` sloupec při insertu nevyplňuje, takže se nový
   default uplatní sám, žádná změna kódu nebyla potřeba — jen migrace.
+
+  **Zjištěno 10.9.2026: migrace se mezitím nikdy nespustila.**
+  Uživatel nahlásil "nefungují upozornění pro ostatní hráče" — ověřeno
+  přes `db-probe.yml`: z 15 řádků `competition_participants` má
+  `email_reminders_enabled = true` jen JEDEN (ručně zapnutý tlačítkem u
+  jedné soutěže), včetně čtyř hráčů, kteří se přidali PO 6.9.2026 a
+  podle tehdejšího rozhodnutí měli dostat `true` automaticky. Sloupcový
+  default v produkční databázi byl pořád starý (`false`) — migrace
+  `20260906140000_email_reminders_default_enabled.sql` čekala na ruční
+  spuštění v Supabase SQL editoru (jako všechny migrace v tomhle
+  projektu) a nikdy k němu nedošlo.
+
+  **Řešení (10.9.2026):** uživatel migraci ručně spustil (`alter
+  column ... set default true`) — default teď platí pro NOVĚ přidané
+  účastníky od 10.9.2026 dál. Čtyři hráči, kteří se přidali mezi 6.9. a
+  10.9. (tedy v okně, kdy default fakticky ještě neplatil), zůstávají
+  vědomě `false` — uživatel se rozhodl NEzapínat jim to zpětně
+  (`ať se to nastavuje až od teď novým hráčům`), ať appka nikomu
+  nezmění chování bez jeho vlastního kliknutí. Beze změny kódu.
+
+  **Poučení pro příště:** appka nemá žádný mechanismus, který by
+  upozornil na migraci čekající v repu, ale nikdy nespuštěnou v
+  Supabase — je to čistě na ruční evidenci v tomhle dokumentu/chatu.
+  Při podezření na "appka se nechová podle posledního rozhodnutí" stojí
+  za to nejdřív ověřit přes `db-probe.yml`, jestli sloupcový
+  default/skutečná data v databázi odpovídají tomu, co říká poslední
+  migrace v repu — ne jen číst kód.
 - [x] **Oprava: appka na telefonu po delší pauze odhlašovala uživatele
   (6.9.2026, PR #108)** — uživatel nahlásil opakované odhlašování na
   mobilu, nejvýrazněji po delší pauze v používání appky. Rozhodující
