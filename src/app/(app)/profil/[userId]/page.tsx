@@ -4,7 +4,7 @@ import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
 import { sportAccentStyle } from "@/lib/sport";
-import { CardTile } from "@/components/card-tile";
+import { ClickableCardTile } from "@/components/clickable-card-tile";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
@@ -293,7 +293,7 @@ export default async function PublicProfilePage({
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {allCards.map((card) => (
               <li key={card.id}>
-                <CardTile
+                <ClickableCardTile
                   card={card}
                   owned={ownedCards.has(card.id)}
                   quantity={ownedCards.get(card.id)}

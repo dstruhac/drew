@@ -5,6 +5,7 @@ import { Medal, X } from "lucide-react";
 import { markBadgesSeen } from "@/app/(app)/dashboard/actions";
 import { RARITY_LABELS } from "@/lib/rarity";
 import { CardTile, type CardData } from "@/components/card-tile";
+import { ClickableCardTile } from "@/components/clickable-card-tile";
 
 type BadgeRow = {
   competition_id: string;
@@ -242,7 +243,7 @@ export function BadgeCenter({
               const isNew = newCardIds.has(card.id);
               return (
                 <li key={card.id}>
-                  <CardTile
+                  <ClickableCardTile
                     card={card}
                     owned={ownedCards.has(card.id)}
                     quantity={ownedCards.get(card.id)}
