@@ -25,6 +25,7 @@ export async function joinCompetition(competitionId: string) {
   revalidatePath(`/spaces/${competitionId}`);
   revalidatePath(`/spaces/${competitionId}/leaderboard`);
   revalidatePath("/spaces");
+  revalidatePath("/dashboard");
 }
 
 export async function leaveCompetition(competitionId: string) {
