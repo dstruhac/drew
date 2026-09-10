@@ -67,7 +67,12 @@ export function JoinCompetitionsModal({
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {competitions.map((competition) => (
                 <li key={competition.id}>
-                  <CompetitionCard competition={competition} rank={null} isJoined={false} />
+                  <CompetitionCard
+                    competition={competition}
+                    rank={null}
+                    isJoined={false}
+                    linkToDetail={false}
+                  />
                 </li>
               ))}
             </ul>
