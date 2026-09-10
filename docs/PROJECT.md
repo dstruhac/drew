@@ -988,14 +988,15 @@ udržuje v provozu sama.
   Uživatel chtěl místo toho skutečnou sběratelskou kartičku (v duchu
   "Pepík Hnátek z okresního přeboru") — 50 číslovaných karet, zatím
   postaveno prvních 10. Rozhodnutí s uživatelem přes `AskUserQuestion`:
-  - **Mechanika**: za KAŽDÝ kalendářní týden, kdy hráč vyhraje aspoň
-    jednu soutěž, dostane právě JEDNU kartu (ne jednu za každou
-    vyhranou soutěž). Vzácnost karty se odvíjí od toho, kolik soutěží
-    ten týden vyhrál najednou (appka dnes sleduje 4): 1 = běžná, 2 =
-    vzácná, 3 nebo 4 (všechny) = legendární. Karta je náhodná z dané
-    vzácnostní skupiny, BEZ duplicit dokud hráč nemá všechny karty té
-    vzácnosti — teprve pak se objevují duplicity (appka pamatuje
-    kolikrát kterou kartu má).
+  - **Mechanika (původní návrh, nahrazeno 10.9.2026 — viz "Losování
+    karty bez duplicit" níže):** za KAŽDÝ kalendářní týden, kdy hráč
+    vyhraje aspoň jednu soutěž, dostane právě JEDNU kartu (ne jednu za
+    každou vyhranou soutěž — tohle zůstává beze změny). Vzácnost karty
+    se odvíjí od toho, kolik soutěží ten týden vyhrál najednou (appka
+    dnes sleduje 4): 1 = běžná, 2 = vzácná, 3 nebo 4 (všechny) =
+    legendární. Karta je náhodná z dané vzácnostní skupiny, BEZ
+    duplicit dokud hráč nemá všechny karty té vzácnosti — teprve pak
+    se objevují duplicity (appka pamatuje kolikrát kterou kartu má).
   - **Rozdělení 10 karet**: 6 běžných / 3 vzácné / 1 legendární.
   - **Zobrazení**: žebříček i veřejný profil dál ukazují jen POČET
     medailí beze změny (weekly_badges nezměněno) — kartičky navíc jsou
@@ -1094,6 +1095,46 @@ udržuje v provozu sama.
     (https://claude.ai/code/artifact/b9f63c3d-6355-490e-9805-18820babd6e0)
     — appku samotnou z tohoto sandboxu nešlo vyzkoušet živě (žádný
     přístup na Supabase), ověří se na Vercel preview PR #135.
+
+  **Losování karty bez duplicit, bez vazby na počet vyhraných soutěží
+  (10.9.2026, ještě před smergováním PR #135)** — uživatel si při
+  dívání na hotovou featuru rozmyslel dvě věci z původního návrhu:
+  (1) nepočítá s tím, že by hráč mohl mít stejnou kartu víckrát, (2)
+  nebyl si jistý, že je dobrý nápad vázat vzácnost karty na to, kolik
+  soutěží hráč ten týden vyhrál najednou. Souhlasil jsem s oběma
+  výhradami a navrhl řešení (vysvětleno v chatu): appka dnes sleduje 7
+  soutěží (ne 4 jako při původním návrhu), ale hlavní problém je
+  principiální, ne jen otázka prahů — hráč, který hraje jen JEDNU
+  soutěž, nemůže z podstaty věci nikdy vyhrát víc než jednu soutěž týdně,
+  takže by podle staré mechaniky nikdy nemohl dostat vzácnou/legendární
+  kartu bez ohledu na to, jak dobře tipuje — odměňovalo to spíš počet
+  soutěží, do kterých se hráč přihlásil, než cokoliv jiného.
+
+  Odsouhlaseno s uživatelem přes `AskUserQuestion`:
+  - **Losování**: karta se už nevybírá z jedné vzácnostní skupiny
+    podle počtu výher, ale váženým losem z CELÉHO katalogu (běžné karty
+    mají vyšší váhu než vzácné/legendární, ale žádná není nikdy úplně
+    nedosažitelná) — hráč potřebuje k získání karty pořád jen vyhrát
+    aspoň jednu soutěž ten týden, stejně jako dřív.
+  - **Duplicity**: zrušeny úplně. Jakmile hráč kartu jednou získá, znovu
+    se mu nevylosuje. Až hráč jednou posbírá celý katalog, ten týden
+    prostě žádnou kartu nedostane (appka nezapíše řádek do
+    `card_draws` — jakmile appka doplní další karty do katalogu
+    směrem k 50, losování se pro něj samo obnoví).
+
+  **Implementace**: `scripts/sync/lib/cards.mjs` — `drawCard(catalog,
+  ownedCardIds, random)` teď losuje váženě z celého katalogu (váhy
+  5/2/1 pro běžnou/vzácnou/legendární) a vrací `null`, pokud hráč
+  vlastní všechno; `rarityForWinCount()` (vazba na počet výher) zcela
+  odstraněna. `award-weekly-badges.mjs` upraven: `win_count` se dál
+  zaznamenává do `card_draws` jen pro historický přehled, už ale
+  neurčuje, která karta padne. Beze změny datového modelu/migrace —
+  schéma (`cards.rarity`, `card_draws.rarity`/`win_count`) zůstává
+  stejné, jen se jinak používá. `scripts/sync/lib/cards.test.mjs`
+  přepsán na nové chování (5 testů). Vědomě neřešeno: UI odznak "×N"
+  pro duplicity (`card-tile.tsx`) zůstává v kódu, ale je teď fakticky
+  nedosažitelný (quantity nikdy nepřekročí 1) — neškodí, necháno pro
+  případ budoucí změny rozhodnutí.
 - [x] **Nabídka soutěží novému hráči na Dashboardu (10.9.2026, PR #143)**
   — uživatel nahlásil, že nově příchozí hráč (0 soutěží) na Dashboardu
   prakticky nic nevidí, jen textovou větu s odkazem na `/spaces`.

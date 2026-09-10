@@ -1,27 +1,40 @@
 // Čistá logika kolem sběratelských karet za vítězství týdne (žádné
-// I/O) -- vzácnost podle počtu vyhraných soutěží + losování karty bez
-// duplicit, dokud hráč nemá všechny karty dané vzácnosti. Používá
-// award-weekly-badges.mjs.
+// I/O) -- losování bez duplicit z celého katalogu, vážené podle
+// vzácnosti karty samotné. Používá award-weekly-badges.mjs.
 
-// 1 vyhraná soutěž ten týden = běžná, 2 = vzácná, 3 nebo víc (appka
-// dnes sleduje 4 soutěže, ale strop není natvrdo na 4 -- "všechny" má
-// zůstat legendární i po přidání další soutěže) = legendární.
-export function rarityForWinCount(winCount) {
-  if (winCount >= 3) return "legendary";
-  if (winCount === 2) return "rare";
-  return "common";
-}
+// Váhy podle vzácnosti KARTY -- čím vzácnější karta, tím řidší šance,
+// že padne dřív, ale NIKDY nemožné (10.9.2026, na žádost uživatele --
+// appka dřív vázala vzácnost na POČET soutěží, které hráč ten týden
+// vyhrál najednou, takže hráč hrající jen jednu soutěž nemohl nikdy
+// dostat vzácnou/legendární kartu bez ohledu na to, jak dobře tipuje).
+// Teď stačí vyhrát aspoň jednu soutěž (o tom rozhoduje
+// award-weekly-badges.mjs před zavoláním drawCard) -- KTERÁ konkrétní
+// karta padne je čistě náhoda vážená vzácností té karty.
+const RARITY_WEIGHT = {
+  common: 5,
+  rare: 2,
+  legendary: 1,
+};
 
-// `cardsOfRarity` -- katalog karet (musí mít `id`) omezený na danou
-// vzácnost. `ownedCardIds` -- Set čísel karet té vzácnosti, které hráč
-// už vlastní. `random` -- injektovaný zdroj náhody (výchozí
-// Math.random), aby šel výsledek v testu určit napevno.
-export function drawCard(cardsOfRarity, ownedCardIds, random = Math.random) {
-  if (cardsOfRarity.length === 0) {
-    throw new Error("Žádné karty dané vzácnosti v katalogu.");
+// `catalog` -- celý katalog karet (musí mít `id`, `rarity`).
+// `ownedCardIds` -- Set čísel karet, které hráč už vlastní (JAKÉKOLIV
+// vzácnosti) -- appka duplicity nepodporuje, takže se tyhle karty z
+// losování úplně vyřadí. Vrátí `null`, pokud hráč už vlastní celý
+// katalog -- není co losovat, appka mu ten týden žádnou novou kartu
+// nepřidá (dokud appka nedoplní další karty do katalogu). `random` --
+// injektovaný zdroj náhody (výchozí Math.random), aby šel výsledek
+// v testu určit napevno.
+export function drawCard(catalog, ownedCardIds, random = Math.random) {
+  const pool = catalog.filter((c) => !ownedCardIds.has(c.id));
+  if (pool.length === 0) return null;
+
+  const totalWeight = pool.reduce((sum, c) => sum + (RARITY_WEIGHT[c.rarity] ?? 1), 0);
+  let roll = random() * totalWeight;
+  for (const card of pool) {
+    roll -= RARITY_WEIGHT[card.rarity] ?? 1;
+    if (roll < 0) return card;
   }
-  const unowned = cardsOfRarity.filter((c) => !ownedCardIds.has(c.id));
-  const pool = unowned.length > 0 ? unowned : cardsOfRarity;
-  const index = Math.floor(random() * pool.length);
-  return pool[index];
+  // Zaokrouhlovací pojistka (roll by teoreticky mohl zůstat >= 0 i po
+  // projetí celého poolu kvůli chybě na posledním desetinném místě).
+  return pool[pool.length - 1];
 }
