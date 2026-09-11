@@ -55,6 +55,7 @@ export async function AppHeader() {
   }
 
   const initial = profile?.display_name?.trim().charAt(0).toUpperCase() || "?";
+  const remindersEnabled = profile?.email_reminders_enabled ?? true;
 
   return (
     <div className="border-b border-border-subtle">
@@ -80,24 +81,28 @@ export async function AppHeader() {
             Pravidla
           </Link>
           <ThemeToggle />
-          <form action={toggleEmailReminders.bind(null, profile?.email_reminders_enabled ?? true)}>
+          <form action={toggleEmailReminders.bind(null, remindersEnabled)}>
             <button
               type="submit"
               role="switch"
-              aria-checked={profile?.email_reminders_enabled ?? true}
+              aria-checked={remindersEnabled}
               aria-label={
-                profile?.email_reminders_enabled
+                remindersEnabled
                   ? "Vypnout e-mailová upozornění na nevyplněný tip"
                   : "Zapnout e-mailová upozornění na nevyplněný tip"
               }
               title={
-                profile?.email_reminders_enabled
-                  ? "E-mailová upozornění: zapnuto"
-                  : "E-mailová upozornění: vypnuto"
+                remindersEnabled
+                  ? "E-mailová upozornění: zapnuto (klikni pro vypnutí)"
+                  : "E-mailová upozornění: vypnuto (klikni pro zapnutí)"
               }
-              className="btn-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-subtle text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              className={`btn-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                remindersEnabled
+                  ? "border-transparent bg-accent text-accent-foreground hover:opacity-90"
+                  : "border-border-subtle text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+              }`}
             >
-              {profile?.email_reminders_enabled ?? true ? (
+              {remindersEnabled ? (
                 <Bell className="h-4 w-4" strokeWidth={2.2} />
               ) : (
                 <BellOff className="h-4 w-4" strokeWidth={2.2} />
