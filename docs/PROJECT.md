@@ -1119,7 +1119,14 @@ udržuje v provozu sama.
     tam nikdy neuděluje).
 
   **Ruční krok uživatele**: spustit obě nové migrace v Supabase SQL
-  editoru.
+  editoru. **Hotovo (11.9.2026)** — uživatel potvrdil, že obě migrace
+  spustil. Sloupec `competitions.points_overtime` ověřen přes
+  `db-probe.yml`: všech 7 soutěží má `points_overtime: 1` vedle
+  stávajících `points_exact: 3, points_winner: 1, points_total_goals: 1`.
+  Samotné tělo triggeru (`calculate_match_points()`) nejde ověřit
+  jednoduchým SELECTem — reálné potvrzení, že OT bod počítá správně,
+  přijde až s prvním skutečným hokejovým zápasem rozhodnutým v
+  prodloužení/nájezdech (sezóna od 16.9.2026, viz test plan v PR #147).
 
   **Vědomě neřešeno v tomhle kroku:** barevné odlišení kartičky zápasu
   (`getResultTone()`/`RESULT_TONE_CLASSES`, krok 8 výše) je postavené
