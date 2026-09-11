@@ -25,7 +25,7 @@ export default async function PravidlaPage() {
 
   const { data: competitions, error } = await supabase
     .from("competitions")
-    .select("id, name, sport, points_exact, points_winner, points_total_goals")
+    .select("id, name, sport, points_exact, points_winner, points_total_goals, points_overtime")
     .order("created_at", { ascending: false });
 
   throwIfSupabaseError(error, "Načtení pravidel bodování");
@@ -86,6 +86,17 @@ export default async function PravidlaPage() {
               skóre ani vítěze.
             </span>
           </li>
+          <li className="flex items-start gap-2.5">
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-extrabold text-accent">
+              🏒
+            </span>
+            <span>
+              <span className="text-foreground">Jen hokej — prodloužení/nájezdy</span>{" "}
+              — trefíš, jestli zápas skončí v základní hrací době, nebo až po
+              prodloužení/nájezdech. Tenhle bod se přičítá vždycky navíc,
+              i když trefíš přesné skóre.
+            </span>
+          </li>
         </ul>
       </section>
 
@@ -108,6 +119,9 @@ export default async function PravidlaPage() {
             <p className="text-right text-xs font-semibold text-muted-foreground">
               ⚡ {competition.points_exact} b. · 🏆 {competition.points_winner} b. · 🥅{" "}
               {competition.points_total_goals} b.
+              {competition.sport !== "football" && (
+                <> · 🏒 {competition.points_overtime} b.</>
+              )}
             </p>
           </div>
         ))}

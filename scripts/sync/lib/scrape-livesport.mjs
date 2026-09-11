@@ -108,6 +108,16 @@ async function scrapeLivesportRaw(scrapePath, urlSuffix) {
         isLive: el.classList.contains("event__match--live"),
         dateTimeText:
           el.querySelector(".event__stageTime .wcl-dateContent_eEChT")?.textContent.trim() || null,
+        // Vyplněno jen u hokejových zápasů, které neskončily v
+        // základní hrací době -- "Po prodl." (prodloužení) nebo
+        // "Po náj." (samostatné nájezdy), jinak element vůbec
+        // neexistuje. Ověřeno přes playwright-probe 10.-11.9.2026 na
+        // dvou různých ligách (Bělorusko, česká Maxa liga) se shodným
+        // výsledkem -- viz scrapeLivesportResults níže, kde se to
+        // převádí na prostý boolean (appka nerozlišuje prodloužení
+        // od nájezdů, jen "šlo to nad základní hrací dobu").
+        stageStatusText:
+          el.querySelector(".event__stageTime .wcl-stageContent_fuKCx")?.textContent.trim() || null,
         homeTeam:
           el.querySelector(".event__homeParticipant .wcl-name_jjfMf")?.textContent.trim() || null,
         awayTeam:
@@ -170,6 +180,14 @@ export async function scrapeLivesportResults(scrapePath, { referenceDate = new D
       kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate),
       homeScore: parseScore(r.homeScoreText),
       awayScore: parseScore(r.awayScoreText),
+      // true, jakmile livesport.cz u zápasu ukáže "Po prodl."/"Po náj."
+      // -- appka nepotřebuje rozlišit jak, jen že se hrálo nad základní
+      // hrací dobu (checkbox v appce je taky jen jeden, "prodloužení/
+      // nájezdy" dohromady). U fotbalu tenhle element nikdy neexistuje,
+      // takže tu vychází vždy false -- neškodné, calculate_match_points
+      // bod za tohle stejně u fotbalu nikdy neudělí (predicted_overtime_flag
+      // je tam vždy null).
+      overtimeFlag: r.stageStatusText !== null,
     }));
 }
 

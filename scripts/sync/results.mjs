@@ -34,11 +34,13 @@
 // žádný tip k obodování — a nový tip na už odehraný zápas RLS politika
 // (kickoff_at v minulosti) stejně nedovolí.
 //
-// POZOR: `overtime_flag` (prodloužení/nájezdy u hokeje) se zatím
-// nezapisuje — livesport.cz způsob označení není ověřený na reálných
-// datech (hokejová sezóna v době psaní ještě nezačala, viz
-// docs/IMPORT-ARCHITECTURE.md). Až se objeví první reálný dohraný zápas
-// v prodloužení, ověří se přes playwright-probe a doplní se.
+// `overtime_flag` (prodloužení/nájezdy u hokeje) se zapisuje u každého
+// dohraného zápasu (viz overtimeFlag v scrapeLivesportResults) --
+// ověřeno přes playwright-probe 10.-11.9.2026 na dvou reálných
+// zápasech/ligách (Bělorusko, česká Maxa liga), formát livesport.cz je
+// napříč nimi shodný. `calculate_match_points()`
+// (supabase/migrations/20260911080100_scoring_trigger_overtime.sql)
+// za shodu se skutečností uděluje bod `points_overtime`.
 //
 // Kromě dohraných zápasů se (od 28.8.2026) stejným během doplňuje i
 // status='live' + průběžné skóre u zápasu, který PRÁVĚ probíhá --
@@ -119,7 +121,12 @@ async function syncRandomPoolCompetition(supabase, competition) {
           for (const m of withResult) {
             const { error: updateError } = await supabase
               .from("matches")
-              .update({ home_score: m.homeScore, away_score: m.awayScore, status: "finished" })
+              .update({
+                home_score: m.homeScore,
+                away_score: m.awayScore,
+                status: "finished",
+                overtime_flag: m.overtimeFlag,
+              })
               .eq("competition_id", competition.id)
               .eq("external_id", m.externalId);
             if (updateError) throw new Error(`Update selhal: ${updateError.message}`);
@@ -349,6 +356,7 @@ async function main() {
         home_score: m.homeScore,
         away_score: m.awayScore,
         status: "finished",
+        overtime_flag: m.overtimeFlag,
       }));
 
       const { error: upsertError } = await supabase

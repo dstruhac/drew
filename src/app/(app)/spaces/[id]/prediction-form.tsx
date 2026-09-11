@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useState } from "react";
 import { submitPrediction, type SubmitPredictionState } from "./actions";
 import type { Sport } from "@/lib/supabase/database.types";
 
 const initialState: SubmitPredictionState = { error: null };
+
+const TIE_WARNING =
+  "Hokej remízou nekončí — zadej, kdo nakonec vyhrál. Čekáš prodloužení/nájezdy? Zaškrtni to dole.";
 
 export function PredictionForm({
   sport,
@@ -34,6 +37,43 @@ export function PredictionForm({
   // mezitím nezměnily.
   const lastSubmittedRef = useRef<string | null>(null);
 
+  // Hokej nikdy nekončí remízou -- ani po prodloužení/nájezdech (vítěz
+  // vždycky dostane rozhodující gól navíc), takže stejné skóre domácích
+  // a hostů je vždycky chyba, bez ohledu na to, jestli je checkbox
+  // "prodloužení/nájezdy" zaškrtnutý (uživatel 11.9.2026 nahlásil, že
+  // appka zadání remízy u hokeje nijak neřeší). Živá kontrola při psaní
+  // (ne až při odeslání), ať appka zafunguje jako okamžitá nápověda, ne
+  // až jako chyba po pokusu o uložení.
+  const [tieWarning, setTieWarning] = useState(false);
+
+  function checkTie() {
+    if (sport !== "hockey") return false;
+    const form = formRef.current;
+    if (!form) return false;
+    const home = form.elements.namedItem(
+      "predicted_home_score",
+    ) as HTMLInputElement;
+    const away = form.elements.namedItem(
+      "predicted_away_score",
+    ) as HTMLInputElement;
+    if (!home.value.trim() || !away.value.trim()) return false;
+    return home.value === away.value;
+  }
+
+  function recomputeTieWarning() {
+    setTieWarning(checkTie());
+  }
+
+  // Poslední pojistka -- i kdyby se auto-save/tlačítko dostaly přes
+  // recomputeTieWarning výše (např. programové vyplnění pole), formulář
+  // se stejně neodešle na server s remízou u hokeje.
+  function blockTieSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (checkTie()) {
+      e.preventDefault();
+      setTieWarning(true);
+    }
+  }
+
   // Auto-save (odsouhlaseno s uživatelem 27.8.2026): tip se uloží sám,
   // jakmile jsou vyplněná OBĚ skóre a uživatel opustí pole -- dokud je
   // vyplněné jen jedno, nic se neděje (žádná chybová hláška, žádné
@@ -51,6 +91,7 @@ export function PredictionForm({
     ) as HTMLInputElement;
     if (!home.value.trim() || !away.value.trim()) return;
     if (!form.checkValidity()) return;
+    if (checkTie()) return;
 
     const overtimeEl = form.elements.namedItem(
       "predicted_overtime_flag",
@@ -69,6 +110,7 @@ export function PredictionForm({
   // potřeba se po přeskoku ťuknutím vrátit zpátky a dopsat druhou
   // číslici -- pole hostů samo nikam dál needskakuje.
   function focusAwayOnFirstDigit(e: React.ChangeEvent<HTMLInputElement>) {
+    recomputeTieWarning();
     if (e.target.value.length !== 1) return;
     const away = e.target.form?.elements.namedItem(
       "predicted_away_score",
@@ -89,6 +131,7 @@ export function PredictionForm({
       <form
         ref={formRef}
         action={formAction}
+        onSubmit={blockTieSubmit}
         className="flex flex-col items-center gap-4"
       >
         <div className="flex items-center gap-3">
@@ -114,11 +157,18 @@ export function PredictionForm({
             required
             defaultValue={existing?.predicted_away_score}
             aria-label="Tip skóre hostů"
+            onChange={recomputeTieWarning}
             onFocus={selectAllOnFocus}
             onBlur={maybeAutoSave}
             className="h-14 w-16 rounded-2xl border-2 border-white/15 bg-white/5 text-center text-2xl font-extrabold text-white transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
+
+        {tieWarning && (
+          <p className="max-w-[220px] text-center text-xs font-semibold text-warning">
+            {TIE_WARNING}
+          </p>
+        )}
 
         {sport === "hockey" && (
           <label className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
@@ -134,7 +184,7 @@ export function PredictionForm({
 
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || tieWarning}
           className="btn-press w-full max-w-[220px] rounded-full bg-accent px-6 py-3 text-sm font-extrabold text-accent-foreground disabled:opacity-50 disabled:active:scale-100"
         >
           {isPending ? "Ukládám…" : existing ? "Upravit tip" : "Uložit tip"}
@@ -153,6 +203,7 @@ export function PredictionForm({
     <form
       ref={formRef}
       action={formAction}
+      onSubmit={blockTieSubmit}
       className="mt-3 flex flex-col items-center gap-2"
     >
       <div className="flex items-center gap-2">
@@ -178,11 +229,18 @@ export function PredictionForm({
           required
           defaultValue={existing?.predicted_away_score}
           aria-label="Tip skóre hostů"
+          onChange={recomputeTieWarning}
           onFocus={selectAllOnFocus}
           onBlur={maybeAutoSave}
           className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
         />
       </div>
+
+      {tieWarning && (
+        <p className="max-w-[220px] text-center text-xs font-semibold text-warning">
+          {TIE_WARNING}
+        </p>
+      )}
 
       {sport === "hockey" && (
         <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -198,7 +256,7 @@ export function PredictionForm({
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || tieWarning}
         className="btn-press rounded-[10px] border border-border-subtle px-3 py-1 text-sm font-semibold hover:bg-surface-hover disabled:opacity-50 disabled:active:scale-100"
       >
         {isPending ? "Ukládám…" : existing ? "Upravit tip" : "Uložit tip"}

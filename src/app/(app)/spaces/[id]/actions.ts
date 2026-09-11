@@ -96,6 +96,15 @@ export async function submitPrediction(
   if (homeScore < 0 || awayScore < 0) {
     return { error: "Skóre nemůže být záporné." };
   }
+  // Hokej nikdy nekončí remízou (i po prodloužení/nájezdech dostane
+  // vítěz rozhodující gól navíc) -- pojistka pro případ, že by klientská
+  // kontrola v prediction-form.tsx (živá při psaní) něco nezachytila.
+  if (sport === "hockey" && homeScore === awayScore) {
+    return {
+      error:
+        "Hokej nekončí remízou — zadej, kdo nakonec vyhrál. Čekáš prodloužení/nájezdy? Zaškrtni to.",
+    };
+  }
 
   const { error } = await supabase.from("predictions").upsert(
     {

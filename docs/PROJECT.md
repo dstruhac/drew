@@ -1054,6 +1054,81 @@ udržuje v provozu sama.
     "Aktuální cíl" výše) a appka nakonec koupila `klopi.cz`, ne
     `klopi.app` (viz krok 20 níže). Ponecháno v textu jako historický
     záznam rozhodovacího procesu, ale neplatí už jako aktuální stav.
+- [x] **Bodování hokejového prodloužení/nájezdů (11.9.2026)** —
+  navazuje na "Hokejové prodloužení a nájezdy" ze sekce "Budoucí
+  featury" výše, otevřené od začátku appky (`predicted_overtime_flag`
+  se sbíral, ale nikdy nebodoval). Uživatel se zeptal, čím pokračovat
+  po revizi dokumentace, a zvolil tohle — sezóna hokejové extraligy
+  začíná 16.9.2026.
+
+  **Produktová rozhodnutí (v chatu, ne přes `AskUserQuestion` — šlo o
+  postupné upřesňování):**
+  - Zadávané skóre je vždy **konečný výsledek** (jak je na
+    výsledkovce, včetně rozhodujícího gólu z prodloužení/nájezdů) —
+    žádná změna datového modelu, appka už takhle formulář měla
+    postavený (dva nezávislé inputy — skóre + checkbox).
+  - **Bodování**: `points_exact`/`points_winner`/`points_total_goals`
+    zůstávají 3/1/1 stejné napříč VŠEMI sporty (ne jen fotbal) —
+    uživatel nejdřív navrhoval snížit hodnotu přesného tipu u hokeje
+    kvůli "loterii" nájezdů, pak se vrátil k původním 3 bodům
+    ("přesný tip musí být odskočený"). Nový **`points_overtime`**
+    (bod za správně tipnuté "bude/nebude prodloužení") se přičítá
+    VŽDY nezávisle navíc, i když hráč trefí přesný tip — maximum za
+    hokejový zápas je tak 4 body (3+1), o 1 víc než fotbalový strop 3.
+  - Sdíleno napříč hokejem i "mixed" soutěžemi (Creme de la Creme) —
+    appka totiž u KAŽDÉHO zápasu (ne soutěže) počítá efektivní sport
+    (`match.sport ?? competition.sport`, `src/lib/sport.ts`), takže
+    formulář checkbox "prodloužení/nájezdy" u fotbalových zápasů
+    uvnitř Creme de la Creme nezobrazí a `points_overtime` se tam
+    nikdy neuplatní bez jakékoliv výjimky v kódu.
+
+  **Technické ověření (moje, přes uživatelem poslané reálné odkazy na
+  zápasy + `playwright-probe.yml`):** livesport.cz uvnitř STEJNÉHO
+  `.event__match` elementu, co appka už čte pro seznam výsledků,
+  přidává u zápasu, co neskončil v základní hrací době, span
+  `wcl-stageContent_fuKCx` s textem "Po prodl." (prodloužení) nebo
+  "Po náj." (nájezdy) — u normální výhry element vůbec neexistuje.
+  Ověřeno na DVOU různých ligách (běloruská hokejová liga, česká Maxa
+  liga) se shodným výsledkem — vysoká jistota, že je to jednotná
+  šablona napříč celým livesport.cz, včetně pěti hokejových lig v
+  Creme de la Creme poolu (Tipsport extraliga, NHL, Tipos extraliga,
+  SHL, National League). Appka nerozlišuje prodloužení od nájezdů
+  (checkbox je jen jeden), takže detekce je jen "element existuje,
+  nebo ne" — nezávisí na přesném textu.
+
+  **Implementace:**
+  - `supabase/migrations/20260911080000_competitions_points_overtime.sql`
+    — nový sloupec `competitions.points_overtime` (default 1).
+    `matches.overtime_flag` už existoval od úplně první migrace
+    (`20260824120400_matches.sql`), jen se nikdy nezapisoval.
+  - `supabase/migrations/20260911080100_scoring_trigger_overtime.sql`
+    — `calculate_match_points()` rozšířen o nezávisle sčítaný OT bod
+    (uplatní se jen když OBĚ strany — tip i skutečnost — mají
+    vyplněnou hodnotu, takže u fotbalu, kde je `predicted_overtime_flag`
+    vždy `null`, se nikdy neuplatní bez ohledu na to, co je zapsané
+    v `matches.overtime_flag`).
+  - `scripts/sync/lib/scrape-livesport.mjs` — `scrapeLivesportResults()`
+    nově vrací `overtimeFlag` (boolean, `true` jakmile
+    `wcl-stageContent_fuKCx` element existuje).
+  - `scripts/sync/results.mjs` — zapisuje `matches.overtime_flag` na
+    obou místech, kde appka ukládá dohraný zápas (běžná soutěž i
+    "Náhodná liga"/Creme de la Creme přes `syncRandomPoolCompetition`).
+  - `src/app/(app)/pravidla/page.tsx` — doplněn 4. bod vysvětlení
+    ("Jen hokej — prodloužení/nájezdy") a `🏒 X b.` u soutěží se
+    sportem `hockey`/`mixed` (u `football` se nezobrazuje, appka ho
+    tam nikdy neuděluje).
+
+  **Ruční krok uživatele**: spustit obě nové migrace v Supabase SQL
+  editoru.
+
+  **Vědomě neřešeno v tomhle kroku:** barevné odlišení kartičky zápasu
+  (`getResultTone()`/`RESULT_TONE_CLASSES`, krok 8 výše) je postavené
+  na 4 stupních sytosti jedné barvy (nic/jedno/obojí/přesně) a
+  nepočítá se čtvrtou nezávislou osou OT — necháno beze změny, appka
+  na to nemá zatím zadání a nový bodovací rozměr by tenhle vizuální
+  systém komplikoval. Souvisí i s dřívější otevřenou otázkou "zda se
+  správný tip na prodloužení boduje" ze sekce "Budoucí featury" —
+  tahle featura ji řeší, položka se ze sekce odstraňuje.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
@@ -1972,10 +2047,6 @@ Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
 - grace perioda na pozdní tip
 - self-service zakládání competitions/matches běžnými uživateli (teď
   jen service role / SQL editor, viz RLS rozhodnutí výše)
-- **Hokejové prodloužení a nájezdy** — rozhodnout, zda se tipuje výsledek
-  po základní době nebo konečný výsledek, a zda se správný tip na
-  prodloužení boduje. Datový model už má `predicted_overtime_flag`, ale
-  bodování ho zatím záměrně nepoužívá.
 
 ### Pilotní stabilizace a automatické kontroly (5.9.2026)
 

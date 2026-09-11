@@ -43,6 +43,7 @@ export interface Database {
           points_exact: number;
           points_winner: number;
           points_total_goals: number;
+          points_overtime: number;
           scrape_source: string | null;
           scrape_path: string | null;
           logo_url: string | null;
@@ -59,6 +60,7 @@ export interface Database {
           points_exact?: number;
           points_winner?: number;
           points_total_goals?: number;
+          points_overtime?: number;
           scrape_source?: string | null;
           scrape_path?: string | null;
           logo_url?: string | null;
@@ -72,6 +74,7 @@ export interface Database {
           points_exact?: number;
           points_winner?: number;
           points_total_goals?: number;
+          points_overtime?: number;
           scrape_source?: string | null;
           scrape_path?: string | null;
           logo_url?: string | null;
