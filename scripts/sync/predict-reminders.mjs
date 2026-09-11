@@ -3,11 +3,17 @@
 // upozornění -- ale teprve 2 hodiny před PRVNÍM chybějícím zápasem
 // dne, ne hned ráno (odsouhlaseno s uživatelem 28.8.2026).
 //
-// Upozornění je OPT-IN za každou soutěž zvlášť -- hráč si ho zapíná
-// tlačítkem "🔔 Chci upozornit" na stránce soutěže
-// (competition_participants.email_reminders_enabled, výchozí false).
-// Skript proto rovnou čte jen participanty, kteří mají zapnuto, a
-// zápasy z nezapnutých soutěží mu do souhrnu vůbec nepřijdou.
+// Upozornění je JEDEN GLOBÁLNÍ přepínač na hráče
+// (profiles.email_reminders_enabled, výchozí true) -- hráč si ho
+// zapíná/vypíná v hlavičce appky (viz app-header.tsx). Dřív šlo
+// zapínat za každou soutěž zvlášť (competition_participants.
+// email_reminders_enabled), ale uživatel 11.9.2026 nahlásil, že to
+// bylo matoucí -- appka teď hlídá zápasy napříč VŠEMI soutěžemi, které
+// hráč hraje, jakmile má globální přepínač zapnutý. Skript proto čte
+// jen participanty, jejichž PROFIL má zapnuto (join přes profiles!inner).
+// Starý sloupec na competition_participants zůstává v databázi
+// (appka v tomhle repu nikdy nedropovala sloupce), ale nikde se už
+// nečte ani nezapisuje.
 //
 // I když hráč hraje víc soutěží najednou a chybí mu víc tipů, pošle se
 // jen JEDEN souhrnný e-mail za den -- hlídá prediction_reminders_sent
@@ -104,8 +110,8 @@ async function main() {
     withJwtRetry(() =>
       supabase
         .from("competition_participants")
-        .select("user_id, competition_id")
-        .eq("email_reminders_enabled", true),
+        .select("user_id, competition_id, profiles!inner(email_reminders_enabled)")
+        .eq("profiles.email_reminders_enabled", true),
     ),
     withJwtRetry(() =>
       supabase

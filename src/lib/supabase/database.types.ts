@@ -19,6 +19,7 @@ export interface Database {
           display_name: string;
           avatar_url: string | null;
           badges_seen_through: string;
+          email_reminders_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -31,6 +32,7 @@ export interface Database {
           display_name?: string;
           avatar_url?: string | null;
           badges_seen_through?: string;
+          email_reminders_enabled?: boolean;
         };
         Relationships: [];
       };
