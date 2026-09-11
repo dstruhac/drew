@@ -72,6 +72,7 @@ export function JoinCompetitionsModal({
                     rank={null}
                     isJoined={false}
                     linkToDetail={false}
+                    showLogo={false}
                   />
                 </li>
               ))}
