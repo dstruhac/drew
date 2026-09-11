@@ -26,6 +26,7 @@ export function CompetitionCard({
   allCaughtUp = false,
   isJoined,
   linkToDetail = true,
+  showLogo = true,
 }: {
   competition: {
     id: string;
@@ -47,21 +48,27 @@ export function CompetitionCard({
    * použito v JoinCompetitionsModal (10.9.2026), kde je jedinou
    * nabízenou akcí "Chci hrát" a proklik pryč by modal jen opustil. */
   linkToDetail?: boolean;
+  /** `false` skryje logo (chip nahoře) -- použito v
+   * JoinCompetitionsModal (11.9.2026, na žádost uživatele), kde je
+   * kartiček víc vedle sebe v mřížce a logo je zbytečně zvyšovalo. */
+  showLogo?: boolean;
 }) {
   const content = (
     <>
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
-        {competition.logo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={competition.logo_url}
-            alt=""
-            className="h-7 w-7 object-contain"
-          />
-        ) : (
-          <Trophy className="h-5 w-5 text-accent" strokeWidth={2} />
-        )}
-      </span>
+      {showLogo && (
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
+          {competition.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={competition.logo_url}
+              alt=""
+              className="h-7 w-7 object-contain"
+            />
+          ) : (
+            <Trophy className="h-5 w-5 text-accent" strokeWidth={2} />
+          )}
+        </span>
+      )}
 
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
