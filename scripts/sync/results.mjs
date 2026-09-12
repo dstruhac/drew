@@ -55,6 +55,25 @@ import { scrapeLivesportResults, scrapeLivesportLiveMatches } from "./lib/scrape
 import { validateResults } from "./lib/validate-results.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
 
+// Supabase REST API občas na pár desítek sekund vrátí přechodnou chybu
+// brány ("Gateway Timeout"/"Service Unavailable"/"Bad Gateway") nebo
+// "JWT issued at future" na jinak platný service role klíč -- ověřeno
+// 12.9.2026 na historii běhů (dva ze tří dnešních pádů byly přesně
+// tenhle úvodní dotaz, vždy izolovaně, ne v sérii). Jeden krátký retry
+// stačí, stejná logika jako withJwtRetry v predict-reminders.mjs.
+async function withTransientRetry(queryFn, { retries = 2, delayMs = 3000 } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await queryFn();
+    const message = result.error?.message ?? "";
+    const isTransient = /gateway timeout|service unavailable|bad gateway|jwt issued at future/i.test(message);
+    if (!isTransient || attempt >= retries) return result;
+    console.log(
+      `::warning::Supabase dočasně nedostupná ("${message}"), zkouším znovu za ${delayMs} ms (pokus ${attempt + 1}/${retries})...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 // "Náhodná liga" (competition.sport === "mixed", viz random-league.mjs)
 // nemá jedno scrape_path -- každý její zápas pochází z jiné ligy (viz
 // matches.source_scrape_path). Proto se seskupí podle zdrojové ligy a
@@ -189,9 +208,9 @@ const POSTPONED_THRESHOLD_MS = 4 * 60 * 60 * 1000;
 async function main() {
   const supabase = createSupabaseClient();
 
-  const { data: allCompetitions, error } = await supabase
-    .from("competitions")
-    .select("id, name, sport, scrape_source, scrape_path");
+  const { data: allCompetitions, error } = await withTransientRetry(() =>
+    supabase.from("competitions").select("id, name, sport, scrape_source, scrape_path"),
+  );
 
   if (error) throw new Error(`Nepodařilo se načíst competitions: ${error.message}`);
 
@@ -381,4 +400,23 @@ async function main() {
   if (hadFailure) process.exitCode = 1;
 }
 
-await main();
+try {
+  await main();
+} catch (err) {
+  // Bez tohohle by chyba vzniklá PŘED per-competition smyčkou výše
+  // (typicky selhání úvodního dotazu na competitions i po vyčerpaných
+  // retry) jen shodila proces s exit code 1 -- vidět v logu Actions, ale
+  // bez GitHub Issue, přestože skript má vlastní hlášení chyb. Stejný
+  // bug jako u predict-reminders.mjs (objeveno 5.9.2026), tady objeveno
+  // 12.9.2026 -- dva ze tří pádů `sync-results` toho dne byly přesně
+  // tenhle případ.
+  console.log(`::error::${err.message}`);
+  process.exitCode = 1;
+  await reportFailure({
+    title: "⚠️ sync-results: běh selhal",
+    body: `Běh selhal s chybou: ${err.message}`,
+    label: "sync-results",
+  }).catch((reportErr) => {
+    console.log(`::error::Navíc selhalo i nahlášení chyby: ${reportErr.message}`);
+  });
+}
