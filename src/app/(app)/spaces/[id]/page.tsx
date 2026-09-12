@@ -369,8 +369,7 @@ export default async function CompetitionDetailPage({
                     {restMissing.length > 0 && (
                       <ExpandableList
                         initialCount={UPCOMING_MISSING_EXTRA_VISIBLE_COUNT}
-                        items={restMissing}
-                        renderItem={(match, layout) => (
+                        carouselItems={restMissing.map((match) => (
                           <MatchCard
                             key={match.id}
                             match={match}
@@ -380,9 +379,22 @@ export default async function CompetitionDetailPage({
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             logoUrlByTeam={logoUrlByTeam}
-                            layout={layout}
+                            layout="carousel"
                           />
-                        )}
+                        ))}
+                        stackItems={restMissing.map((match) => (
+                          <MatchCard
+                            key={match.id}
+                            match={match}
+                            isLocked={false}
+                            isJoined={isJoined}
+                            existing={null}
+                            sport={competitionFallbackSport(competition.sport)}
+                            competitionId={competition.id}
+                            logoUrlByTeam={logoUrlByTeam}
+                            layout="stack"
+                          />
+                        ))}
                       />
                     )}
                   </>
@@ -403,8 +415,7 @@ export default async function CompetitionDetailPage({
                     </h3>
                     <ExpandableList
                       initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
-                      items={upcomingPredicted}
-                      renderItem={(match, layout) => (
+                      carouselItems={upcomingPredicted.map((match) => (
                         <MatchCard
                           key={match.id}
                           match={match}
@@ -414,9 +425,22 @@ export default async function CompetitionDetailPage({
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           logoUrlByTeam={logoUrlByTeam}
-                          layout={layout}
+                          layout="carousel"
                         />
-                      )}
+                      ))}
+                      stackItems={upcomingPredicted.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          isLocked={false}
+                          isJoined={isJoined}
+                          existing={ownPredictionByMatch.get(match.id) ?? null}
+                          sport={competitionFallbackSport(competition.sport)}
+                          competitionId={competition.id}
+                          logoUrlByTeam={logoUrlByTeam}
+                          layout="stack"
+                        />
+                      ))}
                     />
                   </div>
                 )}
@@ -476,8 +500,7 @@ export default async function CompetitionDetailPage({
                 </h2>
                 <ExpandableList
                   initialCount={PAST_VISIBLE_COUNT}
-                  items={past}
-                  renderItem={(match, layout) => (
+                  carouselItems={past.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -487,9 +510,22 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
-                      layout={layout}
+                      layout="carousel"
                     />
-                  )}
+                  ))}
+                  stackItems={past.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      isLocked={true}
+                      isJoined={isJoined}
+                      existing={ownPredictionByMatch.get(match.id) ?? null}
+                      sport={competitionFallbackSport(competition.sport)}
+                      competitionId={competition.id}
+                      logoUrlByTeam={logoUrlByTeam}
+                      layout="stack"
+                    />
+                  ))}
                 />
               </section>
             )}
