@@ -22,9 +22,30 @@
 //     přejmenuje, tenhle skript (spouští se jen ručně, ne na
 //     schedule) by bylo potřeba znovu ověřit/aktualizovat.
 //   - žádné dedikované logo samotné soutěže ("Tipsport extraliga") na
-//     hokej.cz nalezeno -- stránka používá jen vlastní logo webu
-//     (hokej.cz), ne logo ligy. `competitions.logo_url` proto tenhle
-//     skript nenastavuje, zůstává `null` jako dosud.
+//     hokej.cz nenalezeno -- stránka používá jen vlastní logo webu
+//     (hokej.cz), ne logo ligy.
+//
+// Logo soutěže doplněno dodatečně (12.9.2026, na žádost uživatele,
+// zdroj https://seeklogo.com/vector-logo/265720/tipsport-extraliga) --
+// konkrétní URL obrázku ověřená stejně přes playwright-probe.yml
+// (hlavní stránka seeklogo.com je za Cloudflare "managed challenge",
+// curl na ni dostane jen JS výzvu -- skutečný prohlížeč přes
+// Playwright se ale dostal až na obsah). Samotný soubor
+// (`images.seeklogo.com/.../tipsport-extraliga-logo-png_seeklogo-265720.png`,
+// 600x600 PNG) leží na jiné subdoméně BEZ Cloudflare ochrany -- ověřeno
+// přes api-probe.yml (obyčejný curl, HTTP 200, platná PNG hlavička),
+// takže ho jde stáhnout stejným prostým `fetch()` jako loga klubů.
+//
+// **Rozdíl oproti lfafotbal.cz/football-logos.cc, na který appka
+// nemá odpověď, jen ho vědomě akceptuje:** seeklogo.com je obecný
+// agregátor firemních/sportovních log, na stránce loga ani (dostupně)
+// na `/page/terms-of-use` appka nenašla žádné výslovné svolení k
+// dalšímu použití (na rozdíl od explicitní licence u
+// football-logos.cc nebo oficiálního dokumentu klubu u lfafotbal.cz).
+// Riziko vyhodnoceno jako stejně nízké jako u klubových log výše --
+// logo slouží jen k identifikaci soutěže uvnitř appky pro uzavřenou
+// nekomerční partu kamarádů -- ale je to jiná kategorie zdroje než
+// dřívější dvě, proto zdůrazněno zvlášť.
 //
 // Mapování team_name (jak ho appka má uložené v matches.home_team/
 // away_team, scrapováno z livesport.cz) -> kód souboru na hokej.cz
@@ -48,6 +69,8 @@ import { createSupabaseClient } from "./lib/supabase-client.mjs";
 
 const COMPETITION_NAME = "Hokejová extraliga 2026/27";
 const LOGO_WIDTH = 512;
+const LEAGUE_LOGO_URL =
+  "https://images.seeklogo.com/logo-png/26/1/tipsport-extraliga-logo-png_seeklogo-265720.png";
 
 const TEAM_CODE_BY_NAME = {
   "České Budějovice": "4zj2z-ceb",
@@ -111,6 +134,21 @@ async function main() {
   }
   const competitionSlug = slugify(competition.name);
 
+  const leagueLogoBuffer = await downloadPng(LEAGUE_LOGO_URL);
+  const leagueLogoUrl = await uploadPng(
+    supabase,
+    `competitions/${competitionSlug}.png`,
+    leagueLogoBuffer,
+  );
+  const { error: competitionUpdateError } = await supabase
+    .from("competitions")
+    .update({ logo_url: leagueLogoUrl })
+    .eq("id", competition.id);
+  if (competitionUpdateError) {
+    throw new Error(`Uložení logo_url soutěže selhalo: ${competitionUpdateError.message}`);
+  }
+  console.log(`Logo soutěže nahráno: ${leagueLogoUrl}`);
+
   const teamLogoRows = [];
   for (const [teamName, code] of Object.entries(TEAM_CODE_BY_NAME)) {
     const sourceUrl = logoUrlForCode(code);
@@ -126,10 +164,7 @@ async function main() {
     .upsert(teamLogoRows, { onConflict: "competition_id,team_name" });
   if (upsertError) throw new Error(`Uložení team_logos selhalo: ${upsertError.message}`);
 
-  console.log(
-    `Hotovo: ${teamLogoRows.length} log klubů uloženo. Logo soutěže samotné (competitions.logo_url) ` +
-      `hokej.cz nenabízí, zůstává beze změny.`,
-  );
+  console.log(`Hotovo: logo soutěže + ${teamLogoRows.length} log klubů uloženo.`);
 }
 
 await main();
