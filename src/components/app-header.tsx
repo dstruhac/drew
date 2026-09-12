@@ -100,8 +100,19 @@ export async function AppHeader() {
           </form>
 
           {/* Jen na mobilu (MobileMenu má sm:hidden) -- schovává úplně
-           * totéž, co appka na počítači ukazuje rovnou v hlavičce. */}
+           * totéž, co appka na počítači ukazuje rovnou v hlavičce, plus
+           * "Dashboard" navíc (12.9.2026, na žádost uživatele) -- na
+           * počítači i na mobilu mimo menu appka na dashboard vede
+           * kliknutím na logo, ale appka jinde (/spaces, detail
+           * soutěže...) drží zvyk mít k tomu i výslovný textový odkaz,
+           * ne jen klik na logo. */}
           <MobileMenu>
+            <Link
+              href="/dashboard"
+              className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
+            >
+              Dashboard
+            </Link>
             <Link
               href="/pravidla"
               className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
