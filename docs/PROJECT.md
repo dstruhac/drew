@@ -2162,6 +2162,55 @@ rozhodnutí a implementace viz krok 13.
     Google, oblíbený tým (mohlo by se pak hodit třeba k barevnému
     zvýraznění appky), krátké "o mně"/bio viditelné na veřejném
     profilu, nebo něco úplně jiného, co uživatel má na mysli.
+26. [x] **Loga Ligy mistrů, Evropské ligy a Konferenční ligy
+    (12.9.2026)** — appka měla tyhle tři soutěže od kroku 23 výše, ale
+    bez jediného loga. Doplněno podle odkazů od uživatele na
+    [footylogos.com](https://www.footylogos.com/competitions) (samostatná
+    stránka pro každou soutěž, např. `/competition/uefa-champions-league`).
+
+    Zdroj i URL vzor ověřené přes `api-probe.yml` (footylogos.com na
+    rozdíl od seeklogo.com **není** za Cloudflare ochranou, obyčejný
+    `curl` stačí) — barevné SVG každé soutěže i klubu leží na
+    předvídatelné adrese `assets.footylogos.com/logos/{slug}/{slug}-logo-footylogos.svg`,
+    ověřeno na soutěžích i na klubech různé velikosti (Arsenal, Sabah
+    FK, FK Jablonec) — vždy HTTP 200 + platné SVG. Stránka soutěže má
+    navíc v `<script type="application/ld+json">` čistý seznam všech
+    "confirmed" klubů (jméno + `/logos/{slug}` URL) — appka tenhle
+    seznam nescrapuje za běhu, jen podle něj byla ručně sestavená
+    mapování v kódu.
+
+    `scripts/sync/import-logos-footylogos.mjs` +
+    `.github/workflows/import-logos-footylogos.yml` (ruční spuštění,
+    bez schedule). Mapování `team_name` (jak ho appka scrapuje z
+    livesport.cz) → slug ověřeno přes `db-probe.yml` proti reálným
+    `home_team`/`away_team` v `matches`:
+    - **Liga mistrů**: všech 36 klubů (appka u téhle soutěže má v
+      databázi jen zápasy hlavní fáze bez kódu země, takže bylo co
+      ověřovat).
+    - **Evropská liga**: 35 z 36 — chybí Real Sociedad, appka zatím
+      nemá jejich zápas v `matches`, takže nemá s čím ověřit správný
+      tvar názvu. Doplní se při dalším spuštění stejného skriptu, až
+      se objeví.
+    - **Konferenční liga**: zatím **jen logo soutěže samotné**, žádný
+      klub. Ke dni importu byly VŠECHNY zápasy téhle soutěže v
+      databázi ještě z kvalifikace (`home_team`/`away_team` s kódem
+      země), appka tedy neměla jediný ověřený "finální" tvar názvu
+      klubu k porovnání proti footylogos.com — raději žádné mapování
+      než hádané. Doplní se stejným skriptem, až livesport.cz
+      naimportuje první zápas hlavní fáze.
+
+    **K riziku otevřeně** (moje rozhodnutí, vysvětleno v chatu):
+    `footylogos.com/logo-usage-right` nedává obecné svolení k použití
+    ("download availability is not a licence or rights transfer"), ale
+    výslovně zmiňuje, že "editorial, reporting, research, commentary
+    and identification uses may be treated differently from commercial
+    uses" — přesně tenhle případ (logo jen k identifikaci soutěže/klubu
+    ve scoreboardu nekomerční appky pro uzavřenou partu kamarádů, ne
+    merchandising/reklama). Vyhodnoceno jako nízké riziko, stejné
+    zdůvodnění jako u hokej.cz/seeklogo.com o den dřív.
+
+    Import proběhl na první pokus (3 loga soutěží + 36 + 35 klubových
+    log), ověřeno zpětně přes `db-probe.yml`.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
