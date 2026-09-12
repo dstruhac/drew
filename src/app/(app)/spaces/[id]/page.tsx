@@ -65,16 +65,17 @@ const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 // mobilu je dřívější svislý sloupec zbytečně vysoký, na širší
 // obrazovce už mřížka místo šetřila dost.
 //
-// Carousel platí jen ve SBALENÉM stavu sekcí s tlačítkem "Zobrazit
-// všechny" -- po rozbalení uživatel výslovně řekl appce "chci vidět
-// úplně všechno", takže appka přepne na obyčejný svislý seznam
-// (MATCH_STACK_CLASSNAME níže), ať se nemusí procházet posouváním do
-// stran (12.9.2026, na žádost uživatele). Sekce bez tlačítka
-// ("Probíhající", "Odloženo") carousel vzhled nemění -- mívají jen pár
-// zápasů najednou.
+// Sekce BEZ tlačítka "Zobrazit všechny" ("Probíhající", "Odloženo") --
+// mívají jen pár zápasů najednou, takže appka na obou šířkách ukazuje
+// rovnou úplně všechno stejným (hybridním) seznamem. Sekce S tlačítkem
+// ("Ještě netipováno", "Už tipnuto", "Proběhlé") mají tenhle carousel
+// vzhled zase jinak řešený přímo v `ExpandableList` (12.9.2026, na
+// žádost uživatele "do carouselu chci všechny zápasy, které je možné
+// zobrazit v dané sekci" -- na mobilu appka carouselem ukazuje VŽDY
+// úplně vše, žádné omezení; na počítači zůstává dřívější chování,
+// jen prvních `initialCount` + tlačítko na odhalení zbytku v mřížce).
 const MATCH_GRID_CLASSNAME =
   "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-0 lg:grid-cols-3";
-const MATCH_STACK_CLASSNAME = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
 
 export default async function CompetitionDetailPage({
   params,
@@ -369,9 +370,7 @@ export default async function CompetitionDetailPage({
                       <ExpandableList
                         initialCount={UPCOMING_MISSING_EXTRA_VISIBLE_COUNT}
                         items={restMissing}
-                        listClassName={MATCH_GRID_CLASSNAME}
-                        expandedListClassName={MATCH_STACK_CLASSNAME}
-                        renderItem={(match, expanded) => (
+                        renderItem={(match, layout) => (
                           <MatchCard
                             key={match.id}
                             match={match}
@@ -381,7 +380,7 @@ export default async function CompetitionDetailPage({
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             logoUrlByTeam={logoUrlByTeam}
-                            layout={expanded ? "stack" : "carousel"}
+                            layout={layout}
                           />
                         )}
                       />
@@ -405,9 +404,7 @@ export default async function CompetitionDetailPage({
                     <ExpandableList
                       initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
                       items={upcomingPredicted}
-                      listClassName={MATCH_GRID_CLASSNAME}
-                      expandedListClassName={MATCH_STACK_CLASSNAME}
-                      renderItem={(match, expanded) => (
+                      renderItem={(match, layout) => (
                         <MatchCard
                           key={match.id}
                           match={match}
@@ -417,7 +414,7 @@ export default async function CompetitionDetailPage({
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           logoUrlByTeam={logoUrlByTeam}
-                          layout={expanded ? "stack" : "carousel"}
+                          layout={layout}
                         />
                       )}
                     />
@@ -480,9 +477,7 @@ export default async function CompetitionDetailPage({
                 <ExpandableList
                   initialCount={PAST_VISIBLE_COUNT}
                   items={past}
-                  listClassName={MATCH_GRID_CLASSNAME}
-                  expandedListClassName={MATCH_STACK_CLASSNAME}
-                  renderItem={(match, expanded) => (
+                  renderItem={(match, layout) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -492,7 +487,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
-                      layout={expanded ? "stack" : "carousel"}
+                      layout={layout}
                     />
                   )}
                 />
