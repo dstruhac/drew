@@ -171,10 +171,13 @@ export default async function LeaderboardPage({
       .filter((m) => m.kickoff_at >= weekStart && m.kickoff_at < weekEnd)
       .map((m) => m.id),
   );
+  // Do týdenního žebříčku patří jen ti, kdo v tomhle týdnu opravdu
+  // tipovali (odsouhlaseno s uživatelem 12.9.2026) -- na rozdíl od
+  // celkového žebříčku (ten ukazuje i účastníky s 0 tipy/body) tady
+  // appka žádnou "nulovou" účast nenaseeduje předem.
   const weeklyPointsByUser = new Map<string, number>();
-  for (const participant of participants ?? []) {
-    weeklyPointsByUser.set(participant.user_id, 0);
-  }
+  const weeklyScoredCountByUser = new Map<string, number>();
+  const weeklyParticipantIds = new Set<string>();
 
   for (const prediction of predictions ?? []) {
     const displayName = prediction.profiles?.display_name ?? "Neznámý hráč";
@@ -204,11 +207,18 @@ export default async function LeaderboardPage({
     }
     totalsByUser.set(prediction.user_id, entry);
 
-    if (prediction.points !== null && weekMatchIds.has(prediction.match_id)) {
-      weeklyPointsByUser.set(
-        prediction.user_id,
-        (weeklyPointsByUser.get(prediction.user_id) ?? 0) + prediction.points,
-      );
+    if (weekMatchIds.has(prediction.match_id)) {
+      weeklyParticipantIds.add(prediction.user_id);
+      if (prediction.points !== null) {
+        weeklyPointsByUser.set(
+          prediction.user_id,
+          (weeklyPointsByUser.get(prediction.user_id) ?? 0) + prediction.points,
+        );
+        weeklyScoredCountByUser.set(
+          prediction.user_id,
+          (weeklyScoredCountByUser.get(prediction.user_id) ?? 0) + 1,
+        );
+      }
     }
   }
 
@@ -218,12 +228,13 @@ export default async function LeaderboardPage({
       a.displayName.localeCompare(b.displayName, "cs"),
   );
 
-  const weeklyStandings = [...weeklyPointsByUser.entries()]
-    .map(([userId, points]) => ({
+  const weeklyStandings = [...weeklyParticipantIds]
+    .map((userId) => ({
       userId,
       displayName: totalsByUser.get(userId)?.displayName ?? "Neznámý hráč",
       avatarUrl: totalsByUser.get(userId)?.avatarUrl ?? null,
-      points,
+      points: weeklyPointsByUser.get(userId) ?? 0,
+      scoredCount: weeklyScoredCountByUser.get(userId) ?? 0,
     }))
     .sort(
       (a, b) =>
@@ -274,6 +285,10 @@ export default async function LeaderboardPage({
           <p className="text-sm font-medium text-muted-foreground">
             V tomhle týdnu se zatím nehrálo.
           </p>
+        ) : weeklyStandings.length === 0 ? (
+          <p className="text-sm font-medium text-muted-foreground">
+            V tomhle týdnu zatím nikdo netipoval.
+          </p>
         ) : (
           <ol className="flex flex-col gap-2">
             {weeklyStandings.map((entry, index) => {
@@ -282,26 +297,33 @@ export default async function LeaderboardPage({
               return (
                 <li
                   key={entry.userId}
-                  className={`flex items-center justify-between gap-3 rounded-2xl border p-4 transition-colors ${rowToneClassName(rank, isYou)}`}
+                  className={`flex flex-col gap-1 rounded-2xl border p-4 transition-colors ${rowToneClassName(rank, isYou)}`}
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <RankBadge rank={rank} />
-                    <Avatar url={entry.avatarUrl} name={entry.displayName} />
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <Link
-                        href={`/profil/${entry.userId}`}
-                        className="truncate font-bold hover:underline"
-                      >
-                        {entry.displayName}
-                      </Link>
-                      {isYou && (
-                        <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                          Ty
-                        </span>
-                      )}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <RankBadge rank={rank} />
+                      <Avatar url={entry.avatarUrl} name={entry.displayName} />
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <Link
+                          href={`/profil/${entry.userId}`}
+                          className="truncate font-bold hover:underline"
+                        >
+                          {entry.displayName}
+                        </Link>
+                        {isYou && (
+                          <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                            Ty
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <span className="shrink-0 font-extrabold">{entry.points} b.</span>
                   </div>
-                  <span className="shrink-0 font-extrabold">{entry.points} b.</span>
+                  <p className="pl-[88px] text-xs font-semibold text-faint-foreground">
+                    {entry.scoredCount > 0
+                      ? `Ø ${(entry.points / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
+                      : "Zatím bez odehraného zápasu"}
+                  </p>
                 </li>
               );
             })}
