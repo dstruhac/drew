@@ -729,7 +729,11 @@ function MatchCard({
               {match.home_team}
             </span>
           </div>
-          <span className="shrink-0 text-sm font-extrabold text-muted-foreground">
+          <span
+            className={`shrink-0 text-sm font-extrabold ${
+              match.status === "live" ? "text-danger" : "text-muted-foreground"
+            }`}
+          >
             {isLocked && match.home_score !== null && match.away_score !== null
               ? `${match.home_score}:${match.away_score}`
               : "–"}
@@ -759,7 +763,7 @@ function MatchCard({
             </p>
           )}
           {existing ? (
-            <p>
+            <p className="text-base font-extrabold text-foreground">
               Tvůj tip: {existing.predicted_home_score}:{existing.predicted_away_score}
             </p>
           ) : match.status === "postponed" ? (
