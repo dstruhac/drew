@@ -1,10 +1,71 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Medal } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { ChevronLeft, Crown, Medal } from "lucide-react";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
 import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+
+// Vzhled prvních tří míst (12.9.2026, na žádost uživatele "at ho chci
+// vyhrat, at ho potrebuju vyhrat") -- zlatá/stříbrná/bronzová jsou
+// zavedená barva "medaile" nezávislá na zbytku appky (--accent apod.),
+// proto natvrdo Tailwind odstíny jen tady, ne jako nový design token.
+const MEDAL_STYLES: Record<number, { badge: string; row: string }> = {
+  1: {
+    badge: "bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 shadow-[0_0_0_3px_rgba(251,191,36,0.35)]",
+    row: "border-amber-400/50 bg-gradient-to-br from-amber-400/[0.12] to-transparent",
+  },
+  2: {
+    badge: "bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900",
+    row: "border-slate-400/40 bg-slate-400/[0.07]",
+  },
+  3: {
+    badge: "bg-gradient-to-br from-orange-300 to-orange-600 text-orange-950",
+    row: "border-orange-500/40 bg-orange-500/[0.08]",
+  },
+};
+
+function RankBadge({ rank }: { rank: number }) {
+  const medal = MEDAL_STYLES[rank];
+  if (!medal) {
+    return (
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center text-sm font-bold text-faint-foreground">
+        {rank}.
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${medal.badge}`}
+    >
+      {rank === 1 ? <Crown className="h-3.5 w-3.5" strokeWidth={2.6} /> : rank}
+    </span>
+  );
+}
+
+function Avatar({ url, name }: { url: string | null; name: string }) {
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-surface-hover text-xs font-bold text-muted-foreground">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        name.trim().charAt(0).toUpperCase() || "?"
+      )}
+    </span>
+  );
+}
+
+// Vlastní řádek uživatele je vždy zvýrazněný (rámeček + jemný podklad
+// v --accent) bez ohledu na umístění -- ať hráč hned vidí, kde v
+// žebříčku stojí, i uprostřed dlouhého seznamu.
+function rowToneClassName(rank: number, isYou: boolean) {
+  if (isYou) {
+    return "border-accent/60 bg-accent/[0.07] ring-1 ring-accent/30";
+  }
+  const medal = MEDAL_STYLES[rank];
+  return medal ? medal.row : "border-border-subtle bg-surface";
+}
 
 export default async function LeaderboardPage({
   params,
@@ -12,24 +73,28 @@ export default async function LeaderboardPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Pět nezávislých dotazů v JEDNÉ vlně -- všechny filtrují rovnou podle
+  // Šest nezávislých dotazů v JEDNÉ vlně -- všechny filtrují rovnou podle
   // `id` z route parametru, žádný nepotřebuje výsledek jiného.
+  // getCurrentUser() není síťový dotaz (viz komentář u něj v server.ts),
+  // takže tahle závislost nic nestojí navíc.
   //
   // Tipy (predictions) se dřív načítaly až v druhé vlně, protože se
   // filtrovaly seznamem ID zápasů z první -- teď se filtrují přes
   // napojenou tabulku zápasů, takže na nic čekat nemusí a ušetří se celé
   // jedno kolo čekání na databázi (perf analýza 28.8.2026).
   const [
+    currentUser,
     competitionResult,
     participantsResult,
     matchesResult,
     badgesResult,
     predictionsResult,
   ] = await Promise.all([
+    getCurrentUser(),
     supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name)")
+      .select("user_id, profiles(display_name, avatar_url)")
       .eq("competition_id", id),
     supabase
       .from("matches")
@@ -39,7 +104,7 @@ export default async function LeaderboardPage({
     supabase
       .from("predictions")
       .select(
-        "match_id, user_id, points, predicted_home_score, predicted_away_score, profiles(display_name), matches!inner(competition_id)",
+        "match_id, user_id, points, predicted_home_score, predicted_away_score, profiles(display_name, avatar_url), matches!inner(competition_id)",
       )
       .eq("matches.competition_id", id),
   ]);
@@ -72,6 +137,7 @@ export default async function LeaderboardPage({
   type Totals = {
     userId: string;
     displayName: string;
+    avatarUrl: string | null;
     totalPoints: number;
     scoredCount: number;
     predictionCount: number;
@@ -87,6 +153,7 @@ export default async function LeaderboardPage({
     totalsByUser.set(participant.user_id, {
       userId: participant.user_id,
       displayName,
+      avatarUrl: participant.profiles?.avatar_url ?? null,
       totalPoints: 0,
       scoredCount: 0,
       predictionCount: 0,
@@ -114,6 +181,7 @@ export default async function LeaderboardPage({
     const entry = totalsByUser.get(prediction.user_id) ?? {
       userId: prediction.user_id,
       displayName,
+      avatarUrl: prediction.profiles?.avatar_url ?? null,
       totalPoints: 0,
       scoredCount: 0,
       predictionCount: 0,
@@ -154,6 +222,7 @@ export default async function LeaderboardPage({
     .map(([userId, points]) => ({
       userId,
       displayName: totalsByUser.get(userId)?.displayName ?? "Neznámý hráč",
+      avatarUrl: totalsByUser.get(userId)?.avatarUrl ?? null,
       points,
     }))
     .sort(
@@ -182,63 +251,15 @@ export default async function LeaderboardPage({
             {competition.name}
           </Link>
         </div>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Žebříček</h1>
+        <h1 className="mt-2 flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+          <Crown className="h-6 w-6 text-amber-500" strokeWidth={2.2} />
+          Žebříček
+        </h1>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-bold text-muted-foreground">
-          Celkový žebříček
-        </h2>
-
-        {standings.length === 0 && (
-          <p className="text-sm font-medium text-muted-foreground">
-            Zatím se do soutěže nikdo nepřihlásil.
-          </p>
-        )}
-
-        {standings.length > 0 && (
-          <ol className="flex flex-col gap-2">
-            {standings.map((entry, index) => (
-              <li
-                key={entry.userId}
-                className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-5 text-sm font-bold text-faint-foreground">
-                    {index + 1}.
-                  </span>
-                  <Link
-                    href={`/profil/${entry.userId}`}
-                    className="font-bold hover:underline"
-                  >
-                    {entry.displayName}
-                  </Link>
-                  {(badgeCountByUser.get(entry.userId) ?? 0) > 0 && (
-                    <span
-                      title={`${badgeCountByUser.get(entry.userId)}× vítěz týdne`}
-                      className="flex items-center gap-1 text-xs font-bold text-accent"
-                    >
-                      <Medal className="h-3.5 w-3.5" strokeWidth={2.2} />
-                      {badgeCountByUser.get(entry.userId)}
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="font-extrabold">{entry.totalPoints} b.</span>
-                  <p className="text-xs font-semibold text-faint-foreground">
-                    {entry.scoredCount > 0
-                      ? `Ø ${(entry.totalPoints / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
-                      : "Zatím bez odehraného zápasu"}
-                    {" · "}
-                    {entry.exactCount}× přesně
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
+      {/* Týdenní žebříček nahoře -- na žádost uživatele 12.9.2026 ("at je
+       * vikendovy nahore"): tenhle je "živý" a nejrelevantnější k
+       * aktuálnímu dění, celkový žebříček za celou sezónu je níž. */}
       <section className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-bold text-muted-foreground">
@@ -255,25 +276,99 @@ export default async function LeaderboardPage({
           </p>
         ) : (
           <ol className="flex flex-col gap-2">
-            {weeklyStandings.map((entry, index) => (
-              <li
-                key={entry.userId}
-                className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-5 text-sm font-bold text-faint-foreground">
-                    {index + 1}.
-                  </span>
-                  <Link
-                    href={`/profil/${entry.userId}`}
-                    className="font-bold hover:underline"
-                  >
-                    {entry.displayName}
-                  </Link>
-                </div>
-                <span className="font-extrabold">{entry.points} b.</span>
-              </li>
-            ))}
+            {weeklyStandings.map((entry, index) => {
+              const rank = index + 1;
+              const isYou = entry.userId === currentUser?.id;
+              return (
+                <li
+                  key={entry.userId}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border p-4 transition-colors ${rowToneClassName(rank, isYou)}`}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <RankBadge rank={rank} />
+                    <Avatar url={entry.avatarUrl} name={entry.displayName} />
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <Link
+                        href={`/profil/${entry.userId}`}
+                        className="truncate font-bold hover:underline"
+                      >
+                        {entry.displayName}
+                      </Link>
+                      {isYou && (
+                        <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                          Ty
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="shrink-0 font-extrabold">{entry.points} b.</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold text-muted-foreground">
+          Celkový žebříček
+        </h2>
+
+        {standings.length === 0 && (
+          <p className="text-sm font-medium text-muted-foreground">
+            Zatím se do soutěže nikdo nepřihlásil.
+          </p>
+        )}
+
+        {standings.length > 0 && (
+          <ol className="flex flex-col gap-2">
+            {standings.map((entry, index) => {
+              const rank = index + 1;
+              const isYou = entry.userId === currentUser?.id;
+              return (
+                <li
+                  key={entry.userId}
+                  className={`flex flex-col gap-1 rounded-2xl border p-4 transition-colors ${rowToneClassName(rank, isYou)}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <RankBadge rank={rank} />
+                      <Avatar url={entry.avatarUrl} name={entry.displayName} />
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <Link
+                          href={`/profil/${entry.userId}`}
+                          className="truncate font-bold hover:underline"
+                        >
+                          {entry.displayName}
+                        </Link>
+                        {isYou && (
+                          <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                            Ty
+                          </span>
+                        )}
+                        {(badgeCountByUser.get(entry.userId) ?? 0) > 0 && (
+                          <span
+                            title={`${badgeCountByUser.get(entry.userId)}× vítěz týdne`}
+                            className="flex shrink-0 items-center gap-1 text-xs font-bold text-accent"
+                          >
+                            <Medal className="h-3.5 w-3.5" strokeWidth={2.2} />
+                            {badgeCountByUser.get(entry.userId)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-extrabold">{entry.totalPoints} b.</span>
+                  </div>
+                  <p className="pl-[88px] text-xs font-semibold text-faint-foreground">
+                    {entry.scoredCount > 0
+                      ? `Ø ${(entry.totalPoints / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
+                      : "Zatím bez odehraného zápasu"}
+                    {" · "}
+                    {entry.exactCount}× přesně
+                  </p>
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
