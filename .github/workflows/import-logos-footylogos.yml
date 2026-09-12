@@ -1,0 +1,45 @@
+# Jednorázový (ruční) import log tří evropských pohárů (Liga mistrů,
+# Evropská liga, Konferenční liga) z footylogos.com do Supabase Storage
+# + tabulek competitions.logo_url / team_logos. Viz
+# scripts/sync/import-logos-footylogos.mjs pro zdroj a mapování
+# team_name -> slug.
+#
+# Stejně jako import-logos-premier-league.yml/import-logos-hokej-cz.yml
+# nepotřebuje unzip/poppler-utils/imagemagick -- footylogos.com dává
+# rovnou hotové SVG.
+#
+# Nemá schedule -- loga se nemění denně, spouští se ručně, když je
+# potřeba je (znovu) naimportovat (např. až se doplní klubové mapování
+# pro Evropskou/Konferenční ligu, viz komentář ve skriptu).
+
+name: Import logos (footylogos.com)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit import-logos-footylogos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node import-logos-footylogos.mjs
