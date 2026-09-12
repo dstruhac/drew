@@ -730,8 +730,8 @@ function MatchCard({
             </span>
           </div>
           <span className="shrink-0 text-sm font-extrabold text-muted-foreground">
-            {isLocked && existing
-              ? `${existing.predicted_home_score}:${existing.predicted_away_score}`
+            {isLocked && match.home_score !== null && match.away_score !== null
+              ? `${match.home_score}:${match.away_score}`
               : "–"}
           </span>
           <div className="flex min-w-0 flex-col items-center gap-1.5">
@@ -767,12 +767,15 @@ function MatchCard({
               Zápas je odložen, nový termín zatím není znám
             </p>
           )}
-          {!existing &&
-            (match.status === "postponed" ? (
-              <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
-            ) : (
-              <p>Nestihl(a) jste tip, zápas je zamčený.</p>
-            ))}
+          {existing ? (
+            <p>
+              Tvůj tip: {existing.predicted_home_score}:{existing.predicted_away_score}
+            </p>
+          ) : match.status === "postponed" ? (
+            <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
+          ) : (
+            <p>Nestihl(a) jste tip, zápas je zamčený.</p>
+          )}
         </div>
       ) : isJoined ? (
         <PredictionForm
