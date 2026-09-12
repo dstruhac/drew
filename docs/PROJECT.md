@@ -2085,6 +2085,15 @@ rozhodnutí a implementace viz krok 13.
     Appka teď sleduje sedm soutěží: Hokejová extraliga 2026/27, Chance
     Liga, Premier League, Creme de la Creme liga, Liga mistrů, Evropská
     liga, Konferenční liga.
+24. [ ] **Týdenní reporty** (12.9.2026, zatím nerozpracováno) — nápad
+    od uživatele, zapsáno jen jako položka k budoucímu rozboru. Než se
+    do toho pustíme, bude potřeba s uživatelem doupřesnit (produktové
+    otázky, ne technické): co report obsahuje (souhrn bodů za uplynulý
+    týden? žebříček? medaile? nadcházející zápasy?), komu se posílá
+    (jen jemu, nebo všem hráčům), jakým kanálem (e-mail — appka na to
+    už má rozjetou infrastrukturu z upozornění na nevyplněný tip —
+    nebo něco v appce) a kdy/jak často (vždy v pondělí ráno za
+    předchozí týden?).
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
