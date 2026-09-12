@@ -1239,6 +1239,125 @@ udržuje v provozu sama.
   přes `db-probe.yml`: sloupec `profiles.email_reminders_enabled`
   existuje u všech 11 profilů s očekávaným mixem `true`/`false` podle
   pravidla migrace stavu výše.
+- [x] **Hamburger menu na mobilu (12.9.2026, PR #157–#159)** — uživatel
+  nahlásil, že hlavička appky na mobilu "je plná" (Pravidla,
+  přepínač vzhledu, přepínač e-mailových upozornění vedle sebe s
+  fotečkou a odhlášením). Nová `src/components/mobile-menu.tsx`
+  (Context + ikona hamburgeru, `sm:hidden`) schovává na mobilu do
+  rozklikávacího panelu totéž, co appka na počítači ukazuje rovnou v
+  liště — fotečka uživatele zůstává mimo menu vždy viditelná
+  (odsouhlaseno s uživatelem). Postupně doplněno na žádost uživatele:
+  - Odkaz "Dashboard" navíc uvnitř menu (na počítači appka na
+    Dashboard vede jen kliknutím na logo, uvnitř menu má appka zvyk
+    mít k tomu i výslovný textový odkaz).
+  - **Zavírání menu po kliknutí na odkaz** — appka nechávala menu
+    otevřené i po prokliku na Dashboard/Pravidla. Příčina: sdílený
+    layout `(app)/layout.tsx` (a s ním `AppHeader`/`MobileMenu`) se
+    mezi klientskou navigací na sourozeneckou route v Next.js
+    App Routeru NEREMOUNTUJE, takže klientský stav uvnitř layoutu
+    (otevřeno/zavřeno) přežívá napříč stránkami sám od sebe. Oprava:
+    `src/components/mobile-menu-link.tsx` (obyčejný `<Link>` navíc
+    volající `close()` z kontextu) místo spoléhání na remount.
+  - **Rozklikávací "Soutěže"** (`src/components/mobile-menu-competitions.tsx`)
+    — seznam soutěží, které hráč hraje, s odkazem "Všechny soutěže →"
+    na konci. Na žádost uživatele ("nedá se to načítat až na
+    rozkliknutí?") se seznam NENAČÍTÁ při vykreslení hlavičky, ale až
+    při prvním rozkliknutí (`getMyCompetitionsForMenu` server akce
+    přes `useTransition`) — stejný důvod jako u jiných výkonových
+    rozhodnutí appky (viz sekce "Výkon" výše): appka se dřív zpomalila
+    kvůli dotazům dělaným na každé stránce, i když je nikdo
+    nepotřeboval.
+- [x] **Zápasy na mobilu jako swipe carousel místo svislého sloupce
+  (12.9.2026, PR #160–#162)** — uživatel chtěl, aby se zápasy na
+  `/spaces/[id]` na mobilu chovaly jako carousel (vodorovné swipnutí),
+  ne svislý seznam. Na počítači zůstává beze změny mřížka s limitem a
+  tlačítkem "Zobrazit všechny" — appka na širších obrazovkách problém
+  "hodně zápasů zabírá hodně místa" už měla vyřešený z redesignu
+  29.8.2026.
+
+  Postupné doladění podle zpětné vazby z reálného vyzkoušení (uživatel
+  to výslovně chtěl probrat, ne jen naimplementovat najednou):
+  - Základní carousel (`flex` + `overflow-x-auto` + `snap-x
+    snap-mandatory`, karty `w-[85%] shrink-0 snap-start` — "nakukne" i
+    kousek dalšího zápasu, aby bylo znát, že jde swipovat).
+  - Po vyzkoušení naživo: tlačítko "Zobrazit všechny" přepíná mobilní
+    zobrazení z carouselu na obyčejný svislý seznam (appka tím řekla
+    "chci vidět úplně všechno" bez nutnosti swipovat). Odehrané
+    zápasy dostaly tlumenější/šedivější vzhled (`saturate-[0.55]`,
+    nezávisle na barvě podle úspěšnosti tipu) — vypadaly moc podobně
+    jako nadcházející/probíhající. Mezi logy je teď vlastní tip hráče
+    (ne skutečný výsledek zápasu), pod tím teprve "Konečný
+    výsledek"/"Právě se hraje" se skutečným skóre — duplicitní řádek
+    "Váš tip: X:Y" odstraněn.
+  - Uživatel se doptal, jestli sbalený carousel obsahuje opravdu
+    VŠECHNY zápasy sekce, nebo jen omezený výřez — odpověď byla "jen
+    výřez" (`initialCount`), což uživatel nechtěl: **"do carouselu
+    chci všechny zápasy, které je možné zobrazit v dané sekci"**.
+    Uživatel zároveň potvrdil, že se to týká jen mobilu — na počítači
+    žádný carousel není, tlačítko "Zobrazit všechny" tam dál dává
+    smysl beze změny; na mobilu tím tlačítko "trochu ztrácí smysl"
+    (obojí zobrazení pak ukazuje úplně totéž, jen jinak), ale uživatel
+    potvrdil, že mu to nevadí.
+
+    **Technické řešení**: `ExpandableList` (`src/components/expandable-list.tsx`)
+    teď vykresluje DVĚ oddělené `<ul>` (jedna `sm:hidden` pro mobil,
+    druhá `hidden sm:grid` pro počítač) — nejde totiž mít jeden seznam
+    v DOM s jiným POČTEM položek podle CSS breakpointu (ty umí položky
+    jen schovat, ne domyslet další, které appka vůbec nevykreslila).
+    Mobilní `<ul>` má vždy všechny položky (carousel nebo svislý
+    seznam podle stavu tlačítka), desktopová jen `initialCount` (nebo
+    všechny po rozbalení).
+- [x] **Oprava: detail soutěže se po předchozí úpravě nedal vůbec
+  otevřít (12.9.2026, PR #162)** — hned po smergování PR #161
+  (poslední doladění carouselu výše) uživatel nahlásil, že mu appka na
+  KAŽDÉ soutěži místo detailu ukáže "Data se teď nepodařilo načíst"
+  (`(app)/error.tsx`), pořád dokola. `tsc`/`build`/`pnpm check` přitom
+  byly čisté — nešlo tedy o typovou/syntaktickou chybu.
+
+  **Příčina**: refaktoring `ExpandableList` na dvě `<ul>` (krok výše)
+  začal appce ze Server Componenty (`spaces/[id]/page.tsx`) posílat do
+  `ExpandableList` (Client Component, `"use client"`) obyčejnou
+  JavaScriptovou FUNKCI (`renderItem`), aby si ji komponenta sama
+  zavolala pro každou položku ve dvou variantách (carousel/stack).
+  Next.js přes hranici server → klient ale umí poslat jen Server
+  Actions, ne libovolnou funkci — render proto vždy spadl s `Functions
+  cannot be passed directly to Client Components`. Nejde o kontrolu,
+  kterou by `tsc`/`build` zachytily (je čistě runtime, vyhodnocuje se
+  až při skutečném renderu konkrétní stránky), a `/spaces/[id]` navíc
+  nemá statický náhled při buildu (je celá dynamická), takže se na ni
+  build vůbec nedostal.
+
+  **Diagnostika**: appka spadá pro ÚPLNĚ KAŽDOU soutěž bez výjimky
+  ukázala, že jde o strukturální bug, ne o data konkrétní soutěže —
+  ověřeno i přes `db-probe.yml` (service role, obchází RLS), že data
+  ve všech dotčených tabulkách vypadají v pořádku. Skutečná chyba se
+  podařila reprodukovat až lokálně: dočasná preview stránka bez auth
+  (`src/lib/supabase/middleware.ts` na chvíli rozšířeno o veřejnou
+  cestu, po ověření vráceno zpět) volající `ExpandableList` se
+  smyšlenými daty přesně stejným způsobem jako produkční kód —
+  `pnpm dev` v terminálu ukázal přesně tenhle stack trace.
+
+  **Oprava**: `ExpandableList` teď místo funkce dostává dvě už HOTOVĚ
+  VYKRESLENÁ pole JSX uzlů (`carouselItems`/`stackItems`, obojí
+  vzniklé zavoláním `MatchCard` na serveru s `layout="carousel"`/
+  `"stack"`) — React elementy appka přes hranici poslat může (jsou to
+  obyčejná serializovatelná data), jen holou funkci ne. Chování appky
+  pro uživatele beze změny.
+
+  **Poučení pro příště** (týká se jakékoliv budoucí komponenty
+  postavené na vzoru "Server Component posílá Client Componentě, jak
+  si má vykreslit jednotlivé položky"): render-prop funkce (`renderItem`,
+  `children` jako funkce apod.) NEJDOU poslat přes Server → Client
+  hranici, jen Server Actions. Když appka potřebuje, aby klientská
+  komponenta rozhodovala MEZI už hotovými vzhledy (carousel vs. stack,
+  sbaleno vs. rozbaleno), musí dostat obě varianty předem vykreslené
+  jako pole/props, ne funkci, kterou by si měla zavolat sama. `tsc`
+  ani `pnpm build` tuhle třídu chyby nezachytí (u appky bez React
+  testů žádné automatické síto neexistuje) — projeví se AŽ za běhu na
+  konkrétní dynamické route, takže při podezření na "appka nejde
+  vůbec otevřít" (ne na konkrétních datech, ale univerzálně) stojí za
+  to zkusit reprodukovat lokálně přes `pnpm dev`, ne rovnou hádat na
+  datech.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
