@@ -1187,11 +1187,7 @@ udržuje v provozu sama.
     dokumentace 10.9.2026 — teď už `predict-reminders.mjs` sloupec
     skutečně čte, takže grant přestal být "zatím neškodí").
   - `src/components/app-header.tsx` — nový přepínač (ikona 🔔/🔕) vedle
-    `ThemeToggle`, inline server akce `toggleEmailReminders` (stejný
-    vzor jako existující `signOut` v tomtéž souboru) +
-    `revalidatePath("/", "layout")` (ne cesta ke konkrétní stránce —
-    hlavička žije ve sdíleném layoutu a formulář se odesílá z
-    libovolné stránky pod `(app)`).
+    `ThemeToggle`.
   - `src/app/(app)/spaces/[id]/page.tsx` + `actions.ts` — odstraněno
     staré tlačítko "🔔 Chci upozornit"/`setEmailReminders` z hlavičky
     detailu soutěže.
@@ -1210,9 +1206,39 @@ udržuje v provozu sama.
   precedent v historii migrací), takže radši neškodný mrtvý sloupec
   než riziko nevratného mazání dat.
 
+  **Doladění srozumitelnosti přepínače (11.9.2026, ve stejném PR, na
+  žádost uživatele):**
+  - Samotná ikona 🔔/🔕 byla nejednoznačná — uživatel nahlásil, že není
+    jasné, jestli ukazuje aktuální stav, nebo co se stane po kliknutí.
+    Přidáno barevné vyplnění (`bg-accent`) pro zapnutý stav, stejná
+    konvence jako zbytek appky (tlačítko "Chci hrát", pilulka "Vše
+    natipováno") — vyplněná barva = aktivní, obrys = neaktivní.
+  - Uživatel chtěl navíc explicitní potvrzení PO kliknutí. Přepínač je
+    teď klientská komponenta `src/components/email-reminders-toggle.tsx`
+    (server akce přesunuta do `src/components/app-header-actions.ts`,
+    `useActionState`) — po úspěšném přepnutí se na ~2,5 s ukáže bublina
+    "🔔 Upozornění zapnuto"/"🔕 Upozornění vypnuto" pod tlačítkem.
+    Server akce si nově aktuální stav vždy načte čerstvě sama (ne přes
+    bindnutý argument z prvního vykreslení stránky) — jinak by druhé
+    kliknutí bez mezitímního obnovení stránky přepínalo podle
+    zastaralé hodnoty.
+  - **Chyba nalezená a opravená při vlastním testování (moje, přes
+    Playwright):** naivní "neukazuj toast při prvním vykreslení"
+    pojistka (příznak `didMount`) selhávala v React Strict Mode (dev
+    režim Next.js) — ten efekty při mountu schválně spouští dvakrát
+    kvůli odhalování chybějícího úklidu, takže se příznak stihl
+    přepnout na `true` už při prvním spuštění a druhé pak omylem
+    ukázalo toast hned po načtení stránky. Opraveno porovnáním se
+    skutečně poslední zpracovanou hodnotou (`lastHandledValue` ref)
+    místo jednorázového příznaku — funguje správně v obou průchodech
+    Strict Mode i v produkci.
+
   **Ruční krok uživatele**: spustit migraci
   `20260911090000_profiles_email_reminders_enabled.sql` v Supabase SQL
-  editoru.
+  editoru. **Hotovo (12.9.2026)** — uživatel potvrdil spuštění, ověřeno
+  přes `db-probe.yml`: sloupec `profiles.email_reminders_enabled`
+  existuje u všech 11 profilů s očekávaným mixem `true`/`false` podle
+  pravidla migrace stavu výše.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
