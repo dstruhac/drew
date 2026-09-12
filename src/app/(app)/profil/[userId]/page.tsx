@@ -4,6 +4,7 @@ import { ChevronLeft, Trophy, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
 import { sportAccentStyle } from "@/lib/sport";
+import { ClickableCardTile } from "@/components/clickable-card-tile";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 const SPORT_LABELS: Record<CompetitionSport, string> = {
@@ -34,6 +35,8 @@ export default async function PublicProfilePage({
     profileResult,
     participationsResult,
     badgesResult,
+    allCardsResult,
+    ownedCardsResult,
   ] = await Promise.all([
     getCurrentUser(),
     supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
@@ -42,14 +45,20 @@ export default async function PublicProfilePage({
       .select("competition_id, competitions(id, name, sport, logo_url)")
       .eq("user_id", userId),
     supabase.from("weekly_badges").select("competition_id").eq("user_id", userId),
+    supabase.from("cards").select("*").order("id", { ascending: true }),
+    supabase.from("user_cards").select("card_id, quantity").eq("user_id", userId),
   ]);
 
   throwIfSupabaseError(profileResult.error, "Načtení profilu", ["PGRST116"]);
   throwIfSupabaseError(participationsResult.error, "Načtení soutěží hráče");
   throwIfSupabaseError(badgesResult.error, "Načtení medailí hráče");
+  throwIfSupabaseError(allCardsResult.error, "Načtení katalogu karet");
+  throwIfSupabaseError(ownedCardsResult.error, "Načtení sbírky karet hráče");
   const profile = profileResult.data;
   const participations = participationsResult.data;
   const badges = badgesResult.data;
+  const allCards = allCardsResult.data ?? [];
+  const ownedCards = new Map((ownedCardsResult.data ?? []).map((c) => [c.card_id, c.quantity]));
 
   if (!profile) {
     notFound();
@@ -273,6 +282,28 @@ export default async function PublicProfilePage({
             );
           })}
         </ul>
+      )}
+
+      {allCards.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-bold text-muted-foreground">
+            Sbírka karet{" "}
+            <span className="text-faint-foreground">
+              ({ownedCards.size}/{allCards.length})
+            </span>
+          </h2>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {allCards.map((card) => (
+              <li key={card.id}>
+                <ClickableCardTile
+                  card={card}
+                  owned={ownedCards.has(card.id)}
+                  quantity={ownedCards.get(card.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </main>
   );

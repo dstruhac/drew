@@ -4,6 +4,7 @@ import { ChevronLeft, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekRange } from "@/lib/week";
 import { sportAccentStyle } from "@/lib/sport";
+import { RARITY_ORDER, RARITY_BORDER_CLASSES, RARITY_LABELS } from "@/lib/rarity";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export default async function LeaderboardPage({
@@ -67,6 +68,37 @@ export default async function LeaderboardPage({
       badge.user_id,
       (badgeCountByUser.get(badge.user_id) ?? 0) + 1,
     );
+  }
+
+  // Miniatura nejvzácnější (a při shodě nejnovější) sběratelské karty
+  // hráče -- karty jsou napříč VŠEMI soutěžemi (jedna za kalendářní
+  // týden, ne za tuhle konkrétní soutěž), proto samostatný dotaz
+  // omezený jen na hráče viditelné na tomhle žebříčku.
+  const participantUserIds = (participants ?? []).map((p) => p.user_id);
+  const bestCardByUser = new Map<
+    string,
+    { id: number; name: string; rarity: "common" | "rare" | "legendary"; image_url: string | null }
+  >();
+  if (participantUserIds.length > 0) {
+    // Seřazeno od nejnovější -- při stejné (nejvyšší) vzácnosti tak
+    // dole zůstane první nalezená, tedy nejnovější, karta daného hráče.
+    const { data: userCards, error: userCardsError } = await supabase
+      .from("user_cards")
+      .select("user_id, first_obtained_at, cards(id, name, rarity, image_url)")
+      .in("user_id", participantUserIds)
+      .order("first_obtained_at", { ascending: false });
+    throwIfSupabaseError(userCardsError, "Načtení sběratelských karet");
+
+    for (const row of userCards ?? []) {
+      if (!row.cards) continue;
+      const current = bestCardByUser.get(row.user_id);
+      if (
+        !current ||
+        RARITY_ORDER[row.cards.rarity] > RARITY_ORDER[current.rarity]
+      ) {
+        bestCardByUser.set(row.user_id, row.cards);
+      }
+    }
   }
 
   type Totals = {
@@ -222,6 +254,7 @@ export default async function LeaderboardPage({
                       {badgeCountByUser.get(entry.userId)}
                     </span>
                   )}
+                  <BestCardThumb card={bestCardByUser.get(entry.userId) ?? null} />
                 </div>
                 <div className="text-right">
                   <span className="font-extrabold">{entry.totalPoints} b.</span>
@@ -278,6 +311,27 @@ export default async function LeaderboardPage({
         )}
       </section>
     </main>
+  );
+}
+
+// Malá miniatura nejvzácnější (a při shodě nejnovější) sběratelské
+// karty hráče, vedle počtu medailí -- viz bestCardByUser výše.
+function BestCardThumb({
+  card,
+}: {
+  card: { id: number; name: string; rarity: "common" | "rare" | "legendary"; image_url: string | null } | null;
+}) {
+  if (!card) return null;
+  return (
+    <span
+      title={`${card.name} (${RARITY_LABELS[card.rarity]})`}
+      className={`h-6 w-6 shrink-0 overflow-hidden rounded-md border-2 bg-surface-hover ${RARITY_BORDER_CLASSES[card.rarity]}`}
+    >
+      {card.image_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={card.image_url} alt="" className="h-full w-full object-cover" />
+      )}
+    </span>
   );
 }
 

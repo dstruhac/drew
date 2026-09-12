@@ -48,6 +48,9 @@ export default async function DashboardPage() {
     weeklyBadgesResult,
     profileResult,
     totalCompetitionsResult,
+    allCardsResult,
+    myCardsResult,
+    myCardDrawsResult,
     allCompetitionsResult,
   ] = await Promise.all([
     competitionIds.length
@@ -96,6 +99,15 @@ export default async function DashboardPage() {
       .eq("id", user?.id ?? "")
       .maybeSingle(),
     supabase.from("competitions").select("*", { count: "exact", head: true }),
+    supabase.from("cards").select("*").order("id", { ascending: true }),
+    supabase
+      .from("user_cards")
+      .select("card_id, quantity")
+      .eq("user_id", user?.id ?? ""),
+    supabase
+      .from("card_draws")
+      .select("week_start, card_id")
+      .eq("user_id", user?.id ?? ""),
     supabase
       .from("competitions")
       .select("id, name, sport, logo_url, description")
@@ -109,6 +121,9 @@ export default async function DashboardPage() {
   throwIfSupabaseError(weeklyBadgesResult.error ?? null, "Načtení medailí");
   throwIfSupabaseError(profileResult.error ?? null, "Načtení profilu");
   throwIfSupabaseError(totalCompetitionsResult.error ?? null, "Načtení počtu soutěží");
+  throwIfSupabaseError(allCardsResult.error ?? null, "Načtení katalogu karet");
+  throwIfSupabaseError(myCardsResult.error ?? null, "Načtení sbírky karet");
+  throwIfSupabaseError(myCardDrawsResult.error ?? null, "Načtení losování karet");
   throwIfSupabaseError(allCompetitionsResult.error ?? null, "Načtení seznamu soutěží");
 
   const allParticipants = allParticipantsResult.data;
@@ -118,6 +133,11 @@ export default async function DashboardPage() {
   const weeklyBadges = weeklyBadgesResult.data;
   const profileRow = profileResult.data;
   const totalCompetitionsCount = totalCompetitionsResult.count;
+  const allCards = allCardsResult.data ?? [];
+  const myCards = myCardsResult.data ?? [];
+  const myCardDraws = myCardDrawsResult.data ?? [];
+  const cardById = new Map(allCards.map((c) => [c.id, c]));
+  const ownedCards = new Map(myCards.map((c) => [c.card_id, c.quantity]));
 
   // Soutěže, které hráč ještě nehraje -- nabídne se mu je
   // JoinCompetitionsModal, pokud zatím nehraje žádnou (viz níže).
@@ -219,6 +239,25 @@ export default async function DashboardPage() {
   // má watermark posunout, až hráč modal/banner zavře.
   const markSeenThrough = newBadges.length > 0 ? newBadges[0].week_start : null;
 
+  // Nové týdny (po badges_seen_through), ve kterých hráč sám vyhrál --
+  // i když vyhrál víc soutěží najednou, dostal za ten týden jen JEDNU
+  // kartu (award-weekly-badges.mjs), proto se tu seskupuje podle
+  // week_start, ne podle jednotlivé medaile.
+  const cardDrawByWeek = new Map(myCardDraws.map((d) => [d.week_start, d.card_id]));
+  const newWeeksMap = new Map<string, { weekStart: string; competitionNames: string[] }>();
+  for (const badge of myNewBadges) {
+    const entry = newWeeksMap.get(badge.week_start) ?? {
+      weekStart: badge.week_start,
+      competitionNames: [],
+    };
+    entry.competitionNames.push(badge.competitions?.name ?? "Neznámá soutěž");
+    newWeeksMap.set(badge.week_start, entry);
+  }
+  const newWeeks = [...newWeeksMap.values()].map((w) => {
+    const cardId = cardDrawByWeek.get(w.weekStart);
+    return { ...w, card: cardId !== undefined ? (cardById.get(cardId) ?? null) : null };
+  });
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-5xl sm:px-10">
       <header>
@@ -232,9 +271,11 @@ export default async function DashboardPage() {
 
       <BadgeCenter
         myBadges={myBadges}
-        myNewBadges={myNewBadges}
         othersNewBadges={othersNewBadges}
         markSeenThrough={markSeenThrough}
+        allCards={allCards}
+        ownedCards={ownedCards}
+        newWeeks={newWeeks}
       >
         <section className="flex flex-col gap-3">
           {spotlightMatch ? (

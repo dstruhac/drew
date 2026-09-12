@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { Medal, X } from "lucide-react";
 import { markBadgesSeen } from "@/app/(app)/dashboard/actions";
-import { sportAccentStyle } from "@/lib/sport";
+import { RARITY_LABELS } from "@/lib/rarity";
+import { CardTile, type CardData } from "@/components/card-tile";
+import { ClickableCardTile } from "@/components/clickable-card-tile";
 
 type BadgeRow = {
   competition_id: string;
@@ -12,6 +14,16 @@ type BadgeRow = {
   points: number;
   competitions: { name: string; sport: "hockey" | "football" | "mixed" } | null;
   profiles: { display_name: string } | null;
+};
+
+// Jeden nový kalendářní týden, ve kterém hráč vyhrál -- i když vyhrál
+// víc soutěží najednou, dostal za ten týden jen JEDNU kartu (viz
+// award-weekly-badges.mjs), proto se modal staví z týdnů, ne z
+// jednotlivých medailí.
+type NewWeek = {
+  weekStart: string;
+  competitionNames: string[];
+  card: CardData | null;
 };
 
 function formatBadgeWeek(weekStartDate: string) {
@@ -24,10 +36,6 @@ function formatBadgeWeek(weekStartDate: string) {
   const start = new Date(weekStartDate);
   const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
   return `${format(start)}–${format(end)}`;
-}
-
-function badgeKey(b: { competition_id: string; week_start: string }) {
-  return `${b.competition_id}-${b.week_start}`;
 }
 
 // Seskupí cizí výhry podle hráče+soutěže -- jeden hráč může mít víc
@@ -55,9 +63,10 @@ function groupOthers(rows: BadgeRow[]) {
 
 // Centrální místo pro vše kolem medailí za vítězství týdne na
 // dashboardu (nahrazuje dřívější badge-celebration-modal.tsx +
-// badge-celebration-watcher.tsx): gratulační modal za vlastní výhru,
-// informační banner o cizí výhře a samotná Sbírka artefaktů se
-// šedo-barevným "odemykacím" efektem u nové medaile.
+// badge-celebration-watcher.tsx): gratulační modal za vlastní výhru
+// (teď včetně sběratelské karty, kterou hráč tou výhrou dostal),
+// informační banner o cizí výhře a samotná Sbírka artefaktů -- teď
+// mřížka karet místo dřívějších holých ikonek medaile.
 //
 // "Už jsi to viděl" se řeší na serveru (profiles.badges_seen_through),
 // ne v localStorage -- appka to teda nezopakuje na jiném zařízení.
@@ -67,25 +76,34 @@ function groupOthers(rows: BadgeRow[]) {
 // víc upozorněními na totéž.
 export function BadgeCenter({
   myBadges,
-  myNewBadges,
   othersNewBadges,
   markSeenThrough,
+  allCards,
+  ownedCards,
+  newWeeks,
   children,
 }: {
   myBadges: BadgeRow[];
-  myNewBadges: BadgeRow[];
   othersNewBadges: BadgeRow[];
   markSeenThrough: string | null;
+  // Celý katalog karet (1-50, zatím prvních 10), seřazený podle čísla
+  // -- pro mřížku "Sbírka artefaktů" včetně zamčených slotů.
+  allCards: CardData[];
+  // Vlastní sbírka -- card_id -> počet kusů (>1 = duplicita).
+  ownedCards: Map<number, number>;
+  // Nové týdny (po badges_seen_through), ve kterých hráč sám vyhrál --
+  // řídí gratulační modal i "odemykací" animaci v mřížce níže.
+  newWeeks: NewWeek[];
   // Zbytek obsahu dashboardu (vysvícený zápas, Tvoje soutěže) --
-  // banner musí vyjít NAD tímhle obsahem, mřížka medailí AŽ POD ním,
+  // banner musí vyjít NAD tímhle obsahem, mřížka karet AŽ POD ním,
   // a obojí musí sdílet stav "revealed" s modalem, takže celý zbytek
   // stránky prochází přes tuhle komponentu jako children, místo aby
   // šlo o dva nezávislé kusy JSX v page.tsx.
   children: React.ReactNode;
 }) {
-  const [modalOpen, setModalOpen] = useState(myNewBadges.length > 0);
+  const [modalOpen, setModalOpen] = useState(newWeeks.length > 0);
   const [bannerOpen, setBannerOpen] = useState(
-    myNewBadges.length === 0 && othersNewBadges.length > 0,
+    newWeeks.length === 0 && othersNewBadges.length > 0,
   );
   const [revealed, setRevealed] = useState(false);
 
@@ -117,8 +135,10 @@ export function BadgeCenter({
     if (markSeenThrough) await markBadgesSeen(markSeenThrough);
   }
 
-  const newKeys = new Set(myNewBadges.map(badgeKey));
   const othersGrouped = groupOthers(othersNewBadges);
+  const newCardIds = new Set(
+    newWeeks.map((w) => w.card?.id).filter((id): id is number => id !== undefined && id !== null),
+  );
 
   return (
     <>
@@ -134,15 +154,34 @@ export function BadgeCenter({
               Gratuluju, jsi jednooký mezi slepými.
             </h2>
             <p className="relative mt-1 text-sm font-semibold text-white/70">
-              Jsi vítěz týdne za{myNewBadges.length > 1 ? " soutěže" : " soutěž"}:
+              Jsi vítěz týdne za {newWeeks.length > 1 ? "tyto týdny" : "tento týden"}:
             </p>
-            <ul className="relative mt-2 flex flex-col gap-1 text-sm font-semibold text-white/60">
-              {myNewBadges.map((b) => (
-                <li key={badgeKey(b)}>
-                  {b.competitions?.name ?? "Soutěž"} · {formatBadgeWeek(b.week_start)}
+
+            <ul className="relative mt-2 flex flex-col gap-3">
+              {newWeeks.map((week) => (
+                <li key={week.weekStart} className="flex items-center gap-3 text-left">
+                  {week.card && (
+                    <div className="w-16 shrink-0">
+                      <CardTile card={week.card} owned quantity={ownedCards.get(week.card.id)} />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    {week.card && (
+                      <p className="text-sm font-extrabold text-white">
+                        {week.card.name}{" "}
+                        <span className="font-semibold text-white/50">
+                          · {RARITY_LABELS[week.card.rarity]}
+                        </span>
+                      </p>
+                    )}
+                    <p className="text-xs font-semibold text-white/60">
+                      {week.competitionNames.join(", ")} · {formatBadgeWeek(week.weekStart)}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>
+
             {othersGrouped.length > 0 && (
               <p className="relative mt-3 text-xs font-medium text-white/40">
                 {othersGrouped
@@ -190,30 +229,30 @@ export function BadgeCenter({
       {children}
 
       <section id="artefakty" className="flex flex-col gap-3">
-        <h2 className="text-sm font-bold text-muted-foreground">Sbírka artefaktů</h2>
+        <h2 className="text-sm font-bold text-muted-foreground">
+          Sbírka artefaktů{" "}
+          <span className="text-faint-foreground">
+            ({ownedCards.size}/{allCards.length})
+          </span>
+        </h2>
 
         {myBadges.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Zatím žádná medaile -- vyhraj týden a objeví se tu!
+            Zatím žádná medaile -- vyhraj týden a objeví se tu první kartička!
           </p>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {myBadges.map((badge) => {
-              const isNew = newKeys.has(badgeKey(badge));
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {allCards.map((card) => {
+              const isNew = newCardIds.has(card.id);
               return (
-                <li
-                  key={badgeKey(badge)}
-                  title="Medaile za nejvyšší nasbíraný počet bodů v daném týdnu a dané soutěži."
-                  style={sportAccentStyle(badge.competitions?.sport)}
-                  className={`flex items-center gap-2 rounded-2xl border border-border-subtle bg-surface p-3 text-sm font-semibold transition-all duration-[var(--duration-celebration)] ${
-                    isNew && !revealed ? "grayscale opacity-50" : ""
-                  } ${isNew && revealed ? "animate-[celebrate-pop_0.7s_var(--ease-bounce)]" : ""}`}
-                >
-                  <Medal className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.2} />
-                  {badge.competitions?.name ?? "Neznámá soutěž"}
-                  <span className="text-faint-foreground">
-                    · {formatBadgeWeek(badge.week_start)}
-                  </span>
+                <li key={card.id}>
+                  <ClickableCardTile
+                    card={card}
+                    owned={ownedCards.has(card.id)}
+                    quantity={ownedCards.get(card.id)}
+                    muted={isNew && !revealed}
+                    isNew={isNew && revealed}
+                  />
                 </li>
               );
             })}

@@ -1,0 +1,41 @@
+# Jednorázový (ruční) import fotek pro sběratelské karty z Pexels do
+# Supabase Storage (bucket "cards") + zápis cards.image_url. Viz
+# scripts/sync/import-card-images.mjs pro zdroj a vyhledávací dotazy.
+#
+# Nemá schedule -- katalog karet se nemění denně, spouští se ručně, když
+# je potřeba doplnit fotky k nově přidaným kartám.
+#
+# Vyžaduje GitHub secret PEXELS_API_KEY (zdarma na pexels.com/api).
+
+name: Import card images
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit import-card-images
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: node import-card-images.mjs

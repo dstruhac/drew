@@ -44,6 +44,36 @@
   --warning: #d97706;
   --danger: #dc2626;
 
+  /* Vzácnost sběratelských karet (6.9.2026) -- vlastnost SAMOTNÉ karty,
+     záměrně nezávislá na --accent (to je sportovní barva soutěže).
+     Střední sytost barev je čitelná v obou režimech beze změny, na
+     rozdíl od --accent-hockey/--warning výše proto nemá zvlášť tmavou
+     variantu.
+
+     Běžná (common) byla původně plochá šedá (#9ca3af) -- uživatel
+     10.9.2026 nahlásil, že to u nejnižší vzácnosti působí jako
+     "prohra", ne jako medaile. Přebarveno na bronz, ať má i "běžná"
+     karta vlastní pompézní identitu (bronz/stříbro/zlato), ne jen
+     odstín neutrální šedi. */
+  --rarity-common: #c9772f;
+  --rarity-rare: #3b82f6;
+  --rarity-legendary: #f3a712;
+
+  /* Světlejší/tmavší odstín + barva záře pro každou vzácnost --
+     používá se pro kovový přechodový rámeček a podsvícení kartiček
+     (card-tile.tsx) a pro "zvednutí" v detailním modalu
+     (clickable-card-tile.tsx). Lesklý přechod (světlý→sytý→tmavý) dělá
+     z plochého rámečku kovový vzhled místo ploché barvy. */
+  --rarity-common-light: #f3c28f;
+  --rarity-common-dark: #7a431b;
+  --rarity-common-glow: rgb(201 119 47 / 0.45);
+  --rarity-rare-light: #bcd4ff;
+  --rarity-rare-dark: #1d3e8f;
+  --rarity-rare-glow: rgb(59 130 246 / 0.5);
+  --rarity-legendary-light: #ffe9ae;
+  --rarity-legendary-dark: #8a5a06;
+  --rarity-legendary-glow: rgb(243 167 18 / 0.6);
+
   /* Zaoblení -- čtyři úrovně od malých čipů po velké "hero" karty. */
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -78,6 +108,9 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-rarity-common: var(--rarity-common);
+  --color-rarity-rare: var(--rarity-rare);
+  --color-rarity-legendary: var(--rarity-legendary);
   --font-sans: var(--font-manrope);
 }
 
@@ -157,6 +190,54 @@ body {
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+/* Sběratelské karty (přepompéznění 10.9.2026) -- nekonečný jemný
+   "přejezd" světla přes fotku, ať kartička "září"/dýchá i v klidu, ne
+   jen při najetí myší (card-tile.tsx). Konkrétní rychlost/sytost se
+   liší podle vzácnosti -- řeší `animationDuration` nastavený přímo na
+   elementu, tohle je jen společný pohyb. */
+@keyframes card-shimmer {
+  0% {
+    transform: translateX(0) rotate(8deg);
+  }
+  45%,
+  100% {
+    transform: translateX(340%) rotate(8deg);
+  }
+}
+
+/* "Zvednutí" kartičky v detailním modalu po kliknutí
+   (clickable-card-tile.tsx) -- karta se mírně pootočená a zmenšená
+   vynoří, přestřelí velikost a dosedne, jako by ji někdo vytáhl z
+   balíčku a otočil k tobě. */
+@keyframes card-reveal-lift {
+  0% {
+    transform: scale(0.7) translateY(26px) rotate(-4deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.05) translateY(-4px) rotate(1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0) rotate(0deg);
+  }
+}
+
+/* Klik na ještě nezískanou (zamčenou) kartičku -- appka "zavrtí
+   hlavou" místo prozrazení jména/fotky dopředu (clickable-card-tile.tsx). */
+@keyframes card-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
   }
 }
 

@@ -9,6 +9,7 @@ export type Sport = "hockey" | "football";
 export type CompetitionSport = Sport | "mixed";
 export type CompetitionStatus = "active" | "archived";
 export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
+export type CardRarity = "common" | "rare" | "legendary";
 
 export interface Database {
   public: {
@@ -275,6 +276,99 @@ export interface Database {
             columns: ["competition_id"];
             isOneToOne: false;
             referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cards: {
+        Row: {
+          id: number;
+          rarity: CardRarity;
+          name: string;
+          club: string;
+          position: string;
+          sport: Sport;
+          flavor_text: string;
+          image_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: number;
+          rarity: CardRarity;
+          name: string;
+          club: string;
+          position: string;
+          sport: Sport;
+          flavor_text: string;
+          image_url?: string | null;
+        };
+        Update: {
+          image_url?: string | null;
+        };
+        Relationships: [];
+      };
+      user_cards: {
+        Row: {
+          user_id: string;
+          card_id: number;
+          quantity: number;
+          first_obtained_at: string;
+        };
+        Insert: {
+          user_id: string;
+          card_id: number;
+          quantity?: number;
+        };
+        Update: {
+          quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_cards_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_cards_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      card_draws: {
+        Row: {
+          user_id: string;
+          week_start: string;
+          card_id: number;
+          rarity: CardRarity;
+          win_count: number;
+          awarded_at: string;
+        };
+        Insert: {
+          user_id: string;
+          week_start: string;
+          card_id: number;
+          rarity: CardRarity;
+          win_count: number;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "card_draws_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "card_draws_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
             referencedColumns: ["id"];
           },
         ];
