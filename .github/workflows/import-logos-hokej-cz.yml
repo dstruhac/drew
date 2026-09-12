@@ -1,0 +1,42 @@
+# Jednorázový (ruční) import log klubů Hokejové extraligy z hokej.cz do
+# Supabase Storage + tabulky team_logos. Viz
+# scripts/sync/import-logos-hokej-cz.mjs pro zdroj a mapování
+# team_name -> kód souboru na hokej.cz.
+#
+# Stejně jako import-logos-premier-league.yml nepotřebuje unzip/
+# poppler-utils/imagemagick -- hokej.cz dává rovnou hotové PNG.
+#
+# Nemá schedule -- loga se nemění denně, spouští se ručně, když je
+# potřeba je (znovu) naimportovat.
+
+name: Import logos (hokej.cz)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit import-logos-hokej-cz
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node import-logos-hokej-cz.mjs
