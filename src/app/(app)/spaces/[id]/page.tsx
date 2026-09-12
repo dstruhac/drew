@@ -64,6 +64,16 @@ const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 // vrací k mřížce beze změny chování -- carousel řeší jen to, že na
 // mobilu je dřívější svislý sloupec zbytečně vysoký, na širší
 // obrazovce už mřížka místo šetřila dost.
+//
+// Sekce BEZ tlačítka "Zobrazit všechny" ("Probíhající", "Odloženo") --
+// mívají jen pár zápasů najednou, takže appka na obou šířkách ukazuje
+// rovnou úplně všechno stejným (hybridním) seznamem. Sekce S tlačítkem
+// ("Ještě netipováno", "Už tipnuto", "Proběhlé") mají tenhle carousel
+// vzhled zase jinak řešený přímo v `ExpandableList` (12.9.2026, na
+// žádost uživatele "do carouselu chci všechny zápasy, které je možné
+// zobrazit v dané sekci" -- na mobilu appka carouselem ukazuje VŽDY
+// úplně vše, žádné omezení; na počítači zůstává dřívější chování,
+// jen prvních `initialCount` + tlačítko na odhalení zbytku v mřížce).
 const MATCH_GRID_CLASSNAME =
   "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-0 lg:grid-cols-3";
 
@@ -359,8 +369,8 @@ export default async function CompetitionDetailPage({
                     {restMissing.length > 0 && (
                       <ExpandableList
                         initialCount={UPCOMING_MISSING_EXTRA_VISIBLE_COUNT}
-                        listClassName={MATCH_GRID_CLASSNAME}
-                        items={restMissing.map((match) => (
+                        items={restMissing}
+                        renderItem={(match, layout) => (
                           <MatchCard
                             key={match.id}
                             match={match}
@@ -370,8 +380,9 @@ export default async function CompetitionDetailPage({
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             logoUrlByTeam={logoUrlByTeam}
+                            layout={layout}
                           />
-                        ))}
+                        )}
                       />
                     )}
                   </>
@@ -392,8 +403,8 @@ export default async function CompetitionDetailPage({
                     </h3>
                     <ExpandableList
                       initialCount={UPCOMING_PREDICTED_VISIBLE_COUNT}
-                      listClassName={MATCH_GRID_CLASSNAME}
-                      items={upcomingPredicted.map((match) => (
+                      items={upcomingPredicted}
+                      renderItem={(match, layout) => (
                         <MatchCard
                           key={match.id}
                           match={match}
@@ -403,8 +414,9 @@ export default async function CompetitionDetailPage({
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           logoUrlByTeam={logoUrlByTeam}
+                          layout={layout}
                         />
-                      ))}
+                      )}
                     />
                   </div>
                 )}
@@ -464,8 +476,8 @@ export default async function CompetitionDetailPage({
                 </h2>
                 <ExpandableList
                   initialCount={PAST_VISIBLE_COUNT}
-                  listClassName={MATCH_GRID_CLASSNAME}
-                  items={past.map((match) => (
+                  items={past}
+                  renderItem={(match, layout) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -475,8 +487,9 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logoUrlByTeam={logoUrlByTeam}
+                      layout={layout}
                     />
-                  ))}
+                  )}
                 />
               </section>
             )}
@@ -580,6 +593,7 @@ function MatchCard({
   sport,
   competitionId,
   logoUrlByTeam,
+  layout = "carousel",
 }: {
   match: Match;
   isLocked: boolean;
@@ -588,6 +602,12 @@ function MatchCard({
   sport: "hockey" | "football";
   competitionId: string;
   logoUrlByTeam: Map<string, string>;
+  /** "carousel" (výchozí) = kartička má na mobilu fixní procentuální
+   * šířku (peek dalšího zápasu při swipu), "stack" = plná šířka řádku
+   * (appka na to přepne po kliknutí na "Zobrazit všechny", viz
+   * ExpandableList). Sekce bez tlačítka ("Probíhající", "Odloženo")
+   * layout vůbec nepředávají, zůstávají na výchozím "carousel". */
+  layout?: "carousel" | "stack";
 }) {
   // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
   // každý zápas zvlášť -- jinak je match.sport null a bere se sport
@@ -606,13 +626,24 @@ function MatchCard({
       ? "text-accent"
       : "text-muted-foreground";
 
-  const hasScore = match.home_score !== null && match.away_score !== null;
-  const showScore = hasScore && (match.status === "finished" || match.status === "live");
+  // Odehrané zápasy vypadaly skoro stejně jako ty, co se ještě
+  // tipují -- uživatel nahlásil 12.9.2026, že je appka málo odlišuje.
+  // Odsouhlaseno: tlumenější/šedivější kartička (desaturace přes
+  // Tailwind filter utility) pro VŠECHNY dohrané zápasy bez ohledu na
+  // úspěšnost tipu -- relativní barevné odlišení podle přesnosti tipu
+  // (RESULT_TONE_CLASSES, sytost zelené) zůstává zachované, jen celá
+  // kartička působí klidněji než živá "Nadcházející"/"Probíhající".
+  const finishedMutedClass = match.status === "finished" ? "saturate-[0.55]" : "";
+
+  const layoutClass =
+    layout === "carousel"
+      ? "w-[85%] shrink-0 snap-start sm:w-auto sm:shrink"
+      : "";
 
   return (
     <li
       style={sportAccentStyle(effectiveSport)}
-      className={`w-[85%] shrink-0 snap-start rounded-[18px] border p-4 sm:w-auto sm:shrink ${cardToneClass}`}
+      className={`rounded-[18px] border p-4 ${layoutClass} ${cardToneClass} ${finishedMutedClass}`}
     >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
@@ -663,7 +694,9 @@ function MatchCard({
             </span>
           </div>
           <span className="shrink-0 text-sm font-extrabold text-muted-foreground">
-            {showScore ? `${match.home_score}:${match.away_score}` : "–"}
+            {isLocked && existing
+              ? `${existing.predicted_home_score}:${existing.predicted_away_score}`
+              : "–"}
           </span>
           <div className="flex min-w-0 flex-col items-center gap-1.5">
             <TeamBadge url={logoUrlByTeam.get(match.away_team)} name={match.away_team} />
@@ -698,16 +731,12 @@ function MatchCard({
               Zápas je odložen, nový termín zatím není znám
             </p>
           )}
-          {existing ? (
-            <p>
-              Váš tip: {existing.predicted_home_score}:
-              {existing.predicted_away_score}
-            </p>
-          ) : match.status === "postponed" ? (
-            <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
-          ) : (
-            <p>Nestihl(a) jste tip, zápas je zamčený.</p>
-          )}
+          {!existing &&
+            (match.status === "postponed" ? (
+              <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
+            ) : (
+              <p>Nestihl(a) jste tip, zápas je zamčený.</p>
+            ))}
         </div>
       ) : isJoined ? (
         <PredictionForm
