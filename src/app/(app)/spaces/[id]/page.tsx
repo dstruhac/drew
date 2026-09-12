@@ -745,17 +745,8 @@ function MatchCard({
 
       {isLocked ? (
         <div className="mt-2 text-xs font-semibold text-faint-foreground">
-          {match.status === "finished" && (
-            <p className="text-base font-extrabold text-foreground">
-              Konečný výsledek: {match.home_score}:{match.away_score}
-            </p>
-          )}
-          {match.status === "live" && (
-            <p className="font-bold text-danger">
-              {match.home_score !== null && match.away_score !== null
-                ? `Právě se hraje: ${match.home_score}:${match.away_score}`
-                : "Právě se hraje"}
-            </p>
+          {match.status === "live" && match.home_score === null && match.away_score === null && (
+            <p className="font-bold text-danger">Právě se hraje</p>
           )}
           {match.status === "scheduled" && new Date(match.kickoff_at) <= new Date() && (
             <p className="font-bold text-danger">
