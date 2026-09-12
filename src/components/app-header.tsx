@@ -5,6 +5,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EmailRemindersToggle } from "@/components/email-reminders-toggle";
 import { MobileMenu } from "@/components/mobile-menu";
+import { MobileMenuLink } from "@/components/mobile-menu-link";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -107,18 +108,18 @@ export async function AppHeader() {
            * soutěže...) drží zvyk mít k tomu i výslovný textový odkaz,
            * ne jen klik na logo. */}
           <MobileMenu>
-            <Link
+            <MobileMenuLink
               href="/dashboard"
               className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
             >
               Dashboard
-            </Link>
-            <Link
+            </MobileMenuLink>
+            <MobileMenuLink
               href="/pravidla"
               className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
             >
               Pravidla
-            </Link>
+            </MobileMenuLink>
             <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2">
               <span className="text-sm font-semibold text-foreground">Vzhled appky</span>
               <ThemeToggle />
