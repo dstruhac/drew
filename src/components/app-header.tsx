@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EmailRemindersToggle } from "@/components/email-reminders-toggle";
+import { MobileMenu } from "@/components/mobile-menu";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -49,14 +50,24 @@ export async function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          {/* Na počítači se hlavička vejde beze změny -- schováno jen
+           * na mobilu (12.9.2026, uživatel nahlásil "hlavička je
+           * plná"), kde se totéž ukazuje uvnitř MobileMenu níže. */}
           <Link
             href="/pravidla"
-            className="btn-press text-xs font-bold text-muted-foreground hover:text-foreground"
+            className="btn-press hidden text-xs font-bold text-muted-foreground hover:text-foreground sm:inline"
           >
             Pravidla
           </Link>
-          <ThemeToggle />
-          <EmailRemindersToggle initialEnabled={remindersEnabled} />
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
+          <div className="hidden sm:block">
+            <EmailRemindersToggle initialEnabled={remindersEnabled} />
+          </div>
+
+          {/* Fotečka zůstává vidět vždy -- i na mobilu, mimo hamburger
+           * menu (odsouhlaseno s uživatelem 12.9.2026). */}
           <Link
             href="/profil"
             title="Nastavení profilu"
@@ -78,7 +89,8 @@ export async function AppHeader() {
               </span>
             )}
           </Link>
-          <form action={signOut}>
+
+          <form action={signOut} className="hidden sm:block">
             <button
               type="submit"
               className="btn-press text-xs font-semibold text-muted-foreground underline underline-offset-2 hover:no-underline"
@@ -86,6 +98,44 @@ export async function AppHeader() {
               Odhlásit se
             </button>
           </form>
+
+          {/* Jen na mobilu (MobileMenu má sm:hidden) -- schovává úplně
+           * totéž, co appka na počítači ukazuje rovnou v hlavičce, plus
+           * "Dashboard" navíc (12.9.2026, na žádost uživatele) -- na
+           * počítači i na mobilu mimo menu appka na dashboard vede
+           * kliknutím na logo, ale appka jinde (/spaces, detail
+           * soutěže...) drží zvyk mít k tomu i výslovný textový odkaz,
+           * ne jen klik na logo. */}
+          <MobileMenu>
+            <Link
+              href="/dashboard"
+              className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/pravidla"
+              className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
+            >
+              Pravidla
+            </Link>
+            <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2">
+              <span className="text-sm font-semibold text-foreground">Vzhled appky</span>
+              <ThemeToggle />
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2">
+              <span className="text-sm font-semibold text-foreground">E-mailová upozornění</span>
+              <EmailRemindersToggle initialEnabled={remindersEnabled} />
+            </div>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="btn-press w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+              >
+                Odhlásit se
+              </button>
+            </form>
+          </MobileMenu>
         </div>
       </div>
     </div>
