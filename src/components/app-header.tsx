@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { EmailRemindersToggle } from "@/components/email-reminders-toggle";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -17,7 +18,7 @@ export async function AppHeader() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, avatar_url")
+    .select("display_name, avatar_url, email_reminders_enabled")
     .eq("id", user.id)
     .single();
 
@@ -29,6 +30,7 @@ export async function AppHeader() {
   }
 
   const initial = profile?.display_name?.trim().charAt(0).toUpperCase() || "?";
+  const remindersEnabled = profile?.email_reminders_enabled ?? true;
 
   return (
     <div className="border-b border-border-subtle">
@@ -54,6 +56,7 @@ export async function AppHeader() {
             Pravidla
           </Link>
           <ThemeToggle />
+          <EmailRemindersToggle initialEnabled={remindersEnabled} />
           <Link
             href="/profil"
             title="Nastavení profilu"

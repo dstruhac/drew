@@ -1160,6 +1160,60 @@ udržuje v provozu sama.
   jednorázový výpadek nikdy neznamená déletrvající výpadek importu
   výsledků.
 
+- [x] **E-mailové upozornění na nevyplněný tip přepnuto z per-competition
+  na jeden globální přepínač (11.9.2026)** — uživatel nahlásil, že
+  zapínání upozornění zvlášť za každou soutěž (viz krok výše z
+  6.9.2026 i nápad č. 4 níže) je matoucí. Navrhl spouštěč v hlavičce
+  appky, potvrzeno jako vhodné místo (stejná kategorie nastavení jako
+  `ThemeToggle` vedle něj — "jak chci appku používat", ne nic vázané na
+  konkrétní soutěž).
+
+  **Produktové rozhodnutí (odsouhlaseno s uživatelem přes
+  `AskUserQuestion`):** migrace existujícího stavu — hráč, který měl
+  zapnuto upozornění aspoň u JEDNÉ soutěže, dostal nový globální
+  přepínač rovnou ZAPNUTÝ (a od teď dostává upozornění napříč VŠEMI
+  svými soutěžemi, ne jen tou, kde si ho původně zapnul); kdo neměl
+  zapnuto nikde, zůstal vypnutý. Zvažované alternativy (zapnout jen
+  komu bylo zapnuto úplně všude / restartovat všem na vypnuto)
+  zamítnuty jako zbytečně konzervativní.
+
+  **Implementace:**
+  - `supabase/migrations/20260911090000_profiles_email_reminders_enabled.sql`
+    — nový sloupec `profiles.email_reminders_enabled` (default `true`,
+    navazuje na dřívější rozhodnutí `20260906140000_...` appka se
+    posouvá k "zapnuto, dokud si sám nevypneš"), zpětně vyplněný podle
+    pravidla výše, + `grant select on public.profiles to service_role`
+    (osmý výskyt stejné chybějící-grant třídy chyby zmíněný při revizi
+    dokumentace 10.9.2026 — teď už `predict-reminders.mjs` sloupec
+    skutečně čte, takže grant přestal být "zatím neškodí").
+  - `src/components/app-header.tsx` — nový přepínač (ikona 🔔/🔕) vedle
+    `ThemeToggle`, inline server akce `toggleEmailReminders` (stejný
+    vzor jako existující `signOut` v tomtéž souboru) +
+    `revalidatePath("/", "layout")` (ne cesta ke konkrétní stránce —
+    hlavička žije ve sdíleném layoutu a formulář se odesílá z
+    libovolné stránky pod `(app)`).
+  - `src/app/(app)/spaces/[id]/page.tsx` + `actions.ts` — odstraněno
+    staré tlačítko "🔔 Chci upozornit"/`setEmailReminders` z hlavičky
+    detailu soutěže.
+  - `scripts/sync/predict-reminders.mjs` — dotaz na participanty teď
+    filtruje přes `profiles!inner(email_reminders_enabled)` (join přes
+    existující FK `competition_participants.user_id → profiles.id`)
+    místo `competition_participants.email_reminders_enabled`. Čistá
+    logika v `reminder-logic.mjs` (souhrn napříč všemi soutěžemi
+    hráče) se nezměnila — jen se jí teď předává širší seznam
+    participantů.
+
+  **Vědomě ponecháno beze změny:** starý sloupec
+  `competition_participants.email_reminders_enabled` (i jeho
+  update policy/grant z 28.8.2026) zůstává v databázi nepoužitý —
+  appka v tomhle repu nikdy nedělala `DROP COLUMN`/`DROP TABLE` (žádný
+  precedent v historii migrací), takže radši neškodný mrtvý sloupec
+  než riziko nevratného mazání dat.
+
+  **Ruční krok uživatele**: spustit migraci
+  `20260911090000_profiles_email_reminders_enabled.sql` v Supabase SQL
+  editoru.
+
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
 nevymýšlí za něj):
@@ -1930,6 +1984,14 @@ zůstává beze změny — soukromá stránka na úpravu přezdívky.
 **4) Upozornění na nevyplněný den — implementováno (28.8.2026), čeká na
 ruční dokončení uživatelem.** Rozhodnuto s uživatelem přes chat +
 `AskUserQuestion`:
+
+> **Zastaralé (11.9.2026):** zapínání "za každou soutěž zvlášť" popsané
+> níže bylo zrušeno a nahrazeno jedním globálním přepínačem v hlavičce
+> appky — viz krok "E-mailové upozornění na nevyplněný tip přepnuto z
+> per-competition na jeden globální přepínač" ve "Stavu" výše. Zbytek
+> rozhodnutí (kanál, časování, souhrn) beze změny platí dál. Ponecháno
+> jako historický záznam rozhodovacího procesu.
+
 - **Kanál**: e-mail.
 - **Časování**: 2 hodiny před PRVNÍM zápasem dne, na který hráč ještě
   nemá tip — napříč VŠEMI soutěžemi, které hraje (ne fixní čas jako

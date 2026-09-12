@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   Trophy,
   Users,
-  Bell,
   Circle,
   Radio,
   CalendarOff,
@@ -18,7 +17,7 @@ import {
 } from "@/components/spotlight-match-card";
 import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
-import { joinCompetition, leaveCompetition, setEmailReminders } from "./actions";
+import { joinCompetition, leaveCompetition } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
@@ -86,7 +85,7 @@ export default async function CompetitionDetailPage({
     supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name), email_reminders_enabled")
+      .select("user_id, profiles(display_name)")
       .eq("competition_id", id),
     supabase
       .from("matches")
@@ -123,7 +122,6 @@ export default async function CompetitionDetailPage({
 
   const ownParticipant = participants?.find((p) => p.user_id === user?.id);
   const isJoined = ownParticipant !== undefined;
-  const emailRemindersEnabled = ownParticipant?.email_reminders_enabled ?? false;
 
   const ownPredictionByMatch = new Map(
     predictions
@@ -227,37 +225,6 @@ export default async function CompetitionDetailPage({
                 className="btn-press rounded-full bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
               >
                 Chci hrát
-              </button>
-            </form>
-          )}
-
-          {isJoined && (
-            <form
-              action={setEmailReminders.bind(null, competition.id, !emailRemindersEnabled)}
-              className="flex items-center gap-2 rounded-full border border-border-subtle px-3 py-1.5 text-xs font-bold text-muted-foreground"
-            >
-              <span className="flex items-center gap-1.5">
-                <Bell className="h-3.5 w-3.5" strokeWidth={2.2} />
-                E-mailová upozornění
-              </span>
-              <button
-                type="submit"
-                role="switch"
-                aria-checked={emailRemindersEnabled}
-                aria-label={
-                  emailRemindersEnabled
-                    ? "Vypnout e-mailová upozornění"
-                    : "Zapnout e-mailová upozornění"
-                }
-                className={`btn-press relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                  emailRemindersEnabled ? "bg-accent" : "bg-border-subtle"
-                }`}
-              >
-                <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                    emailRemindersEnabled ? "translate-x-4" : "translate-x-1"
-                  }`}
-                />
               </button>
             </form>
           )}
