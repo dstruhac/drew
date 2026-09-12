@@ -1136,6 +1136,29 @@ udržuje v provozu sama.
   systém komplikoval. Souvisí i s dřívější otevřenou otázkou "zda se
   správný tip na prodloužení boduje" ze sekce "Budoucí featury" —
   tahle featura ji řeší, položka se ze sekce odstraňuje.
+- [x] **`sync-results`: tichý pád na přechodný výpadek Supabase bez
+  GitHub issue, opraveno (12.9.2026, PR #154)** — uživatel upozornil na
+  [selhaný běh](https://github.com/dstruhac/drew/actions/runs/34677033006).
+  Ověřeno na historii běhů: dva ze tří pádů toho dne (run #374, #363)
+  selhaly na úplně prvním dotazu skriptu (`SELECT ... FROM
+  competitions`) kvůli přechodné chybě Supabase (504 Gateway Timeout).
+  Protože tenhle dotaz je mimo per-competition try/catch smyčku,
+  skript jen tiše spadl s exit code 1 — bez GitHub issue, přestože má
+  vlastní hlášení chyb (`reportFailure`). Stejná třída bugu jako u
+  `predict-reminders.mjs` (opraveno 5.9.2026, "JWT issued at future").
+  Třetí pád toho dne (#372) selhal uvnitř smyčky u jedné konkrétní
+  ligy a issue #153 se založil správně — potvrzuje, že chybí ochrana
+  jen před smyčkou, ne uvnitř ní.
+
+  Oprava (`scripts/sync/results.mjs`): `withTransientRetry()` (krátký
+  retry, stejný vzor jako `withJwtRetry`) na úvodní dotaz na
+  `competitions` — jediné místo v souboru, jehož selhání zastaví celý
+  běh. Plus top-level `try/catch` okolo `main()`, který při neošetřeném
+  pádu založí GitHub issue místo tichého selhání (stejná oprava jako
+  u `predict-reminders.mjs`). Appka se navíc sama zotavuje automaticky
+  — `sync-results` běží každých 30 minut (cron-job.org), takže
+  jednorázový výpadek nikdy neznamená déletrvající výpadek importu
+  výsledků.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
