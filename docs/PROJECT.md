@@ -1663,6 +1663,28 @@ nevymýšlí za něj):
    proběhl na první pokus (logo soutěže + všech 20 klubů), žádná
    změna appky/UI nebyla potřeba — appka už čte
    `competitions.logo_url`/`team_logos` obecně pro libovolnou soutěž.
+
+   **Doplněno pro Hokejovou extraligu (12.9.2026, na žádost uživatele),
+   zdroj [hokej.cz](https://www.hokej.cz/tipsport-extraliga/tymy).**
+   Poslední ze sedmi sledovaných soutěží bez klubových log — appka
+   tam u zápasů ukazovala jen text. Stejně jednoduchý zdroj jako
+   football-logos.cc u Premier League: stránka vykresluje logo
+   každého klubu jako přímé PNG přes resizovací proxy webu
+   (`min.php?file=%2Ffiles%2Flogos%2F{code}.png&w=...`), žádná PDF/ZIP
+   konverze potřeba. Ověřeno přes `playwright-probe.yml`, že proxy
+   umí i vyšší rozlišení než dřív použitých 64 px na stránce samotné
+   — naimportováno v `w=512` (ověřeno přes `api-probe.yml`, že vrací
+   platné ~16 kB PNG). `scripts/sync/import-logos-hokej-cz.mjs` +
+   `.github/workflows/import-logos-hokej-cz.yml` (ruční spuštění, bez
+   schedule, stejná konvence jako u Premier League). Mapování všech
+   14 týmů ověřeno přes `db-probe.yml` proti reálným `home_team`/
+   `away_team` v `matches` — žádná nejistá shoda (alt text stránky
+   "Hr. Králové" odpovídá appčinu "Mountfield HK" stejně jako jinde
+   v appce — Hradec Králové hraje pod komerčním názvem klubu).
+   hokej.cz nemá samostatné logo ligy (jen logo webu hokej.cz),
+   `competitions.logo_url` u hokejové soutěže tedy zůstává `null`
+   jako dosud. Import proběhl na první pokus (všech 14 klubů), žádná
+   změna appky/UI nebyla potřeba.
 8. [x] Barevné odlišení kartičky zápasu podle skóre. **Rozhodnuto
    s uživatelem 28.8.2026 přes `AskUserQuestion`:** barva ukazuje
    úspěšnost VLASTNÍHO tipu uživatele, ne výsledek zápasu samotného —
