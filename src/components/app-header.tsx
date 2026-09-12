@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { EmailRemindersToggle } from "@/components/email-reminders-toggle";
 import { MobileMenu } from "@/components/mobile-menu";
 import { MobileMenuLink } from "@/components/mobile-menu-link";
+import { MobileMenuCompetitions } from "@/components/mobile-menu-competitions";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -114,6 +115,7 @@ export async function AppHeader() {
             >
               Dashboard
             </MobileMenuLink>
+            <MobileMenuCompetitions />
             <MobileMenuLink
               href="/pravidla"
               className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
