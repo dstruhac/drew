@@ -1681,10 +1681,47 @@ nevymýšlí za něj):
    `away_team` v `matches` — žádná nejistá shoda (alt text stránky
    "Hr. Králové" odpovídá appčinu "Mountfield HK" stejně jako jinde
    v appce — Hradec Králové hraje pod komerčním názvem klubu).
-   hokej.cz nemá samostatné logo ligy (jen logo webu hokej.cz),
-   `competitions.logo_url` u hokejové soutěže tedy zůstává `null`
-   jako dosud. Import proběhl na první pokus (všech 14 klubů), žádná
-   změna appky/UI nebyla potřeba.
+   hokej.cz nemá samostatné logo ligy (jen logo webu hokej.cz), takže
+   `competitions.logo_url` zůstalo nejdřív prázdné. Import klubových
+   log proběhl na první pokus (všech 14 klubů), žádná změna appky/UI
+   nebyla potřeba.
+
+   **Logo soutěže doplněno hned další den (12.9.2026, na žádost
+   uživatele), zdroj [seeklogo.com](https://seeklogo.com/vector-logo/265720/tipsport-extraliga).**
+   Konkrétní odkaz na logo dal uživatel přímo. Stránka samotná je za
+   Cloudflare "managed challenge" (obyčejný `curl` dostane jen JS
+   výzvu) — ověřeno přes `playwright-probe.yml`, že skutečný prohlížeč
+   se přes ni dostane a vidí přesné URL obrázku
+   (`images.seeklogo.com/logo-png/26/1/tipsport-extraliga-logo-png_seeklogo-265720.png`,
+   600×600 PNG). Ten samotný soubor leží na jiné subdoméně BEZ
+   Cloudflare ochrany — ověřeno přes `api-probe.yml` (obyčejný `curl`,
+   HTTP 200, platná PNG hlavička) — jde tedy stáhnout stejným prostým
+   `fetch()` jako klubová loga, žádný prohlížeč v samotném importním
+   skriptu není potřeba.
+
+   **Rozdíl oproti lfafotbal.cz/football-logos.cc, zdůrazněný
+   uživateli otevřeně, ne zamlčený:** appka na seeklogo.com (na
+   stránce loga ani na `/page/terms-of-use`, který je navíc taky za
+   Cloudflare) nenašla žádné výslovné svolení k dalšímu použití —
+   je to obecný agregátor firemních/sportovních log, ne oficiální
+   zdroj s licencí jako u předchozích dvou. Riziko vyhodnoceno jako
+   nízké (appka je nekomerční, logo slouží jen k identifikaci soutěže
+   pro uzavřenou partu kamarádů) a stejné jako u klubových log o den
+   dřív, ale je to jiná kategorie zdroje, proto zapsáno zvlášť.
+
+   Rozšířeno přímo v `import-logos-hokej-cz.mjs` (nová konstanta
+   `LEAGUE_LOGO_URL`, nahrává se do `competitions/{slug}.png` a
+   zapisuje do `competitions.logo_url`, stejný vzor jako u Chance
+   Ligy/Premier League) — žádný nový skript ani workflow. **První
+   ostrý běh spadl** na `Gateway Timeout` při zápisu `team_logos`
+   (přechodný výpadek Supabase, stejná třída chyby jako jinde v appce
+   — logo soutěže i všech 14 klubů se do Storage v tu chvíli již
+   nahrálo v pořádku, spadl jen poslední databázový zápis). Skript
+   nemá vlastní retry (na rozdíl od `sync-results`/`predict-reminders`,
+   jde o jednorázový ručně spouštěný import, ne opakovanou úlohu) —
+   opraveno prostým druhým spuštěním, které bezpečně doběhlo (upload
+   je `upsert: true`, takže druhý běh nic neduplikoval), ověřeno přes
+   `db-probe.yml`.
 8. [x] Barevné odlišení kartičky zápasu podle skóre. **Rozhodnuto
    s uživatelem 28.8.2026 přes `AskUserQuestion`:** barva ukazuje
    úspěšnost VLASTNÍHO tipu uživatele, ne výsledek zápasu samotného —
