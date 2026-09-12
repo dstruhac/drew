@@ -54,7 +54,18 @@ const UPCOMING_MISSING_EXTRA_VISIBLE_COUNT = 3;
 // Sekce zápasů se na širších obrazovkách zobrazují jako mřížka místo
 // jednoho úzkého sloupce -- redesign 29.8.2026, řeší reálný problém
 // nahlášený uživatelem ("hodně zápasů zabírá hodně místa").
-const MATCH_GRID_CLASSNAME = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
+//
+// Na mobilu (12.9.2026, na žádost uživatele) appka zápasy místo
+// svislého sloupce ukazuje jako vodorovný swipe carousel (`flex` +
+// `overflow-x-auto` + `snap-x` -- prohlížeč "přiskočí" vždy na celou
+// kartičku, `snap-mandatory`). Karty samy potřebují doplňkové třídy
+// (`shrink-0`, procentuální šířka, `snap-start` -- viz MatchCard níže),
+// ať se ve `flex` řádku nezmáčknou na sebe. Od `sm:` šířky se appka
+// vrací k mřížce beze změny chování -- carousel řeší jen to, že na
+// mobilu je dřívější svislý sloupec zbytečně vysoký, na širší
+// obrazovce už mřížka místo šetřila dost.
+const MATCH_GRID_CLASSNAME =
+  "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:pb-0 lg:grid-cols-3";
 
 export default async function CompetitionDetailPage({
   params,
@@ -601,7 +612,7 @@ function MatchCard({
   return (
     <li
       style={sportAccentStyle(effectiveSport)}
-      className={`rounded-[18px] border p-4 ${cardToneClass}`}
+      className={`w-[85%] shrink-0 snap-start rounded-[18px] border p-4 sm:w-auto sm:shrink ${cardToneClass}`}
     >
       <Link
         href={`/spaces/${competitionId}/matches/${match.id}`}
