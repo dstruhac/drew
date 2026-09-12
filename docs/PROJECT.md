@@ -2116,6 +2116,15 @@ rozhodnutí a implementace viz krok 13.
     už má rozjetou infrastrukturu z upozornění na nevyplněný tip —
     nebo něco v appce) a kdy/jak často (vždy v pondělí ráno za
     předchozí týden?).
+25. [ ] **Rozšíření nastavení profilu hráče** (12.9.2026, zatím
+    nerozpracováno) — nápad od uživatele. `/profil` dnes umí jen
+    upravit přezdívku (`display_name`), fotku appka bere natvrdo z
+    Google účtu. Než se do toho pustíme, bude potřeba s uživatelem
+    doupřesnit, co konkrétně "rozšíření" znamená — možnosti k výběru
+    (ne vyčerpávající): vlastní nahraná fotka/avatar místo té z
+    Google, oblíbený tým (mohlo by se pak hodit třeba k barevnému
+    zvýraznění appky), krátké "o mně"/bio viditelné na veřejném
+    profilu, nebo něco úplně jiného, co uživatel má na mysli.
 
 ### Nápady: participanti soutěže, vlastní přezdívka, profil uživatele, upozornění na nevyplněný den (2026-08-25, nerozpracováno)
 
