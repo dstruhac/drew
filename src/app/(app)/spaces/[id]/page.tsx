@@ -286,28 +286,33 @@ export default async function CompetitionDetailPage({
       )}
 
       {/* "Jak si vedu tenhle týden" hned pod hlavičkou (14.9.2026, na
-       * žádost uživatele "at je hned videt") -- zobrazí se jen
-       * přihlášeným hráčům a jen když se tenhle týden vůbec hrálo,
-       * jinak by banner ukazoval prázdnou informaci. Text tlačítka
-       * zkrácen na "Žebříček →" (14.9.2026) -- nahrazuje dřívější
-       * samostatné tlačítko vedle "Chci hrát" v hlavičce, appka teď má
-       * na stránce soutěže jen jeden proklik na žebříček. */}
-      {isJoined && weekly.weekMatchCount > 0 && (
-        <Link
-          href={`/spaces/${competition.id}/leaderboard`}
-          className="btn-press flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-3 transition-colors hover:bg-accent/[0.1]"
-        >
-          <span className="flex items-center gap-2 text-sm font-bold">
-            <Flame className="h-4 w-4 text-accent" strokeWidth={2.4} />
-            {ownWeeklyRank
-              ? `Tenhle týden: ${ownWeeklyPoints} b. · ${ownWeeklyRank.rank}. místo z ${ownWeeklyRank.total}`
-              : "Tenhle týden zatím bez bodů — natipuj si a naskoč do žebříčku"}
-          </span>
-          <span className="shrink-0 text-xs font-bold text-accent">
-            Žebříček →
-          </span>
-        </Link>
-      )}
+       * žádost uživatele "at je hned videt") -- zobrazuje se VŽDY
+       * (14.9.2026, uživatel upřesnil "ten banner se na strance
+       * souteze musi zobrazovat vzdy" -- appka po odstranění
+       * dřívějšího samostatného tlačítka "Žebříček →" z hlavičky měla
+       * tenhle banner jako jediný proklik na žebříček ze stránky
+       * soutěže, ale zobrazoval se jen přihlášeným v týdnu s odehraným
+       * zápasem, takže appka v ostatních případech neměla na žebříček
+       * z týhle stránky vůbec žádný proklik). Text se přizpůsobuje
+       * situaci, odkaz na žebříček zůstává vždy stejný. */}
+      <Link
+        href={`/spaces/${competition.id}/leaderboard`}
+        className="btn-press flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-3 transition-colors hover:bg-accent/[0.1]"
+      >
+        <span className="flex items-center gap-2 text-sm font-bold">
+          <Flame className="h-4 w-4 text-accent" strokeWidth={2.4} />
+          {!isJoined
+            ? "Přidej se a bojuj o týdenní žebříček"
+            : weekly.weekMatchCount === 0
+              ? "Tenhle týden se zatím nehraje"
+              : ownWeeklyRank
+                ? `Tenhle týden: ${ownWeeklyPoints} b. · ${ownWeeklyRank.rank}. místo z ${ownWeeklyRank.total}`
+                : "Tenhle týden zatím bez bodů — natipuj si a naskoč do žebříčku"}
+        </span>
+        <span className="shrink-0 text-xs font-bold text-accent">
+          Žebříček →
+        </span>
+      </Link>
 
       {!matches?.length && (
         <p className="text-sm text-muted-foreground">
