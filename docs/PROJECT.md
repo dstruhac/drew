@@ -1358,6 +1358,36 @@ udržuje v provozu sama.
   vůbec otevřít" (ne na konkrétních datech, ale univerzálně) stojí za
   to zkusit reprodukovat lokálně přes `pnpm dev`, ne rovnou hádat na
   datech.
+- [x] **Náhledový obrázek appky při sdílení odkazu (14.9.2026)** —
+  uživatel nahlásil, že se při sdílení odkazu na appku (WhatsApp,
+  Messenger, Slack...) v náhledu neobjeví logo. Příčina: appka
+  neměla nastavený `og:image`/`twitter:image` vůbec žádný (jen
+  `openGraph`/`twitter` textová metadata v `src/app/layout.tsx`, bez
+  `images`) — nešlo tedy o chybu konkrétní platformy, appka náhledový
+  obrázek nikdy neposílala nikomu.
+
+  Řešeno standardním file-based mechanismem Next.js: nový
+  `src/app/opengraph-image.tsx` dynamicky generuje (`ImageResponse` z
+  `next/og`) 1200×630 PNG s brand logem (`public/icon-512.png`) a
+  claimem appky ("Klobása. Pivo. Tipovačka.", stejný text jako na
+  úvodní stránce), v barvách appky (`--background`/`--foreground`/
+  `--accent` natvrdo -- appka nemá jak číst CSS proměnné v `next/og`
+  render kontextu). Platí globálně pro celou appku (root `app/`),
+  jednotlivé stránky si můžou v budoucnu založit vlastní
+  specifičtější `opengraph-image.tsx`, který by měl přednost.
+  Stejná šablona navíc přes `src/app/twitter-image.tsx` (sdílený kód
+  v `src/app/shared-og-image.tsx`) -- X/Twitter se na `og:image`
+  nemusí vždy spolehnout a čte vyhrazeně `twitter:image`. `twitter.card`
+  přepnut z `"summary"` na `"summary_large_image"` (obrázek je na
+  šířku, ne čtvercový).
+
+  Ověřeno přes `pnpm build` (obě nové routy se vygenerovaly staticky
+  bez chyby) a vizuální kontrolou vygenerovaného PNG (logo, český text
+  s diakritikou vykreslené správně, barvy sedí) -- appka na sociální
+  sítě/messengery z tohohle sandboxu nedosáhne (viz "Síťové omezení"
+  v `CLAUDE.md`), takže reálný náhled na `klopi.cz` ověří uživatel
+  sám po smergování (např. Facebook Sharing Debugger nebo přímým
+  sdílením odkazu).
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
