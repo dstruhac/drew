@@ -27,18 +27,25 @@ export default async function DashboardPage() {
   const { data: participantRows, error: participantRowsError } = await supabase
     .from("competition_participants")
     .select(
-      "competitions(id, name, sport, logo_url, description)",
+      "competitions(id, name, sport, logo_url, description, visibility)",
     )
     .eq("user_id", user?.id ?? "");
 
   throwIfSupabaseError(participantRowsError, "Načtení hráčových soutěží");
 
-  const myCompetitions = (participantRows ?? [])
+  const myAllCompetitions = (participantRows ?? [])
     .map((row) => row.competitions)
     .filter((c): c is NonNullable<typeof c> => c !== null);
+  // Hecovačky (soukromé soutěže) appka ukazuje ve vlastní sekci níže,
+  // ne zamíchané mezi oficiálními ligami v "Tvoje soutěže".
+  const myCompetitions = myAllCompetitions.filter((c) => c.visibility === "public");
+  const myHecovacky = myAllCompetitions.filter((c) => c.visibility === "private");
 
-  const competitionIds = myCompetitions.map((c) => c.id);
-  const sportByCompetition = new Map(myCompetitions.map((c) => [c.id, c.sport]));
+  // Zbytek dotazů (spotlight zápas, žebříčky, medaile) jede přes VŠECHNY
+  // soutěže hráče, hecovačky nevyjímaje -- jen rozdělení na dvě sekce
+  // výše je kosmetické.
+  const competitionIds = myAllCompetitions.map((c) => c.id);
+  const sportByCompetition = new Map(myAllCompetitions.map((c) => [c.id, c.sport]));
 
   const [
     allParticipantsResult,
@@ -95,10 +102,18 @@ export default async function DashboardPage() {
       .select("badges_seen_through")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
-    supabase.from("competitions").select("*", { count: "exact", head: true }),
+    // "Tvoje soutěže (X/Y)" počítá jen VEŘEJNÉ soutěže appky -- soukromé
+    // hecovačky mají vlastní sekci/přehled (/hecovacky) bez podobného
+    // poměru (appka jich může mít libovolně, nedávalo by smysl je
+    // sčítat do jednoho čísla s oficiálními ligami appky).
+    supabase
+      .from("competitions")
+      .select("*", { count: "exact", head: true })
+      .eq("visibility", "public"),
     supabase
       .from("competitions")
       .select("id, name, sport, logo_url, description")
+      .eq("visibility", "public")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -290,6 +305,40 @@ export default async function DashboardPage() {
           ) : (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {myCompetitions.map((competition) => (
+                <li key={competition.id}>
+                  <CompetitionCard
+                    competition={competition}
+                    rank={rankByCompetition.get(competition.id) ?? null}
+                    allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-muted-foreground">
+              Tvoje hecovačky{" "}
+              <span className="text-faint-foreground">({myHecovacky.length})</span>
+            </h2>
+            <Link href="/hecovacky" className="text-xs font-bold text-accent hover:underline">
+              Všechny hecovačky →
+            </Link>
+          </div>
+
+          {myHecovacky.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Zatím žádná -- soukromá sázka mezi kamarády, kterou si sám(a) založíš. Mrkni na{" "}
+              <Link href="/hecovacky/nova" className="font-bold text-accent underline underline-offset-2">
+                Založit hecovačku
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {myHecovacky.map((competition) => (
                 <li key={competition.id}>
                   <CompetitionCard
                     competition={competition}
