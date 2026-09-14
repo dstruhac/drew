@@ -1388,6 +1388,60 @@ udržuje v provozu sama.
   v `CLAUDE.md`), takže reálný náhled na `klopi.cz` ověří uživatel
   sám po smergování (např. Facebook Sharing Debugger nebo přímým
   sdílením odkazu).
+- [x] **Žebříček: přepínač řazení Celkem/Průměr, pompéznější "Chci
+  hrát", proklik na žebříček z kartičky, banner "tenhle týden" na
+  detailu soutěže (14.9.2026)** — čtyři menší UX vylepšení na žádost
+  uživatele, řešeno v jednom kroku kvůli sdílené logice týdenních bodů:
+  - **Přepínač řazení celkového žebříčku** (`/spaces/[id]/leaderboard`)
+    -- odkazy `?sort=total`/`?sort=avg` (appka zůstává server-rendered,
+    žádný klientský stav), výchozí beze změny "Celkem". V režimu
+    "Průměr" se řadí podle `totalPoints / scoredCount` (jen VYHODNOCENÉ
+    zápasy, stejná logika jako zobrazený "Ø X,XX b./zápas" od
+    6.9.2026), hráč bez jediného vyhodnoceného zápasu dostane
+    sentinelovou hodnotu namísto řazení jako "0,00" mezi reálné
+    průměry. Velké číslo u řádku i vedlejší řádek se přehodí podle
+    aktivního režimu (buď "X b." s Ø jako doplněk, nebo naopak).
+    Tohle přímo navazuje na rozhodnutí z 6.9.2026 ("žebříček se řadí
+    jen podle celkových bodů, průměr byl zamítnut kvůli malému
+    vzorku") -- přepínač je bezpečný způsob, jak dřívější obavu
+    (jednorázový přesný tip by přeskočil poctivého hráče) vyřešit:
+    výchozí pohled zůstává total, průměr je jen volitelný doplňkový
+    náhled.
+  - **Textace týdenního žebříčku** -- datum přesunuto z věty do
+    malého labelu vedle nadpisu ("Týdenní žebříček  8. – 14. 9."),
+    věta pod tím nahrazena hravější "🏅 Získávej medaile, dokud jsou
+    žhavé!" (dřívější vysvětlení "vynuluje se po předání medaile..."
+    odstraněno -- appka to teď komunikuje jen viditelným rozsahem
+    týdne v labelu).
+  - **Tlačítko "Žebříček" na kartičce soutěže** (`CompetitionCard`,
+    použito na `/spaces` i Dashboardu) -- proklik rovnou na
+    `/spaces/{id}/leaderboard` bez nutnosti nejdřív projít detailem
+    soutěže. Gatováno přes `linkToDetail` (stejný prop, co appka už
+    používala k vypnutí prokliku na detail) -- v
+    `JoinCompetitionsModal` (kde je `linkToDetail={false}`) se
+    nezobrazí, appka tam záměrně nabízí jen jednu akci ("Chci hrát").
+  - **Pompéznější "Chci hrát"** na `/spaces/[id]` -- větší tlačítko
+    s gradientem ve sportovní barvě soutěže (`--accent`, zelená
+    fotbal / modrá hokej) a jemným pulzujícím "sonar" halo efektem
+    (nová `.btn-hero` třída + `hero-cta-pulse` keyframe v
+    `globals.css`, vypnuto při `prefers-reduced-motion`). Platí jen
+    pro tlačítko na detailu soutěže -- menší tlačítko na kartičce
+    soutěže (grid na `/spaces`, Dashboard, join modal) zůstává beze
+    změny, tam by stejný efekt uprostřed mřížky víc karet působil
+    rušivě.
+  - **Banner "jak si vedu tenhle týden"** na `/spaces/[id]`, hned pod
+    hlavičkou -- zobrazí se jen přihlášeným hráčům a jen když se
+    tenhle týden vůbec hrálo (`weekMatchCount > 0`), s proklikem na
+    týdenní žebříček. Sdílená logika "kdo kolik bodoval tenhle týden"
+    (dřív inline jen v `leaderboard/page.tsx`) vytažena do
+    `computeWeeklyPoints()` v `src/lib/week.ts`, aby appka na obou
+    místech počítala "tenhle týden" úplně stejně.
+
+  Vizuálně ověřeno přes dočasnou náhledovou stránku se smyšlenými daty
+  (Playwright screenshot desktop/mobil/dark mode, stejný postup jako
+  u `JoinCompetitionsModal` 10.9.2026) -- appka na skutečná data
+  z tohohle sandboxu nedosáhne (viz "Síťové omezení" v `CLAUDE.md`).
+  Stránka i dočasná výjimka v middlewaru smazány po ověření, nešly do PR.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se

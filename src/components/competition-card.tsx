@@ -119,15 +119,38 @@ export function CompetitionCard({
         <div className="flex flex-1 flex-col gap-4">{content}</div>
       )}
 
-      {isJoined === false && (
-        <form action={joinCompetition.bind(null, competition.id)}>
-          <button
-            type="submit"
-            className="btn-press w-full rounded-full bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
-          >
-            Chci hrát
-          </button>
-        </form>
+      {/* Akční řádek dole -- "Chci hrát" (jen když hráč ještě nehraje) a
+       * "Žebříček" (proklik rovnou na žebříček soutěže, 14.9.2026, na
+       * žádost uživatele -- appka dřív nutila projít detailem soutěže).
+       * `linkToDetail` slouží i jako vypínač téhle druhé -- v
+       * JoinCompetitionsModal (kde je `linkToDetail={false}`) appka
+       * záměrně nabízí jen jednu akci ("Chci hrát"), proklik na
+       * žebříček by tam byl navíc a modal se navíc otevírá právě proto,
+       * že hráč tu soutěž ještě nehraje. */}
+      {(isJoined === false || linkToDetail) && (
+        <div className="flex items-center gap-2">
+          {isJoined === false && (
+            <form
+              action={joinCompetition.bind(null, competition.id)}
+              className="flex-1"
+            >
+              <button
+                type="submit"
+                className="btn-press w-full rounded-full bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
+              >
+                Chci hrát
+              </button>
+            </form>
+          )}
+          {linkToDetail && (
+            <Link
+              href={`/spaces/${competition.id}/leaderboard`}
+              className="btn-press flex-1 rounded-full border border-accent/30 bg-accent/5 px-4 py-2 text-center text-xs font-bold text-accent hover:bg-accent/10"
+            >
+              Žebříček
+            </Link>
+          )}
+        </div>
       )}
     </div>
   );

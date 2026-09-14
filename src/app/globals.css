@@ -160,6 +160,24 @@ body {
   }
 }
 
+/* Pompézní "Chci hrát" tlačítko na detailu soutěže (14.9.2026, na
+   žádost uživatele "tlačítko větší, viditelnější, pompéznější, jak to
+   umíš") -- jemný "sonar" pulz kolem tlačítka, co samo přitahuje
+   pohled bez nutnosti najet myší. Barva jde ze sportovního --accent
+   appky (zelená fotbal / modrá hokej, viz sportAccentStyle() v
+   src/lib/sport.ts), takže pulz automaticky sedí ke sportu soutěže. */
+@keyframes hero-cta-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
 @layer components {
   /* Konzistentní odezva na hover/klik napříč appkou (odsouhlaseno
      27.8.2026) -- tlačítka a odkazy chovající se jako tlačítko lehce
@@ -199,6 +217,18 @@ body {
   .card-lift:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgb(0 0 0 / 0.3);
+  }
+
+  .btn-hero {
+    animation: hero-cta-pulse 2.4s ease-out infinite;
+  }
+}
+
+/* Appka nikoho neotravuje pohybem, který nechce -- vypnout pulz u
+   uživatelů s nastaveným "méně animací" v systému. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-hero {
+    animation: none;
   }
 }
 
