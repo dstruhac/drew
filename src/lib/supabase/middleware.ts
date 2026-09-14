@@ -9,6 +9,10 @@ const PUBLIC_PATHS = [
   "/soukromi",
   "/robots.txt",
   "/sitemap.xml",
+  // Pozvánka na hecovačku -- musí jít otevřít i nepřihlášenému (appka
+  // mu ukáže náhled + odkaz na přihlášení), viz
+  // src/app/pozvanka/[token]/page.tsx.
+  "/pozvanka",
 ];
 
 function isPublicPath(pathname: string) {

@@ -1,23 +1,43 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleIcon } from "@/components/google-icon";
 
 export default function LoginPage() {
+  // useSearchParams vyžaduje Suspense hranici, jinak appka nejde
+  // staticky vyrenderovat -- LoginPage zůstává tenký wrapper, ať
+  // zbytek stránky (obsah/vzhled) není potřeba měnit.
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  // Pozvánka na hecovačku (/pozvanka/[token]) posílá sem `?next=`, ať
+  // appka po přihlášení skočí rovnou zpátky na přijetí pozvánky, ne na
+  // výchozí /dashboard -- viz src/app/pozvanka/[token]/page.tsx.
+  const next = searchParams.get("next");
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
     setError(null);
 
     const supabase = createClient();
+    const redirectTo = new URL("/auth/callback", window.location.origin);
+    if (next) redirectTo.searchParams.set("next", next);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: redirectTo.toString(),
       },
     });
 
