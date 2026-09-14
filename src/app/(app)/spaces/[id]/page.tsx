@@ -109,7 +109,7 @@ export default async function CompetitionDetailPage({
     supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name)")
+      .select("user_id, profiles!user_id(display_name)")
       .eq("competition_id", id),
     supabase
       .from("matches")

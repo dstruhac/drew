@@ -39,7 +39,7 @@ export default async function MatchDetailPage({
       .single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name)")
+      .select("user_id, profiles!user_id(display_name)")
       .eq("competition_id", id),
     supabase
       .from("predictions")

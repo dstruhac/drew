@@ -103,7 +103,7 @@ export default async function LeaderboardPage({
     supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name, avatar_url)")
+      .select("user_id, profiles!user_id(display_name, avatar_url)")
       .eq("competition_id", id),
     supabase
       .from("matches")

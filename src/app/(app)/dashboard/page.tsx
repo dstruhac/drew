@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     competitionIds.length
       ? supabase
           .from("competition_participants")
-          .select("competition_id, user_id, profiles(display_name)")
+          .select("competition_id, user_id, profiles!user_id(display_name)")
           .in("competition_id", competitionIds)
       : Promise.resolve({ data: [], error: null }),
     competitionIds.length
