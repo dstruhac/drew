@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Crown, Medal } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { getCurrentWeekRange } from "@/lib/week";
+import { getCurrentWeekRange, computeWeeklyPoints } from "@/lib/week";
 import { sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
@@ -69,8 +69,17 @@ function rowToneClassName(rank: number, isYou: boolean) {
 
 export default async function LeaderboardPage({
   params,
+  searchParams,
 }: PageProps<"/spaces/[id]/leaderboard">) {
   const { id } = await params;
+  const sp = await searchParams;
+  // Přepínač řazení celkového žebříčku (14.9.2026, na žádost uživatele)
+  // -- čte se z URL (?sort=avg), ne z klientského stavu, ať appka
+  // zůstane server-rendered a řazení jde poslat/uložit jako odkaz.
+  // Výchozí (bez parametru, nebo cokoliv jiného než "avg") je řazení
+  // podle celkových bodů beze změny -- to je pořád "hlavní" žebříček
+  // sezóny, průměr je jen doplňkový pohled.
+  const sortMode: "total" | "avg" = sp?.sort === "avg" ? "avg" : "total";
   const supabase = await createClient();
 
   // Šest nezávislých dotazů v JEDNÉ vlně -- všechny filtrují rovnou podle
@@ -161,24 +170,6 @@ export default async function LeaderboardPage({
     });
   }
 
-  // Živý týdenní žebříček (rozpracovaný aktuální týden, po-ne pražského
-  // času) -- žádná nová tabulka, jen filtr zápasů podle kickoff_at. Sám se
-  // "vynuluje" v pondělí, protože se pak počítá z nového (prázdného) okna
-  // -- odsouhlaseno s uživatelem 27.8.2026.
-  const { weekStart, weekEnd } = getCurrentWeekRange();
-  const weekMatchIds = new Set(
-    (matches ?? [])
-      .filter((m) => m.kickoff_at >= weekStart && m.kickoff_at < weekEnd)
-      .map((m) => m.id),
-  );
-  // Do týdenního žebříčku patří jen ti, kdo v tomhle týdnu opravdu
-  // tipovali (odsouhlaseno s uživatelem 12.9.2026) -- na rozdíl od
-  // celkového žebříčku (ten ukazuje i účastníky s 0 tipy/body) tady
-  // appka žádnou "nulovou" účast nenaseeduje předem.
-  const weeklyPointsByUser = new Map<string, number>();
-  const weeklyScoredCountByUser = new Map<string, number>();
-  const weeklyParticipantIds = new Set<string>();
-
   for (const prediction of predictions ?? []) {
     const displayName = prediction.profiles?.display_name ?? "Neznámý hráč";
     const entry = totalsByUser.get(prediction.user_id) ?? {
@@ -206,41 +197,46 @@ export default async function LeaderboardPage({
       entry.exactCount += 1;
     }
     totalsByUser.set(prediction.user_id, entry);
-
-    if (weekMatchIds.has(prediction.match_id)) {
-      weeklyParticipantIds.add(prediction.user_id);
-      if (prediction.points !== null) {
-        weeklyPointsByUser.set(
-          prediction.user_id,
-          (weeklyPointsByUser.get(prediction.user_id) ?? 0) + prediction.points,
-        );
-        weeklyScoredCountByUser.set(
-          prediction.user_id,
-          (weeklyScoredCountByUser.get(prediction.user_id) ?? 0) + 1,
-        );
-      }
-    }
   }
 
-  const standings = [...totalsByUser.values()].sort(
-    (a, b) =>
+  // Řazení celkového žebříčku podle přepínače nahoře (14.9.2026) --
+  // "avg" řadí podle průměru bodů na VYHODNOCENÝ zápas (`scoredCount`,
+  // ne `predictionCount` -- appka nepočítá nevyhodnocené zápasy jako
+  // 0 bodů, stejná logika jako u zobrazeného "Ø X,XX b./zápas" od
+  // 6.9.2026). Hráč bez jediného vyhodnoceného zápasu (scoredCount 0)
+  // dostane sentinelovou hodnotu -1, ať se zařadí až za všechny se
+  // skutečným (i nulovým) průměrem, ne mezi ně podle náhodného pořadí.
+  const standings = [...totalsByUser.values()].sort((a, b) => {
+    if (sortMode === "avg") {
+      const avgA = a.scoredCount > 0 ? a.totalPoints / a.scoredCount : -1;
+      const avgB = b.scoredCount > 0 ? b.totalPoints / b.scoredCount : -1;
+      return (
+        avgB - avgA ||
+        b.totalPoints - a.totalPoints ||
+        a.displayName.localeCompare(b.displayName, "cs")
+      );
+    }
+    return (
       b.totalPoints - a.totalPoints ||
-      a.displayName.localeCompare(b.displayName, "cs"),
-  );
+      a.displayName.localeCompare(b.displayName, "cs")
+    );
+  });
 
-  const weeklyStandings = [...weeklyParticipantIds]
+  const weekly = computeWeeklyPoints(matches ?? [], predictions ?? []);
+  const weeklyStandings = [...weekly.participantIds]
     .map((userId) => ({
       userId,
       displayName: totalsByUser.get(userId)?.displayName ?? "Neznámý hráč",
       avatarUrl: totalsByUser.get(userId)?.avatarUrl ?? null,
-      points: weeklyPointsByUser.get(userId) ?? 0,
-      scoredCount: weeklyScoredCountByUser.get(userId) ?? 0,
+      points: weekly.pointsByUser.get(userId) ?? 0,
+      scoredCount: weekly.scoredCountByUser.get(userId) ?? 0,
     }))
     .sort(
       (a, b) =>
         b.points - a.points || a.displayName.localeCompare(b.displayName, "cs"),
     );
 
+  const { weekStart, weekEnd } = getCurrentWeekRange();
   const weekRangeLabel = formatWeekRange(weekStart, weekEnd);
 
   return (
@@ -273,15 +269,24 @@ export default async function LeaderboardPage({
        * aktuálnímu dění, celkový žebříček za celou sezónu je níž. */}
       <section className="flex flex-col gap-3">
         <div>
-          <h2 className="text-sm font-bold text-muted-foreground">
-            Týdenní žebříček
-          </h2>
-          <p className="text-xs font-semibold text-faint-foreground">
-            {weekRangeLabel} — vynuluje se po předání medaile na začátku dalšího týdne
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-bold text-muted-foreground">
+              Týdenní žebříček
+            </h2>
+            <span className="rounded-full border border-border-subtle px-2 py-0.5 text-[10px] font-bold text-faint-foreground">
+              {weekRangeLabel}
+            </span>
+          </div>
+          {/* Textace (14.9.2026, na žádost uživatele "neco vic
+           * vyzivaveho" -- dřív tu bylo jen suché datum + vysvětlení,
+           * kdy se žebříček vynuluje; datum se přesunulo do labelu
+           * vedle nadpisu výše). */}
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            🏅 Získávej medaile, dokud jsou žhavé!
           </p>
         </div>
 
-        {weekMatchIds.size === 0 ? (
+        {weekly.weekMatchCount === 0 ? (
           <p className="text-sm font-medium text-muted-foreground">
             V tomhle týdnu se zatím nehrálo.
           </p>
@@ -321,7 +326,7 @@ export default async function LeaderboardPage({
                   </div>
                   <p className="pl-[88px] text-xs font-semibold text-faint-foreground">
                     {entry.scoredCount > 0
-                      ? `Ø ${(entry.points / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
+                      ? `Ø ${formatAvg(entry.points / entry.scoredCount)} b./zápas`
                       : "Zatím bez odehraného zápasu"}
                   </p>
                 </li>
@@ -332,9 +337,40 @@ export default async function LeaderboardPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-bold text-muted-foreground">
-          Celkový žebříček
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-muted-foreground">
+            Celkový žebříček
+          </h2>
+          {/* Přepínač řazení (14.9.2026, na žádost uživatele) -- odkazy,
+           * ne klientský přepínač, appka zůstává server-rendered a
+           * zvolené řazení jde poslat/uložit jako odkaz. Výchozí
+           * (bez parametru) zůstává "Celkem", to je pořád hlavní
+           * pohled na sezónu -- "Průměr" je doplňkový, na žádost
+           * uživatele nechává vidět, kdo boduje nejstabilněji i s
+           * kratší historií tipů. */}
+          <div className="inline-flex items-center gap-0.5 rounded-full border border-border-subtle bg-surface-hover p-0.5 text-[11px] font-bold">
+            <Link
+              href={`/spaces/${id}/leaderboard`}
+              className={`rounded-full px-3 py-1 transition-colors ${
+                sortMode === "total"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Celkem
+            </Link>
+            <Link
+              href={`/spaces/${id}/leaderboard?sort=avg`}
+              className={`rounded-full px-3 py-1 transition-colors ${
+                sortMode === "avg"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Průměr
+            </Link>
+          </div>
+        </div>
 
         {standings.length === 0 && (
           <p className="text-sm font-medium text-muted-foreground">
@@ -379,12 +415,20 @@ export default async function LeaderboardPage({
                         )}
                       </div>
                     </div>
-                    <span className="shrink-0 font-extrabold">{entry.totalPoints} b.</span>
+                    <span className="shrink-0 font-extrabold">
+                      {sortMode === "avg"
+                        ? entry.scoredCount > 0
+                          ? `Ø ${formatAvg(entry.totalPoints / entry.scoredCount)}`
+                          : "–"
+                        : `${entry.totalPoints} b.`}
+                    </span>
                   </div>
                   <p className="pl-[88px] text-xs font-semibold text-faint-foreground">
-                    {entry.scoredCount > 0
-                      ? `Ø ${(entry.totalPoints / entry.scoredCount).toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} b./zápas`
-                      : "Zatím bez odehraného zápasu"}
+                    {sortMode === "avg"
+                      ? `${entry.totalPoints} b. celkem`
+                      : entry.scoredCount > 0
+                        ? `Ø ${formatAvg(entry.totalPoints / entry.scoredCount)} b./zápas`
+                        : "Zatím bez odehraného zápasu"}
                     {" · "}
                     {entry.exactCount}× přesně
                   </p>
@@ -396,6 +440,13 @@ export default async function LeaderboardPage({
       </section>
     </main>
   );
+}
+
+function formatAvg(avg: number): string {
+  return avg.toLocaleString("cs-CZ", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatWeekRange(weekStartIso: string, weekEndIso: string) {

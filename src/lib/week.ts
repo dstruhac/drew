@@ -73,3 +73,58 @@ export function getCurrentWeekRange(referenceDate: Date = new Date()) {
     ),
   };
 }
+
+export type WeeklyPoints = {
+  /** Kolik zápasů soutěže spadá do tohohle týdne -- 0 znamená "tenhle
+   * týden se ještě nehrálo", appka pak nemá co ukazovat. */
+  weekMatchCount: number;
+  pointsByUser: Map<string, number>;
+  scoredCountByUser: Map<string, number>;
+  /** Kdo v tomhle týdnu vůbec tipoval (bez ohledu na to, jestli má
+   * zápas už vyhodnocený) -- na rozdíl od celkového žebříčku appka do
+   * týdenního nedosazuje "nulovou" účast předem. */
+  participantIds: Set<string>;
+};
+
+// Sdílená logika "kdo kolik bodoval tenhle kalendářní týden" --
+// používá ji jak živý týdenní žebříček na /spaces/[id]/leaderboard, tak
+// (od 14.9.2026) banner "jak si vedu tenhle týden" na /spaces/[id].
+// Vytaženo ven, ať appka na obou místech počítá "tenhle týden" stejně.
+export function computeWeeklyPoints(
+  matches: { id: string; kickoff_at: string }[],
+  predictions: { match_id: string; user_id: string; points: number | null }[],
+  referenceDate: Date = new Date(),
+): WeeklyPoints {
+  const { weekStart, weekEnd } = getCurrentWeekRange(referenceDate);
+  const weekMatchIds = new Set(
+    matches
+      .filter((m) => m.kickoff_at >= weekStart && m.kickoff_at < weekEnd)
+      .map((m) => m.id),
+  );
+
+  const pointsByUser = new Map<string, number>();
+  const scoredCountByUser = new Map<string, number>();
+  const participantIds = new Set<string>();
+
+  for (const prediction of predictions) {
+    if (!weekMatchIds.has(prediction.match_id)) continue;
+    participantIds.add(prediction.user_id);
+    if (prediction.points !== null) {
+      pointsByUser.set(
+        prediction.user_id,
+        (pointsByUser.get(prediction.user_id) ?? 0) + prediction.points,
+      );
+      scoredCountByUser.set(
+        prediction.user_id,
+        (scoredCountByUser.get(prediction.user_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  return {
+    weekMatchCount: weekMatchIds.size,
+    pointsByUser,
+    scoredCountByUser,
+    participantIds,
+  };
+}

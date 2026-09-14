@@ -7,8 +7,11 @@ import {
   Circle,
   Radio,
   CalendarOff,
+  Flame,
+  Rocket,
 } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { computeWeeklyPoints } from "@/lib/week";
 import { ExpandableList } from "@/components/expandable-list";
 import {
   SpotlightMatchCard,
@@ -175,6 +178,27 @@ export default async function CompetitionDetailPage({
       ? { rank: ownRankIndex + 1, total: standings.length }
       : null;
 
+  // Banner "jak si vedu tenhle týden" hned pod hlavičkou soutěže
+  // (14.9.2026, na žádost uživatele "at je hned videt") -- stejný
+  // výpočet jako živý týdenní žebříček na /spaces/[id]/leaderboard
+  // (sdílené computeWeeklyPoints v src/lib/week.ts), jen z dat, která
+  // tahle stránka už má načtená (žádný nový dotaz navíc).
+  const weekly = computeWeeklyPoints(matches ?? [], predictions ?? []);
+  const weeklyRanked = [...weekly.participantIds]
+    .map((userId) => ({
+      userId,
+      points: weekly.pointsByUser.get(userId) ?? 0,
+    }))
+    .sort((a, b) => b.points - a.points);
+  const ownWeeklyRankIndex = user
+    ? weeklyRanked.findIndex((e) => e.userId === user.id)
+    : -1;
+  const ownWeeklyRank =
+    ownWeeklyRankIndex !== -1
+      ? { rank: ownWeeklyRankIndex + 1, total: weeklyRanked.length }
+      : null;
+  const ownWeeklyPoints = user ? weekly.pointsByUser.get(user.id) ?? 0 : 0;
+
   return (
     <main
       style={sportAccentStyle(competition.sport)}
@@ -231,24 +255,30 @@ export default async function CompetitionDetailPage({
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {/* Pompézní CTA (14.9.2026, na žádost uživatele "tlačítko
+           * větší, viditelnější, pompéznější") -- větší, s vlastním
+           * gradientem ve sportovní barvě a jemným pulzujícím "sonar"
+           * halo (viz .btn-hero v globals.css), ať je jasné, že tohle
+           * je hlavní akce na stránce, dokud hráč soutěž nehraje. */}
+          {!isJoined && (
+            <form action={joinCompetition.bind(null, competition.id)}>
+              <button
+                type="submit"
+                className="btn-press btn-hero flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))] px-7 py-3.5 text-sm font-extrabold text-accent-foreground hover:brightness-105"
+              >
+                <Rocket className="h-4 w-4" strokeWidth={2.4} />
+                Chci hrát
+              </button>
+            </form>
+          )}
+
           <Link
             href={`/spaces/${competition.id}/leaderboard`}
             className="btn-press rounded-full border border-accent/30 bg-accent/5 px-4 py-2 text-xs font-bold text-accent hover:bg-accent/10"
           >
             Žebříček →
           </Link>
-
-          {!isJoined && (
-            <form action={joinCompetition.bind(null, competition.id)}>
-              <button
-                type="submit"
-                className="btn-press rounded-full bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
-              >
-                Chci hrát
-              </button>
-            </form>
-          )}
         </div>
       </header>
 
@@ -257,6 +287,27 @@ export default async function CompetitionDetailPage({
           👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
           tipovat zápasy!
         </div>
+      )}
+
+      {/* "Jak si vedu tenhle týden" hned pod hlavičkou (14.9.2026, na
+       * žádost uživatele "at je hned videt") -- zobrazí se jen
+       * přihlášeným hráčům a jen když se tenhle týden vůbec hrálo,
+       * jinak by banner ukazoval prázdnou informaci. */}
+      {isJoined && weekly.weekMatchCount > 0 && (
+        <Link
+          href={`/spaces/${competition.id}/leaderboard`}
+          className="btn-press flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-3 transition-colors hover:bg-accent/[0.1]"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <Flame className="h-4 w-4 text-accent" strokeWidth={2.4} />
+            {ownWeeklyRank
+              ? `Tenhle týden: ${ownWeeklyPoints} b. · ${ownWeeklyRank.rank}. místo z ${ownWeeklyRank.total}`
+              : "Tenhle týden zatím bez bodů — natipuj si a naskoč do žebříčku"}
+          </span>
+          <span className="shrink-0 text-xs font-bold text-accent">
+            Týdenní žebříček →
+          </span>
+        </Link>
       )}
 
       {!matches?.length && (
