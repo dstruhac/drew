@@ -28,7 +28,11 @@ export const metadata: Metadata = {
     description: "Tipuj sportovní zápasy s kamarády a porovnej se v žebříčku.",
   },
   twitter: {
-    card: "summary",
+    // "summary_large_image" (místo dřívějšího "summary") --
+    // vygenerovaný náhledový obrázek (opengraph-image.tsx) je na
+    // šířku (1200×630), ne čtvercový, takže se má zobrazit celý přes
+    // šířku karty, ne oříznutý na malý čtvereček.
+    card: "summary_large_image",
     title: "Klopi – tipovačka pro kámoše",
     description: "Tipuj sportovní zápasy s kamarády a porovnej se v žebříčku.",
   },
