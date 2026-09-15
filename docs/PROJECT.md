@@ -1564,6 +1564,23 @@ udržuje v provozu sama.
   nebyla vizuálně ověřená v prohlížeči (tahle session nemá přístup na
   živou Supabase, viz "Síťové omezení" v `CLAUDE.md`) -- ověří uživatel
   na Vercel preview PR #185.
+- [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
+  (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
+  u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
+  Appka od bodování hokejového prodloužení (11.9.2026, viz krok výše)
+  `predicted_overtime_flag` sbírala a bodovala, ale po zamčení zápasu
+  ho nikde nezobrazovala zpátky uživateli — checkbox
+  "prodloužení/nájezdy" byl vidět jen v editovatelném formuláři před
+  výkopem, u zamčeného (probíhajícího i dohraného) zápasu appka
+  ukázala jen holé skóre.
+
+  Doplněno na 3 místa (čistě zobrazovací oprava, beze změny datového
+  modelu i chování appky): kartička zápasu na `/spaces/[id]` (řádek
+  "Tvůj tip"), vlastní tip na detailu zápasu (sekce "Váš tip") a
+  seznam "Tipy hráčů" (cizí tipy viditelné po výkopu) — tam jen
+  kompaktní 🏒 ikonka s `title` popiskem kvůli málu místa v řádku,
+  jinde plný text "po prodloužení/nájezdech" stejně jako label
+  checkboxu v `prediction-form.tsx`.
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
