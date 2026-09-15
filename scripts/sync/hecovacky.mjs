@@ -89,7 +89,7 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
 
     const { data: existingMatches, error: existingError } = await supabase
       .from("matches")
-      .select("kickoff_at")
+      .select("external_id, kickoff_at")
       .eq("competition_id", hecovacka.id)
       .not("source_match_id", "is", null);
     if (existingError) {
@@ -109,11 +109,27 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
 
       const dayStartMs = new Date(dayStart).getTime();
       const dayEndMs = new Date(dayEnd).getTime();
-      const alreadyPicked = (existingMatches ?? []).some((m) => {
-        const t = new Date(m.kickoff_at).getTime();
-        return t >= dayStartMs && t < dayEndMs;
-      });
-      if (alreadyPicked) continue;
+      // Kolik zápasů appka pro tenhle den UŽ vybrala (podle
+      // external_id, ne jen "má den nějaký zápas") -- oprava reálného
+      // nálezu z review (15.9.2026): dřívější verze den označila za
+      // "hotový", jakmile měl JEDEN vybraný zápas, takže když zdrojová
+      // soutěž v době prvního běhu měla rozpis ještě neúplný (typicky
+      // sync-fixtures zdrojové soutěže ještě nedoběhl), appka později
+      // dorazivší zápasy toho dne už nikdy nedoplnila, ani v režimu
+      // "všechny zápasy" (max_matches_per_day = null).
+      const alreadyPickedExternalIds = new Set(
+        (existingMatches ?? [])
+          .filter((m) => {
+            const t = new Date(m.kickoff_at).getTime();
+            return t >= dayStartMs && t < dayEndMs;
+          })
+          .map((m) => m.external_id),
+      );
+
+      const limit = hecovacka.max_matches_per_day;
+      // Den je plný -- appka do něj nikdy nic dalšího nepřidává (limit
+      // je limit), takže rovnou přeskočit bez zbytečného dotazu.
+      if (limit && alreadyPickedExternalIds.size >= limit) continue;
 
       const { data: candidates, error: candidatesError } = await supabase
         .from("matches")
@@ -132,10 +148,19 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
         continue;
       }
 
-      const picked =
-        hecovacka.max_matches_per_day && candidates.length > hecovacka.max_matches_per_day
-          ? shuffle(candidates).slice(0, hecovacka.max_matches_per_day)
-          : candidates;
+      // Jen zápasy, co appka pro tenhle den ještě nemá -- zbytek už je
+      // vybraný z dřívějška a appka do něj nesahá (jinak by re-běh u
+      // limitovaného režimu mohl nahradit už zobrazený/tipnutý zápas
+      // jiným náhodným výběrem).
+      const newCandidates = candidates.filter((m) => !alreadyPickedExternalIds.has(m.external_id));
+      if (newCandidates.length === 0) continue;
+
+      // Bez limitu appka doplní ÚPLNĚ VŠECHNY nové kandidáty (žádná
+      // náhoda, žádný důvod něco škrtat). S limitem doplní jen tolik,
+      // kolik ještě chybí do stropu.
+      const picked = limit
+        ? shuffle(newCandidates).slice(0, limit - alreadyPickedExternalIds.size)
+        : newCandidates;
 
       const rows = picked.map((m) => ({
         competition_id: hecovacka.id,
@@ -160,7 +185,7 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
 
       totalPicked += rows.length;
       console.log(
-        `${hecovacka.name} (${dateString}): vybráno ${rows.length} z ${candidates.length} kandidátů: ${rows
+        `${hecovacka.name} (${dateString}): vybráno ${rows.length} z ${newCandidates.length} nových kandidátů (${alreadyPickedExternalIds.size} už vybráno dřív): ${rows
           .map((r) => `${r.home_team}-${r.away_team}`)
           .join(", ")}`,
       );
