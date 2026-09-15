@@ -131,6 +131,14 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
       // je limit), takže rovnou přeskočit bez zbytečného dotazu.
       if (limit && alreadyPickedExternalIds.size >= limit) continue;
 
+      // `.gt("kickoff_at", now)` navíc k dennímu oknu -- u DNEŠNÍHO dne
+      // (offset 0) by bez tohohle appka mezi kandidáty klidně měla i
+      // zápas, co dnes už začal/skončil (probíhající/dohraný před tím,
+      // než appka hecovačku poprvé zpracovala). U limitovaného denního
+      // počtu by tak náhodný výběr mohl den zaplnit zápasy, na které se
+      // vůbec nedalo tipovat. U budoucích dnů (offset >= 1) tenhle
+      // filtr nic nemění, protože dayStart je tam vždycky až v
+      // budoucnu. Nalezeno Codex review 15.9.2026.
       const { data: candidates, error: candidatesError } = await supabase
         .from("matches")
         .select(
@@ -138,7 +146,8 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
         )
         .in("competition_id", sourceIds)
         .gte("kickoff_at", dayStart)
-        .lt("kickoff_at", dayEnd);
+        .lt("kickoff_at", dayEnd)
+        .gt("kickoff_at", now.toISOString());
       if (candidatesError) {
         throw new Error(`${hecovacka.name}: nepodařilo se najít kandidáty na ${dateString}: ${candidatesError.message}`);
       }
