@@ -1460,6 +1460,16 @@ udržuje v provozu sama.
   jinde plný text "po prodloužení/nájezdech" stejně jako label
   checkboxu v `prediction-form.tsx`.
 
+  **Ikona 🏒 nahrazena textem "(PP)" (15.9.2026, ve stejný den).**
+  Uživatel nahlásil, že hokejka u tipu nevypadá jako "prodloužení/
+  nájezdy" — jen opakuje "tohle je hokej", ne konkrétní stav.
+  Nabídnuty varianty přes `AskUserQuestion` (ikona hodin s plusem
+  z `lucide-react`, přesýpací hodiny, jen text), uživatel zvolil
+  vlastní zkratku **"(PP)"** — nahrazeno na všech 3 místech výše.
+  Vědomě beze změny zůstává 🏒 na `/pravidla` (vysvětlení bodování,
+  jiný kontext — "kolik bodů se dává za hokej", ne zobrazení
+  konkrétního tipu).
+
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
 nevymýšlí za něj):

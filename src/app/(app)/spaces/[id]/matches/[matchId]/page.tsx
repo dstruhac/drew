@@ -189,7 +189,7 @@ export default async function MatchDetailPage({
             <p className="mt-2 text-sm font-semibold">
               {ownPrediction.predicted_home_score}:
               {ownPrediction.predicted_away_score}
-              {ownPrediction.predicted_overtime_flag && " 🏒 po prodloužení/nájezdech"}
+              {ownPrediction.predicted_overtime_flag && " (PP) po prodloužení/nájezdech"}
               {ownPrediction.points !== null &&
                 ` — získal(a) jste ${ownPrediction.points} b.`}
             </p>
@@ -251,7 +251,7 @@ export default async function MatchDetailPage({
                         <span>
                           {entry.homeScore}:{entry.awayScore}
                           {entry.overtimeFlag && (
-                            <span title="Tipnul(a) prodloužení/nájezdy"> 🏒</span>
+                            <span title="Tipnul(a) prodloužení/nájezdy"> (PP)</span>
                           )}
                         </span>
                         <span className="ml-2 text-faint-foreground">
