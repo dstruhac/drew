@@ -820,6 +820,11 @@ function MatchCard({
           {existing ? (
             <p className="text-base font-extrabold text-foreground">
               Tvůj tip: {existing.predicted_home_score}:{existing.predicted_away_score}
+              {existing.predicted_overtime_flag && (
+                <span className="ml-1 text-xs font-bold text-muted-foreground">
+                  🏒 po prodloužení/nájezdech
+                </span>
+              )}
             </p>
           ) : match.status === "postponed" ? (
             <p>Zatím jste nestihl(a) zadat tip -- půjde znovu, jakmile appka zachytí nový termín.</p>
