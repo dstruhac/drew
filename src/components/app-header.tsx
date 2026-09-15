@@ -56,6 +56,12 @@ export async function AppHeader() {
            * na mobilu (12.9.2026, uživatel nahlásil "hlavička je
            * plná"), kde se totéž ukazuje uvnitř MobileMenu níže. */}
           <Link
+            href="/hecovacky"
+            className="btn-press hidden text-xs font-bold text-muted-foreground hover:text-foreground sm:inline"
+          >
+            Hecovačky
+          </Link>
+          <Link
             href="/pravidla"
             className="btn-press hidden text-xs font-bold text-muted-foreground hover:text-foreground sm:inline"
           >
@@ -116,6 +122,12 @@ export async function AppHeader() {
               Dashboard
             </MobileMenuLink>
             <MobileMenuCompetitions />
+            <MobileMenuLink
+              href="/hecovacky"
+              className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"
+            >
+              Hecovačky
+            </MobileMenuLink>
             <MobileMenuLink
               href="/pravidla"
               className="btn-press rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-surface-hover"

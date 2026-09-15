@@ -20,6 +20,7 @@ import {
 } from "@/components/spotlight-match-card";
 import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
+import { HecovackaPanel } from "./hecovacka-panel";
 import { joinCompetition, leaveCompetition } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
@@ -106,10 +107,14 @@ export default async function CompetitionDetailPage({
     predictionsResult,
   ] = await Promise.all([
     getCurrentUser(),
-    supabase.from("competitions").select("id, name, sport, logo_url").eq("id", id).single(),
+    supabase
+      .from("competitions")
+      .select("id, name, sport, logo_url, visibility, description, end_date, invite_token, created_by")
+      .eq("id", id)
+      .single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles(display_name)")
+      .select("user_id, profiles!user_id(display_name)")
       .eq("competition_id", id),
     supabase
       .from("matches")
@@ -152,6 +157,37 @@ export default async function CompetitionDetailPage({
       ?.filter((p) => p.user_id === user?.id)
       .map((p) => [p.match_id, p]),
   );
+
+  // Hecovačka (soukromá soutěž, visibility === "private") -- druhá
+  // vlna dotazů jen pro tenhle případ, ať běžné (veřejné) soutěže
+  // nezatěžuje dotazem navíc, co by nikdy nepoužily (stejný princip
+  // jako lazy MobileMenuCompetitions, viz PROJECT.md sekce "Výkon").
+  const isOwner = competition.visibility === "private" && user?.id === competition.created_by;
+  let sourceNames: string[] = [];
+  let candidates: { id: string; display_name: string }[] = [];
+  if (competition.visibility === "private") {
+    const [sourcesResult, profilesResult] = await Promise.all([
+      supabase
+        .from("hecovacka_sources")
+        .select("competitions!source_competition_id(name)")
+        .eq("hecovacka_id", id),
+      // Kandidáti na přidání appka potřebuje jen pro tvůrce -- ostatní
+      // participanti UI na přidávání vůbec neuvidí (HecovackaPanel).
+      isOwner
+        ? supabase.from("profiles").select("id, display_name").order("display_name")
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    throwIfSupabaseError(sourcesResult.error, "Načtení zdrojových soutěží hecovačky");
+    throwIfSupabaseError(profilesResult.error ?? null, "Načtení hráčů appky");
+
+    sourceNames = (sourcesResult.data ?? [])
+      .map((s) => s.competitions?.name)
+      .filter((name): name is string => Boolean(name));
+    const participantIds = new Set((participants ?? []).map((p) => p.user_id));
+    candidates = (profilesResult.data ?? []).filter((p) => !participantIds.has(p.id));
+  }
+  const inviteUrl =
+    isOwner && competition.invite_token ? `https://klopi.cz/pozvanka/${competition.invite_token}` : null;
 
   // Vlastní pozice v žebříčku pod hlavičkou soutěže (odsouhlaseno
   // s uživatelem 29.8.2026) -- stejný výpočet jako na
@@ -255,16 +291,22 @@ export default async function CompetitionDetailPage({
           )}
         </div>
 
-        {/* Pompézní CTA (14.9.2026, na žádost uživatele "tlačítko
-         * větší, viditelnější, pompéznější") -- větší, s vlastním
-         * gradientem ve sportovní barvě a jemným pulzujícím "sonar"
-         * halo (viz .btn-hero v globals.css), ať je jasné, že tohle je
-         * hlavní akce na stránce, dokud hráč soutěž nehraje. Dřívější
-         * samostatné tlačítko "Žebříček →" tady vedle bylo odstraněno
-         * (14.9.2026, na žádost uživatele "jsou tam dvě") -- tuhle roli
-         * teď přebírá banner "tenhle týden" níž. */}
-        {!isJoined && (
-          <div className="mt-4">
+        <div className="mt-4">
+          {/* Pompézní CTA (14.9.2026, na žádost uživatele "tlačítko
+           * větší, viditelnější, pompéznější") -- větší, s vlastním
+           * gradientem ve sportovní barvě a jemným pulzujícím "sonar"
+           * halo (viz .btn-hero v globals.css), ať je jasné, že tohle je
+           * hlavní akce na stránce, dokud hráč soutěž nehraje. Dřívější
+           * samostatné tlačítko "Žebříček →" tady vedle bylo odstraněno
+           * (14.9.2026, na žádost uživatele "jsou tam dvě") -- tuhle roli
+           * teď přebírá banner "tenhle týden" níž.
+           * Soukromá soutěž (hecovačka) nemá samoobslužné "Chci hrát"
+           * -- RLS to teď stejně odmítne (viz
+           * 20260914090300_competition_participants_hecovacky.sql),
+           * navíc kdokoliv, kdo hecovačku vůbec vidí, už je jejím
+           * tvůrcem nebo participantem (competitions_select_visible),
+           * takže !isJoined u ní reálně nikdy nenastane. */}
+          {!isJoined && competition.visibility === "public" && (
             <form action={joinCompetition.bind(null, competition.id)}>
               <button
                 type="submit"
@@ -274,15 +316,31 @@ export default async function CompetitionDetailPage({
                 Chci hrát
               </button>
             </form>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
-      {!isJoined && (
+      {!isJoined && competition.visibility === "public" && (
         <div className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
           👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
           tipovat zápasy!
         </div>
+      )}
+
+      {competition.visibility === "private" && (
+        <HecovackaPanel
+          competitionId={competition.id}
+          isOwner={isOwner}
+          description={competition.description}
+          endDate={competition.end_date}
+          sourceNames={sourceNames}
+          participants={(participants ?? []).map((p) => ({
+            userId: p.user_id,
+            displayName: p.profiles?.display_name ?? "Neznámý hráč",
+          }))}
+          candidates={candidates}
+          inviteUrl={inviteUrl}
+        />
       )}
 
       {/* "Jak si vedu tenhle týden" hned pod hlavičkou (14.9.2026, na

@@ -9,6 +9,10 @@ export type Sport = "hockey" | "football";
 export type CompetitionSport = Sport | "mixed";
 export type CompetitionStatus = "active" | "archived";
 export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
+// public = dnešní oficiální soutěže (vidí každý přihlášený), private =
+// hecovačka (jen tvůrce a participanti), viz
+// 20260914090000_competitions_hecovacky.sql.
+export type CompetitionVisibility = "public" | "private";
 
 export interface Database {
   public: {
@@ -50,6 +54,11 @@ export interface Database {
           scrape_path: string | null;
           logo_url: string | null;
           description: string | null;
+          visibility: CompetitionVisibility;
+          start_date: string | null;
+          end_date: string | null;
+          max_matches_per_day: number | null;
+          invite_token: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -67,6 +76,11 @@ export interface Database {
           scrape_path?: string | null;
           logo_url?: string | null;
           description?: string | null;
+          visibility?: CompetitionVisibility;
+          start_date?: string | null;
+          end_date?: string | null;
+          max_matches_per_day?: number | null;
+          invite_token?: string | null;
           created_by?: string | null;
         };
         Update: {
@@ -81,6 +95,11 @@ export interface Database {
           scrape_path?: string | null;
           logo_url?: string | null;
           description?: string | null;
+          visibility?: CompetitionVisibility;
+          start_date?: string | null;
+          end_date?: string | null;
+          max_matches_per_day?: number | null;
+          invite_token?: string | null;
         };
         Relationships: [
           {
@@ -109,6 +128,10 @@ export interface Database {
           // appka použije competition.sport.
           sport: Sport | null;
           source_scrape_path: string | null;
+          // Jen u zápasů zkopírovaných do hecovačky -- FK na
+          // originální řádek, viz
+          // 20260914090100_matches_source_match_id.sql.
+          source_match_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -125,6 +148,7 @@ export interface Database {
           overtime_flag?: boolean | null;
           sport?: Sport | null;
           source_scrape_path?: string | null;
+          source_match_id?: string | null;
         };
         Update: {
           external_id?: string | null;
@@ -137,6 +161,7 @@ export interface Database {
           overtime_flag?: boolean | null;
           sport?: Sport | null;
           source_scrape_path?: string | null;
+          source_match_id?: string | null;
         };
         Relationships: [
           {
@@ -144,6 +169,13 @@ export interface Database {
             columns: ["competition_id"];
             isOneToOne: false;
             referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "matches_source_match_id_fkey";
+            columns: ["source_match_id"];
+            isOneToOne: false;
+            referencedRelation: "matches";
             referencedColumns: ["id"];
           },
         ];
@@ -197,14 +229,22 @@ export interface Database {
           user_id: string;
           joined_at: string;
           email_reminders_enabled: boolean;
+          // Vyplněno jen když participanta přidal někdo jiný (tvůrce
+          // hecovačky) -- viz
+          // 20260914090300_competition_participants_hecovacky.sql.
+          added_by: string | null;
+          notified_at: string | null;
         };
         Insert: {
           competition_id: string;
           user_id: string;
           email_reminders_enabled?: boolean;
+          added_by?: string | null;
+          notified_at?: string | null;
         };
         Update: {
           email_reminders_enabled?: boolean;
+          notified_at?: string | null;
         };
         Relationships: [
           {
@@ -219,6 +259,40 @@ export interface Database {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "competition_participants_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hecovacka_sources: {
+        Row: {
+          hecovacka_id: string;
+          source_competition_id: string;
+        };
+        Insert: {
+          hecovacka_id: string;
+          source_competition_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "hecovacka_sources_hecovacka_id_fkey";
+            columns: ["hecovacka_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hecovacka_sources_source_competition_id_fkey";
+            columns: ["source_competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
             referencedColumns: ["id"];
           },
         ];
@@ -281,7 +355,28 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_hecovacka: {
+        Args: {
+          p_name: string;
+          p_description: string | null;
+          p_start_date: string | null;
+          p_end_date: string;
+          p_max_matches_per_day: number | null;
+          p_source_competition_ids: string[];
+          p_initial_participant_ids: string[];
+        };
+        Returns: string;
+      };
+      get_hecovacka_invite_preview: {
+        Args: { p_token: string };
+        Returns: { competition_id: string; name: string; description: string | null }[];
+      };
+      accept_hecovacka_invite: {
+        Args: { p_token: string };
+        Returns: string;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

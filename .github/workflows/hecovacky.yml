@@ -1,0 +1,51 @@
+# Pro každou aktivní hecovačku (soukromou soutěž) vybere zápasy z
+# vybraných zdrojových soutěží pro dny v klouzavém okně 7 dní dopředu,
+# propaguje skóre/stav z originálů, archivuje hecovačky po uplynutí
+# data konce a pošle e-mail hráčům přidaným přímo (ne přes pozvánkový
+# odkaz). Viz scripts/sync/hecovacky.mjs.
+#
+# Na rozdíl od sync-fixtures/sync-results/random-league appka tu
+# nepotřebuje Playwright/prohlížeč vůbec -- všechna data už má ve
+# vlastní databázi, jen se kopírují a posílá se e-mail přes Gmail SMTP
+# (stejný mechanismus jako predict-reminders.mjs).
+#
+# Zatím jen `workflow_dispatch` (ruční spuštění/ladění) -- stejná
+# opatrná konvence jako u všech ostatních naplánovaných úloh v repu:
+# `schedule`/cron-job.org se zapne až po ověřeném ručním běhu na
+# reálné hecovačce.
+name: Hecovacky
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/sync
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/sync/package-lock.json
+
+      - name: Nainstalovat závislosti
+        run: npm install
+
+      - name: Spustit hecovacky
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          APP_BASE_URL: https://klopi.cz
+        run: node hecovacky.mjs

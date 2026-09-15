@@ -12,9 +12,14 @@ export default async function SpacesPage() {
   // Supabase (perf review 27.8.2026).
   const [user, { data: competitions, error }] = await Promise.all([
     getCurrentUser(),
+    // Jen veřejné (oficiální) soutěže -- soukromé hecovačky mají
+    // vlastní přehled na /hecovacky, RLS by je tu stejně skryla
+    // neparticipantům, ale bez tohohle filtru by je vlastní
+    // tvůrce/participant viděl matoucně zamíchané mezi "Všechny soutěže".
     supabase
       .from("competitions")
       .select("id, name, sport, status, logo_url, description")
+      .eq("visibility", "public")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -33,7 +38,7 @@ export default async function SpacesPage() {
     competitionIds.length
       ? supabase
           .from("competition_participants")
-          .select("competition_id, user_id, profiles(display_name)")
+          .select("competition_id, user_id, profiles!user_id(display_name)")
           .in("competition_id", competitionIds)
       : Promise.resolve({ data: [], error: null }),
     competitionIds.length
