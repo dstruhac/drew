@@ -822,7 +822,7 @@ function MatchCard({
               Tvůj tip: {existing.predicted_home_score}:{existing.predicted_away_score}
               {existing.predicted_overtime_flag && (
                 <span className="ml-1 text-xs font-bold text-muted-foreground">
-                  🏒 po prodloužení/nájezdech
+                  (PP) po prodloužení/nájezdech
                 </span>
               )}
             </p>
