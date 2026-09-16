@@ -1621,15 +1621,46 @@ udržuje v provozu sama.
   téhle diagnostice, ne kvůli reálnému chování appky, ale doplněno
   preventivně (`20260916130000_hecovacka_sources_service_role_grant.sql`).
 
-  **Skutečná příčina uživatelova hlášeného selhání zůstala neznámá** —
-  test přes service roli obchází RLS, takže neodhalí problém, který by
-  postihl jen roli `authenticated` (přihlášeného hráče). Appka nemá
+  **Skutečná příčina nalezena a opravena (16.9.2026)** — test přes
+  service roli obcházel RLS, takže reálný problém (specifický jen pro
+  roli `authenticated`, tedy přihlášeného hráče) neodhalil. Appka nemá
   z týhle session jak simulovat reálného přihlášeného uživatele (žádný
   přístup na živou Supabase/prohlížeč, viz "Síťové omezení" v
-  `CLAUDE.md`), takže místo dalšího hádání appka rozšířila chybovou
-  hlášku (`actions.ts`) o syrový technický detail (`kód: hláška` z
-  databáze) pro každou NEPŘELOŽENOU chybu — čeká se na uživatelův další
-  pokus a přesný text hlášky.
+  `CLAUDE.md`), takže se to dohledalo **společně s uživatelem přímo v
+  Supabase SQL editoru** — appka postupně skládala testovací SQL
+  (`set local role authenticated` + `set local request.jwt.claims`,
+  oficiálně doporučený Supabase postup na simulaci konkrétního
+  uživatele bez nutnosti reálného přihlášení v prohlížeči) a uživatel
+  vždy vložil zpátky přesný výsledek, dokud se nenašel rozdíl mezi
+  selhávajícím a fungujícím pokusem.
+
+  **Skutečná příčina**: `insert into competitions (...) ... returning
+  id into v_id` uvnitř `create_hecovacka()`. PostgreSQL u `INSERT ...
+  RETURNING` navíc vyžaduje, aby nově vložený řádek prošel i SELECT
+  politikou (`competitions_select_visible` → `hecovacka_is_visible()`),
+  ne jen INSERT politikou (`competitions_insert_own_hecovacka`) --
+  `hecovacka_is_visible()` se ale ptá zpátky do `competitions` PODLE
+  ID přes vlastní SELECT, a ten nově vložený řádek uvnitř STEJNÉHO
+  příkazu ještě nevidí (samostatný dotaz na stejnou tabulku v rámci
+  jednoho příkazu nemá k dispozici řádek, který ten samý příkaz teprve
+  zapisuje) -- kontrola tak vždy selhala jako "new row violates row-level
+  security policy for table competitions", i když samotná INSERT
+  politika (`created_by = auth.uid()`) byla celou dobu v naprostém
+  pořádku. Ověřeno empiricky: identický insert BEZ `returning` prošel
+  bez jakékoliv chyby.
+
+  **Oprava** (`20260916140000_hecovacky_fix_insert_returning_rls.sql`):
+  appka si `id` nové hecovačky vygeneruje SAMA předem
+  (`v_id uuid := gen_random_uuid();`, appka to tak už dělá i pro
+  `invite_token`) a rovnou ho vloží jako sloupec `id` místo spoléhání
+  na sloupcový default + `returning ... into v_id` -- INSERT tak
+  `returning` vůbec nepotřebuje, problém tím úplně mizí. Zbytek funkce
+  (validace, vkládání zdrojů/participantů) beze změny. Stejný vzorec
+  "INSERT s RETURNING + SELECT politika, co se ptá zpátky na STEJNOU
+  tabulku podle ID" se v appce jinde nevyskytuje (`matches_select_visible`/
+  `competition_participants_select_visible` se ptají na `competitions`
+  přes cizí klíč, ne na svou vlastní tabulku, takže tenhle konkrétní
+  problém nehrozí).
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
   Appka od bodování hokejového prodloužení (11.9.2026, viz krok výše)
