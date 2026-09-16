@@ -5,6 +5,28 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type CreateHecovackaState = { error: string | null };
 
+// Appka pár věcí validuje i sama v `create_hecovacka()` (viz
+// supabase/migrations/20260915090200_hecovacky_functions_hardening.sql)
+// jako záchrannou síť pro případ, že by appka někdy zavolala RPC bez
+// stejné kontroly tady (nebo se validace tady rozjela) -- appka ale
+// vrací tyhle chybové kódy syrové (`raise exception 'end_date_in_past'`
+// se v Supabase klientovi objeví přesně jako `error.message ===
+// "end_date_in_past"`), takže je potřeba je přeložit, ať uživatel
+// nevidí anglický technický kód.
+const RPC_ERROR_MESSAGES: Record<string, string> = {
+  name_required: "Zadej název hecovačky.",
+  end_date_required: "Zadej datum, do kdy se hraje.",
+  end_date_in_past: "Datum konce nemůže být v minulosti.",
+  end_date_before_start_date: "Datum konce nemůže být dřív než datum začátku.",
+  max_matches_per_day_invalid: "Denní limit zápasů musí být kladné celé číslo.",
+  source_competitions_required:
+    "Vyber aspoň jednu soutěž, ze které appka bude brát zápasy.",
+};
+
+function todayInPragueIsoDate(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague" }).format(new Date());
+}
+
 export async function createHecovacka(
   _prevState: CreateHecovackaState,
   formData: FormData,
@@ -28,6 +50,9 @@ export async function createHecovacka(
   }
   if (!endDate) {
     return { error: "Zadej datum, do kdy se hraje." };
+  }
+  if (endDate < todayInPragueIsoDate()) {
+    return { error: "Datum konce nemůže být v minulosti." };
   }
   if (startDate && endDate < startDate) {
     return { error: "Datum konce nemůže být dřív než datum začátku." };
@@ -56,7 +81,8 @@ export async function createHecovacka(
   });
 
   if (error || !hecovackaId) {
-    return { error: error?.message ?? "Založení hecovačky se nepodařilo." };
+    const message = error?.message ? RPC_ERROR_MESSAGES[error.message] : undefined;
+    return { error: message ?? "Založení hecovačky se nepodařilo." };
   }
 
   redirect(`/spaces/${hecovackaId}`);
