@@ -1605,7 +1605,31 @@ udržuje v provozu sama.
      kontrolovala jen pořadí od/do, ne minulost samotnou) -- pro tenhle
      konkrétní případ tak appka RPC vůbec nezavolá a rovnou ukáže
      přeloženou hlášku.
-- [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
+
+  **Reálný pokus uživatele (16.9.2026) přesto spadl na "Založení
+  hecovačky se nepodařilo."** — generická hláška appky, `error.message`
+  z RPC neodpovídal žádnému klíči `RPC_ERROR_MESSAGES`, takže nešlo
+  poznat, o jakou chybu jde. Appka na diagnostiku rozšířila `db-probe.yml`
+  o volání RPC přes service roli (`POST /rest/v1/rpc/{rpc}` s tělem,
+  ne jen čtení tabulek přes GET, stejná konvence jako dřívější
+  rozšíření `api-probe.yml`) — zkušební volání `create_hecovacka()`
+  přes service roli odhalilo **devátý výskyt** stejné třídy chyby jako
+  jinde v projektu (viz "Grants" výše): `hecovacka_sources`
+  (`20260914090200`) grantovala service roli jen `select`, ne
+  `insert`. Appka to ale nepotkává za normálního provozu (funkci vždy
+  volá přihlášený hráč, ne service role) — chyba se objevila jen kvůli
+  téhle diagnostice, ne kvůli reálnému chování appky, ale doplněno
+  preventivně (`20260916130000_hecovacka_sources_service_role_grant.sql`).
+
+  **Skutečná příčina uživatelova hlášeného selhání zůstala neznámá** —
+  test přes service roli obchází RLS, takže neodhalí problém, který by
+  postihl jen roli `authenticated` (přihlášeného hráče). Appka nemá
+  z týhle session jak simulovat reálného přihlášeného uživatele (žádný
+  přístup na živou Supabase/prohlížeč, viz "Síťové omezení" v
+  `CLAUDE.md`), takže místo dalšího hádání appka rozšířila chybovou
+  hlášku (`actions.ts`) o syrový technický detail (`kód: hláška` z
+  databáze) pro každou NEPŘELOŽENOU chybu — čeká se na uživatelův další
+  pokus a přesný text hlášky.
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
   Appka od bodování hokejového prodloužení (11.9.2026, viz krok výše)

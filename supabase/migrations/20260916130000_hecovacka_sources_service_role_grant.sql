@@ -1,0 +1,11 @@
+-- Nalezeno diagnostikou 16.9.2026 (viz docs/PROJECT.md, sekce
+-- "Grants") -- devátý výskyt stejné třídy chyby v tomhle projektu:
+-- `hecovacka_sources` (20260914090200) grantovala service_role jen
+-- `select`, ne `insert`. Nikdo pod service rolí do tabulky nezapisuje
+-- za normálního provozu (`hecovacky.mjs` jen čte a kopíruje
+-- skóre/stav zápasů, `create_hecovacka()` volá vždy přihlášený hráč
+-- přes appku, ne service role) -- objeveno jen při ručním testu RPC
+-- se service rolí (`db-probe.yml`), appce to samo o sobě nevadilo.
+-- Doplněno preventivně, ať appka do budoucna nenarazí, kdyby něco pod
+-- service rolí přece jen zapisovat začalo.
+grant insert on public.hecovacka_sources to service_role;
