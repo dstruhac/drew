@@ -1693,6 +1693,21 @@ udržuje v provozu sama.
   jedné transakce prakticky okamžitě. Pravidelný běh `hecovacky.mjs`
   (ten teprve čeká na zapnutí rozvrhu, viz níže) appce dál doplňuje
   nové dny, jak se posouvá 7denní okno, a propaguje skóre/stav.
+
+  **Bug nalezený Codex review na PR #198 (16.9.2026), opraveno ve
+  stejném PR před smergováním:** appka `sync_hecovacka_matches_initial()`
+  grantuje přímo roli `authenticated`, ne jen jako interní volání
+  zevnitř `create_hecovacka()` -- vlastník hecovačky ji tak může
+  zavolat opakovaně (např. ručně přes RPC). Funkce bez kontroly, kolik
+  zápasů daný den v hecovačce UŽ je, by při každém dalším volání
+  přidala další náhodnou dávku až do `max_matches_per_day` NAVÍC --
+  `on conflict` vyřadí jen přesné duplicity stejného zápasu, ne jiné
+  zápasy stejného dne, takže by šlo denní limit opakovaným voláním
+  obejít. Opraveno: appka si před výběrem pro každý den nejdřív
+  spočítá, kolik zápasů v hecovačce ten den už existuje, a
+  `max_matches_per_day` o to sníží (`greatest(v_max_per_day -
+  v_existing_count, 0)`) -- stejný princip, jaký `hecovacky.mjs` už
+  používá pro svůj vlastní dopočet zbývajícího limitu.
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
