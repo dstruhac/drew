@@ -1584,6 +1584,27 @@ udržuje v provozu sama.
 
   `hecovacky.yml` čeká na ověřený ruční běh, než se zapne cron-job.org
   (stejná konvence jako u ostatních 5 naplánovaných úloh).
+
+  **Dvě UX chyby nalezené při prvním vyzkoušení formuláře uživatelem
+  (16.9.2026)**, opraveno v `src/app/(app)/hecovacky/nova/{form.tsx,actions.ts}`:
+  1. **Pole formuláře se při chybě smazala** -- React 19 po odeslání
+     `<form action={...}>` přes `useActionState` needitovaná
+     ("uncontrolled") pole vyresetuje, ať akce uspěje, nebo vrátí
+     chybu (známé chování, appka na něj narazila poprvé). Formulář
+     teď drží hodnoty v `useState` a posílá je do inputů jako
+     `value`/`checked` -- při chybě appka znovu vykreslí formulář se
+     stejnými hodnotami, React je nezahodí.
+  2. **Chybové hlášky z databázové funkce nešly přeložené** -- appka
+     validuje většinu věcí i v `create_hecovacka()`
+     (`20260915090200_hecovacky_functions_hardening.sql`) jako
+     záchrannou síť, ale chybu odsud appka posílala uživateli syrovou
+     (`error.message` = doslovný anglický kód, např.
+     `end_date_in_past`). Doplněn slovník `RPC_ERROR_MESSAGES`
+     (`actions.ts`) překládající každý kód do češtiny + appka teď
+     navíc sama v UI vrstvě kontroluje datum konce v minulosti (dřív
+     kontrolovala jen pořadí od/do, ne minulost samotnou) -- pro tenhle
+     konkrétní případ tak appka RPC vůbec nezavolá a rovnou ukáže
+     přeloženou hlášku.
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.

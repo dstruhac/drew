@@ -11,6 +11,12 @@ const SPORT_LABELS: Record<string, string> = {
   mixed: "mix",
 };
 
+// React 19 po každém odeslání formuláře přes akci (`useActionState`)
+// vyresetuje needitovaná ("uncontrolled") pole -- i když akce vrátí
+// chybu, ne jen při úspěchu. Appka proto drží hodnoty v komponentě
+// (`useState`) a posílá je do inputů jako `value`/`checked`, ne přes
+// `defaultValue` -- při chybě appka znovu vykreslí formulář se stejnými
+// hodnotami, React je needí zahodit.
 export function HecovackaForm({
   competitions,
   players,
@@ -19,7 +25,29 @@ export function HecovackaForm({
   players: { id: string; display_name: string }[];
 }) {
   const [state, formAction, isPending] = useActionState(createHecovacka, initialState);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [limitMode, setLimitMode] = useState<"all" | "limited">("all");
+  const [maxMatchesPerDay, setMaxMatchesPerDay] = useState("3");
+  const [sourceCompetitionIds, setSourceCompetitionIds] = useState<Set<string>>(new Set());
+  const [initialParticipantIds, setInitialParticipantIds] = useState<Set<string>>(new Set());
+
+  function toggleInSet(
+    set: Set<string>,
+    setSet: (next: Set<string>) => void,
+    id: string,
+  ) {
+    const next = new Set(set);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSet(next);
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-8">
@@ -34,6 +62,8 @@ export function HecovackaForm({
           required
           maxLength={80}
           placeholder="Např. Podzimní klopení"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
         />
       </div>
@@ -48,6 +78,8 @@ export function HecovackaForm({
           maxLength={300}
           rows={2}
           placeholder="Např. Poražený platí rundu."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
         />
         <p className="text-xs text-faint-foreground">Nepovinné -- appka to jen zobrazí, nijak to nevymáhá.</p>
@@ -62,6 +94,8 @@ export function HecovackaForm({
             id="start_date"
             name="start_date"
             type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
           <p className="text-xs text-faint-foreground">
@@ -77,6 +111,8 @@ export function HecovackaForm({
             name="end_date"
             type="date"
             required
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
             className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
         </div>
@@ -99,6 +135,10 @@ export function HecovackaForm({
                   type="checkbox"
                   name="source_competition_ids"
                   value={competition.id}
+                  checked={sourceCompetitionIds.has(competition.id)}
+                  onChange={() =>
+                    toggleInSet(sourceCompetitionIds, setSourceCompetitionIds, competition.id)
+                  }
                   className="h-4 w-4 accent-accent"
                 />
                 <span className="font-semibold">{competition.name}</span>
@@ -139,8 +179,9 @@ export function HecovackaForm({
               type="number"
               name="max_matches_per_day"
               min={1}
-              defaultValue={3}
+              value={maxMatchesPerDay}
               onFocus={() => setLimitMode("limited")}
+              onChange={(e) => setMaxMatchesPerDay(e.target.value)}
               className="w-16 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
             zápasů/den
@@ -166,6 +207,10 @@ export function HecovackaForm({
                   type="checkbox"
                   name="initial_participant_ids"
                   value={player.id}
+                  checked={initialParticipantIds.has(player.id)}
+                  onChange={() =>
+                    toggleInSet(initialParticipantIds, setInitialParticipantIds, player.id)
+                  }
                   className="h-4 w-4 accent-accent"
                 />
                 {player.display_name}
