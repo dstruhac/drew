@@ -5,7 +5,15 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
 
-export type SubmitPredictionState = { error: string | null };
+export type SubmitPredictionState = {
+  error: string | null;
+  /** Názvy soutěží, do kterých appka tenhle tip navíc propsala (stejný
+   * reálný zápas se stejným `external_id`), protože v nich hráč už
+   * hraje. `undefined`/prázdné pole = žádná další kopie zápasu
+   * nenalezena/nikam nebylo co propsat -- appka pak žádnou hlášku
+   * neukazuje. */
+  syncedCompetitionNames?: string[];
+};
 
 export async function joinCompetition(competitionId: string) {
   const supabase = await createClient();
@@ -154,5 +162,106 @@ export async function submitPrediction(
   }
 
   revalidatePath(`/spaces/${competitionId}`);
-  return { error: null };
+
+  const syncedCompetitionNames = await syncPredictionToDuplicateMatches({
+    supabase,
+    matchId,
+    userId: user.id,
+    homeScore,
+    awayScore,
+    overtime,
+  });
+
+  return { error: null, syncedCompetitionNames };
+}
+
+// Stejný reálný zápas se dokáže objevit ve víc soutěžích najednou --
+// typicky "Náhodná liga" nabírá zápasy ze sledovaných domácích lig
+// (Chance Liga, Premier League, ...), takže appka pro NĚJ založí druhý
+// řádek v `matches` se stejným `external_id`, jen jinou
+// `competition_id`. Uživatel 14.9.2026 nahlásil, že mu appka nutí
+// zadávat stejný tip dvakrát -- appka teď po každém uložení tipu
+// propíše stejné skóre/checkbox i do sourozeneckých kopií zápasu.
+//
+// Propisuje se JEN do soutěží, kde hráč UŽ hraje (odsouhlaseno
+// s uživatelem) -- appka ho nikam sama nepřihlašuje jen kvůli
+// propsání tipu, to zůstává jeho vlastní krok ("Chci hrát").
+async function syncPredictionToDuplicateMatches({
+  supabase,
+  matchId,
+  userId,
+  homeScore,
+  awayScore,
+  overtime,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  matchId: string;
+  userId: string;
+  homeScore: number;
+  awayScore: number;
+  overtime: boolean | null;
+}): Promise<string[] | undefined> {
+  const { data: match } = await supabase
+    .from("matches")
+    .select("external_id")
+    .eq("id", matchId)
+    .single();
+
+  if (!match?.external_id) return undefined;
+
+  const { data: siblings } = await supabase
+    .from("matches")
+    .select("id, competition_id, kickoff_at, status, competitions(name)")
+    .eq("external_id", match.external_id)
+    .neq("id", matchId);
+
+  if (!siblings || siblings.length === 0) return undefined;
+
+  const { data: participations } = await supabase
+    .from("competition_participants")
+    .select("competition_id")
+    .eq("user_id", userId)
+    .in(
+      "competition_id",
+      siblings.map((s) => s.competition_id),
+    );
+
+  const joinedCompetitionIds = new Set(
+    (participations ?? []).map((p) => p.competition_id),
+  );
+
+  // Jen soutěže, kde hráč hraje A kde zápas ještě není zamčený -- appka
+  // je zjišťuje sama předem (ne až přes chybu z RLS), protože jeden
+  // hromadný upsert by kvůli JEDNÉ zamčené kopii selhal jako celek a
+  // nezapsal by ani ty ostatní, platné.
+  const now = Date.now();
+  const targets = siblings.filter(
+    (s) =>
+      joinedCompetitionIds.has(s.competition_id) &&
+      s.status === "scheduled" &&
+      new Date(s.kickoff_at).getTime() > now,
+  );
+
+  if (targets.length === 0) return undefined;
+
+  const { error: syncError } = await supabase.from("predictions").upsert(
+    targets.map((t) => ({
+      match_id: t.id,
+      user_id: userId,
+      predicted_home_score: homeScore,
+      predicted_away_score: awayScore,
+      predicted_overtime_flag: overtime,
+    })),
+    { onConflict: "match_id,user_id" },
+  );
+
+  if (syncError) return undefined;
+
+  for (const t of targets) {
+    revalidatePath(`/spaces/${t.competition_id}`);
+  }
+
+  return targets
+    .map((t) => t.competitions?.name)
+    .filter((name): name is string => Boolean(name));
 }

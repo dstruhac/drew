@@ -1456,6 +1456,25 @@ udržuje v provozu sama.
   u `JoinCompetitionsModal` 10.9.2026) -- appka na skutečná data
   z tohohle sandboxu nedosáhne (viz "Síťové omezení" v `CLAUDE.md`).
   Stránka i dočasná výjimka v middlewaru smazány po ověření, nešly do PR.
+
+  **Doladění o pár hodin později, ve dvou navazujících PR (na téže
+  branch, PR #184 a jeden bezprostředně po něm) na žádost uživatele:**
+  1. Na stránce soutěže appka po nasazení výše měla DVA prokliky na
+     žebříček najednou (pill tlačítko v hlavičce vedle "Chci hrát" +
+     nový banner "tenhle týden") -- pill tlačítko z hlavičky
+     odstraněno, jediný proklik zůstává v banneru, jehož text se
+     zkrátil z "Týdenní žebříček →" na "Žebříček →" (přebírá roli
+     odstraněného tlačítka). "1. místo z 7" pod nadpisem soutěže
+     přejmenováno na "Celkově: 1. místo z 7", ať je jasné, že jde o
+     celkovou pozici za sezónu, ne o tu z banneru níž.
+  2. Banner "tenhle týden" se PO těchhle úpravách zobrazoval jen
+     přihlášeným hráčům v týdnu s odehraným zápasem -- appka tak pro
+     nepřihlášené hráče nebo v týdnu bez zápasů neměla na stránce
+     soutěže žádný proklik na žebříček vůbec. Uživatel upřesnil "ten
+     banner se na strance souteze musi zobrazovat vzdy" -- banner se
+     teď zobrazuje vždy, jen text se přizpůsobuje situaci ("Přidej se
+     a bojuj o týdenní žebříček" / "Tenhle týden se zatím nehraje" /
+     stav s body), odkaz na žebříček zůstává vždy stejný.
 - [x] **"Hecovačky" -- uživatelsky založené soukromé soutěže
   (14.9.2026, PR #185, smergováno 16.9.2026, migrace spuštěné)** --
   první self-service založená competition v appce (dosud jen komentář
@@ -1758,6 +1777,60 @@ udržuje v provozu sama.
   Vědomě beze změny zůstává 🏒 na `/pravidla` (vysvětlení bodování,
   jiný kontext — "kolik bodů se dává za hokej", ne zobrazení
   konkrétního tipu).
+- [x] **Propsání tipu napříč soutěžemi se stejným reálným zápasem
+  (16.9.2026)** — uživatel nahlásil, že se stejný zápas dost často
+  objeví ve víc soutěžích najednou (typicky domácí liga + Creme de la
+  Creme, teď navíc i hecovačky, viz krok výše) a appka ho nutí zadat
+  stejný tip víckrát. Appka tohle omezení u hecovaček dřív sama
+  otevřeně přiznávala jako vědomý kompromis ("hráč musí pro zápas
+  v hecovačce zadat tip znovu, i kdyby stejný reálný zápas už tipoval
+  v mateřské soutěži") — tenhle krok ho řeší obecně, pro všechny tři
+  mechanismy sdílení zápasu najednou (Creme de la Creme, hecovačky,
+  budoucí podobné), ne jen pro jeden z nich zvlášť.
+
+  **Rozhodnutí s uživatelem** (`AskUserQuestion`):
+  - Tip se propíše JEN do soutěží, kde hráč UŽ hraje — appka ho
+    nikam sama nepřihlašuje jen kvůli propsání tipu (zvažovaná
+    alternativa "přihlásit automaticky" zamítnuta, protože by hráče
+    bez jeho vědomí zapsala do žebříčku soutěže, o které možná ani
+    neví).
+  - Staré, už dřív rozdílně zadané tipy na stejný zápas appka
+    jednorázově sjednotila podle NAPOSLEDY uloženého (ne ponechala
+    beze změny) — u zápasů, které ještě všechny (celá skupina) nejsou
+    zamčené, aby appka neměnila retroaktivně už rozhodnutý/probíhající
+    zápas.
+
+  **Technické řešení (moje, vysvětleno v chatu):** appka najde
+  "sourozenecké" kopie zápasu přes `matches.external_id` (livesport
+  ID zápasu, shodné napříč VŠEMI mechanismy sdílení — Creme de la
+  Creme i hecovačky obě při kopírování zápasu `external_id` zachovávají
+  beze změny, viz `random-league.mjs`/`hecovacky.mjs`) — obecnější klíč
+  než hecovačkové `matches.source_match_id` (to je jen přímý ukazatel
+  na JEDEN konkrétní zdrojový řádek, nenajde přes něj appka sourozence
+  napříč více nezávislými kopiemi stejného zápasu).
+
+  Nová `syncPredictionToDuplicateMatches()` v
+  `src/app/(app)/spaces/[id]/actions.ts`, volaná ze `submitPrediction()`
+  hned po úspěšném uložení primárního tipu: najde sourozenecké zápasy
+  podle `external_id`, zúží na ty, kde je hráč `competition_participants`
+  A kde zápas ještě NENÍ zamčený (appka to zjišťuje předem sama, ne až
+  přes chybu z RLS — jeden hromadný upsert by kvůli JEDNÉ zamčené
+  kopii selhal jako celek podle Postgres pravidel pro víceřádkový
+  INSERT s `WITH CHECK` politikou, takže by nezapsal ani ty ostatní,
+  platné), a stejné skóre/checkbox tam upsertne. Appka o propsání
+  hráče informuje přímo ve formuláři ("✅ Tip uložen i pro: Chance
+  Liga (stejný zápas)."), ať nic neproběhne tiše na pozadí bez
+  vysvětlení — nový `syncedCompetitionNames` v `SubmitPredictionState`.
+
+  Nový index `matches_external_id_idx` (`where external_id is not
+  null`) — bez něj by dotaz `where external_id = ...` dělal sekvenční
+  průchod celou tabulkou při KAŽDÉM uložení tipu.
+
+  **Ruční krok uživatele**: spustit
+  `20260916090000_matches_external_id_index.sql` +
+  `20260916090100_reconcile_duplicate_match_predictions.sql`
+  v Supabase SQL editoru (druhá migrace jednorázově sjednotí staré
+  rozdílné tipy, viz rozhodnutí výše).
 
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
