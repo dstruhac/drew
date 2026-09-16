@@ -51,6 +51,52 @@ export async function leaveCompetition(competitionId: string) {
   redirect("/dashboard");
 }
 
+// Jen pro tvůrce hecovačky (soukromá competition) -- RLS policy
+// competition_participants_insert_by_owner (viz
+// 20260914090300_competition_participants_hecovacky.sql) dovolí
+// insert libovolného user_id, ale jen když je volající tvůrcem dané
+// soukromé soutěže, jinak insert selže. added_by appka vyplní, ať jde
+// přidanému hráči poslat e-mail (scripts/sync/hecovacky.mjs).
+export async function addHecovackaPlayer(competitionId: string, userId: string) {
+  const supabase = await createClient();
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) return;
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .insert({ competition_id: competitionId, user_id: userId, added_by: currentUser.id });
+
+  // 23505 = unique_violation (už přidán) -- není chyba, jen no-op.
+  if (error && error.code !== "23505") {
+    throw new Error(`Přidání hráče se nepodařilo: ${error.message}`);
+  }
+
+  revalidatePath(`/spaces/${competitionId}`);
+  revalidatePath(`/spaces/${competitionId}/leaderboard`);
+  revalidatePath("/hecovacky");
+}
+
+// Jen pro tvůrce hecovačky -- oprava omylu při přidávání (RLS policy
+// competition_participants_delete_by_owner).
+export async function removeHecovackaPlayer(competitionId: string, userId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .delete()
+    .eq("competition_id", competitionId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(`Odebrání hráče se nepodařilo: ${error.message}`);
+  }
+
+  revalidatePath(`/spaces/${competitionId}`);
+  revalidatePath(`/spaces/${competitionId}/leaderboard`);
+  revalidatePath("/hecovacky");
+}
+
 export async function submitPrediction(
   sport: Sport,
   competitionId: string,

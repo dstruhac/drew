@@ -1442,6 +1442,128 @@ udržuje v provozu sama.
   u `JoinCompetitionsModal` 10.9.2026) -- appka na skutečná data
   z tohohle sandboxu nedosáhne (viz "Síťové omezení" v `CLAUDE.md`).
   Stránka i dočasná výjimka v middlewaru smazány po ověření, nešly do PR.
+- [ ] **"Hecovačky" -- uživatelsky založené soukromé soutěže
+  (14.9.2026, PR #185, zatím čeká na spuštění migrací a smergování)** --
+  první self-service založená competition v appce (dosud jen komentář
+  v `competitions.sql`: "self-service založení je budoucí feature").
+  Hráč si sám založí soukromou soutěž ("hecovačku") s vlastním názvem,
+  "o co se hraje" (sázka/stavka, prostý text), datem od (nepovinné)/do
+  (povinné), výběrem zdrojových soutěží a denním limitem zápasů --
+  appka pro ni sama vybírá zápasy z už sledovaných veřejných soutěží.
+
+  **Rozhodnutí s uživatelem** (chat + `AskUserQuestion`, dvě kola
+  14.9.2026):
+  - Účast je **čistě na pozvánku** -- appka hecovačku nikde nenabízí
+    ani nezobrazí lidem mimo ni, zakladatel přidává konkrétní hráče.
+    Navíc chtěl uživatel jít zvát i lidi, co v appce ještě nemají účet
+    -- řešeno sdíleným pozvánkovým odkazem (viz níže), který funguje
+    pro oba případy stejně.
+  - Doba trvání: datum **do** povinné, datum **od** nepovinné (doplněno
+    ve druhém kole po zpětné vazbě -- bez něj by appka u dopředu
+    připravené hecovačky začala vybírat zápasy hned od založení, ne od
+    zamýšleného startu). Zápasy se doplňují klouzavým oknem **7 dní
+    dopředu**, stejně jako zbytek appky -- žádná zvláštní výjimka.
+  - Při překročení denního limitu appka vybírá **náhodně** (stejný
+    princip jako Creme de la Creme liga).
+  - Po založení jde měnit jen název/popisek/hráči -- datum
+    konce/zdrojové soutěže/limit jsou **zamčené** navždy.
+  - Když někoho přidá tvůrce přímo (ne přes pozvánkový odkaz), appka
+    mu pošle e-mail "X tě přidal(a) do hecovačky Y" -- jinak by se
+    přidaný hráč o hecovačce nedozvěděl jinak než náhodou.
+
+  **Architektura (moje rozhodnutí, vysvětleno v chatu):** appka nemá
+  žádný today's-precedent na "sdílet zápas napříč soutěžemi" jiný, než
+  jaký už používá Creme de la Creme liga -- **duplikovat zápas jako
+  nový řádek v `matches`** pod novým `competition_id` (stejný
+  `external_id`, jiné id). Hecovačka je proto další řádek v
+  `competitions` (recykluje detail/žebříček/tipování/bodovací trigger
+  beze změny), jen s `visibility='private'`. Na rozdíl od Creme de la
+  Creme appka ale zápasy **nescrapuje znovu** -- protože zdrojem jsou
+  soutěže, co appka už sama sleduje, nový sloupec
+  `matches.source_match_id` (FK sama na sebe) pamatuje originál a
+  appka skóre/stav jen **zkopíruje** z vlastní databáze (žádný
+  Playwright). Důsledek, který appka otevřeně přiznává: hráč musí pro
+  zápas v hecovačce zadat tip znovu, i kdyby stejný reálný zápas už
+  tipoval v mateřské soutěži -- je to jiný `match_id`, jiný tip. Stejné
+  chování appka má dnes u Creme de la Creme ligy.
+
+  **Datový model:**
+  - `competitions` rozšířena o `visibility` (`public`/`private`),
+    `start_date`, `end_date`, `max_matches_per_day`, `invite_token` --
+    `description` (existující sloupec) recyklován pro "o co se hraje".
+    Nová insert/update policy pro vlastníka soukromé competition +
+    **zpřísněná select policy** (`public` vidí každý, `private` jen
+    tvůrce/participant -- jádro požadavku "soukromá znamená
+    soukromá", ne kosmetika).
+  - `matches` rozšířena o `source_match_id` + stejně zpřísněná select
+    policy (zápas pod soukromou soutěží vidí jen její
+    tvůrce/participant -- `predictions` policy se měnit nemusela,
+    subquery na `matches` uvnitř ní RLS respektuje samo).
+  - Nová tabulka `hecovacka_sources` (many-to-many, které veřejné
+    soutěže smí appka použít jako zdroj -- insert policy navíc
+    kontroluje, že zdroj je opravdu `visibility='public'`, jinak by
+    šlo jako "zdroj" podstrčit cizí soukromou competition).
+  - `competition_participants` -- self-join zpřísněn jen na veřejné
+    soutěže, nová policy pro vlastníka (přidat/odebrat libovolného
+    hráče), zpřísněná select policy, nové sloupce `added_by`/
+    `notified_at` (e-mail o přidání) + `grant update ...to
+    service_role` přidaný rovnou (appka má v historii osm případů
+    chybějícího grantu objeveného až při ostrém běhu, viz "Grants"
+    výše -- tentokrát přidáno preventivně).
+  - Tři nové Postgres funkce: `create_hecovacka` (SECURITY INVOKER,
+    atomicky založí competition + zdroje + participanty v jedné
+    transakci), `get_hecovacka_invite_preview` a
+    `accept_hecovacka_invite` (obě SECURITY DEFINER, druhá jen pro
+    `authenticated` -- pozvánkový odkaz funguje i pro úplně nového
+    hráče appky, autorizace je posedění platného tokenu, ne existující
+    členství).
+
+  **Sync skript** `scripts/sync/hecovacky.mjs` +
+  `.github/workflows/hecovacky.yml` (zatím jen `workflow_dispatch`,
+  stejná opatrná konvence jako u všech předchozích sync skriptů) --
+  na rozdíl od `random-league.mjs` **nepotřebuje Playwright vůbec**:
+  pro každou aktivní hecovačku vybere zápasy ze zvolených zdrojových
+  soutěží pro dny v okně (respektuje `start_date`/`end_date`/
+  `max_matches_per_day`, idempotentní per den), zkopíruje skóre/stav
+  ze zdrojových zápasů (spustí existující bodovací trigger podle
+  bodování HECOVAČKY, ne zdroje), archivuje hecovačky po uplynutí
+  `end_date` a pošle e-maily o přidání přes stejný Gmail SMTP
+  mechanismus jako `predict-reminders.mjs`.
+
+  **UI:** `/hecovacky` (přehled, RLS sama filtruje na
+  tvůrce/participanty) + `/hecovacky/nova` (formulář) jsou nové
+  trasy; detail/žebříček/detail zápasu běží na **stejných trasách**
+  jako běžná soutěž (`/spaces/[id]`, .../leaderboard,
+  .../matches/[matchId]) -- vyhýbá se to zdvojení ~400 řádků
+  kategorizační logiky do paralelní route, jen `/spaces/[id]` u
+  `visibility==='private'` navíc ukáže popisek/datum konce/zdrojové
+  soutěže/seznam hráčů a (jen tvůrci) pozvánkový odkaz + přidávání
+  hráčů (nová `HecovackaPanel` komponenta). Samoobslužné "Chci
+  hrát"/"👋 Ještě nehraješ" se u soukromé soutěže skrývá. `/spaces`,
+  `/pravidla` a Dashboardovo "Tvoje soutěže" teď explicitně filtrují
+  `visibility='public'` (RLS by soukromé stejně skryla
+  neparticipantům, ale vlastní tvůrce/participant by je jinak viděl
+  matoucně zamíchané) -- Dashboard má místo toho novou sekci "Tvoje
+  hecovačky".
+
+  **Pozvánkový odkaz pro lidi bez účtu:** `/pozvanka/[token]`, nová
+  veřejná trasa MIMO `(app)` (doplněno do `PUBLIC_PATHS` v
+  middlewaru). Nepřihlášenému ukáže náhled (přes
+  `get_hecovacka_invite_preview`) + "Přihlásit se a přidat se" na
+  `/login?next=...`; přihlášenému rovnou zavolá
+  `accept_hecovacka_invite` a přesměruje na detail hecovačky. Vyžádalo
+  si drobné rozšíření `/login` o čtení `?next=` (dřív to uměl jen
+  `auth/callback/route.ts`, ale nikdo mu to neposílal) -- ověřeno
+  webovým vyhledáváním, že `redirectTo` s query parametrem navíc je
+  zdokumentovaný/běžný vzor, appka na tenhle mechanismus ostatně už
+  dřív spoléhala (`next` default `/dashboard`).
+
+  **Zbývá:** migrace čekají na ruční spuštění v Supabase SQL editoru;
+  `hecovacky.yml` na ověřený ruční běh, než se zapne cron-job.org
+  (stejná konvence jako u ostatních 5 naplánovaných úloh); appka
+  nebyla vizuálně ověřená v prohlížeči (tahle session nemá přístup na
+  živou Supabase, viz "Síťové omezení" v `CLAUDE.md`) -- ověří uživatel
+  na Vercel preview PR #185.
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.

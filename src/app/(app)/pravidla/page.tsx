@@ -23,9 +23,14 @@ const SPORT_LABELS: Record<CompetitionSport, string> = {
 export default async function PravidlaPage() {
   const supabase = await createClient();
 
+  // Jen veřejné (oficiální) soutěže appky -- hecovačky mají dnes vždy
+  // stejné výchozí bodování jako všechno ostatní (appka na jejich
+  // založení nemá UI pro vlastní hodnoty), takže by se tu jen
+  // matoucně zdvojily/naplnily seznam bez nové informace.
   const { data: competitions, error } = await supabase
     .from("competitions")
     .select("id, name, sport, points_exact, points_winner, points_total_goals, points_overtime")
+    .eq("visibility", "public")
     .order("created_at", { ascending: false });
 
   throwIfSupabaseError(error, "Načtení pravidel bodování");
