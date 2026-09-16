@@ -224,6 +224,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Náhledový obrázek appky při sdílení odkazu (`opengraph-image.tsx`).
 - [x] Automatické kontroly: `pnpm check` (TypeScript + testy) v CI na
   každém PR a po změně `main` (zatím jen upozornění, ne povinná brána).
+- [x] Propsání tipu napříč soutěžemi se stejným reálným zápasem
+  (`external_id`) — appka ho po uložení najde a propíše i tam, kde
+  hráč už hraje (nikam ho sama nepřihlašuje).
 
 ### Vědomě odloženo / mimo současný rozsah
 
@@ -247,11 +250,14 @@ uživatele, čím pokračovat** — pořadí níže není závazné:
 
 Appka nemá mechanismus, který by sám upozornil na migraci ležící v
 repu, ale nikdy nespuštěnou v Supabase — hlídá se to jen ručně tady a v
-chatu. **Aktuálně nic nečeká** (revize 16.9.2026, po sloučení
-"hecovaček" — všechny migrace k tomu datu potvrzené jako spuštěné).
-Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako checklist, ať se
-neztratí (viz `HISTORY.md` → "Poučení pro příště" u e-mailových
-upozornění, kde se přesně tohle jednou stalo).
+chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
+checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
+e-mailových upozornění, kde se přesně tohle jednou stalo).
+
+- [ ] `20260916090000_matches_external_id_index.sql` +
+  `20260916090100_reconcile_duplicate_match_predictions.sql`
+  (propsání tipu napříč soutěžemi se stejným zápasem, viz "Co appka
+  umí" výše a `HISTORY.md`).
 
 ## Jak navázat (pro budoucí Claude Code session)
 

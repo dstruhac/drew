@@ -195,6 +195,16 @@ export function PredictionForm({
             {state.error}
           </span>
         )}
+        {!state.error && state.syncWarning && (
+          <span className="max-w-[220px] text-center text-xs font-semibold text-warning">
+            ⚠️ {state.syncWarning}
+          </span>
+        )}
+        {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+          <span className="max-w-[220px] text-center text-xs font-semibold text-white/60">
+            {syncedNote(state.syncedCompetitionNames!)}
+          </span>
+        )}
       </form>
     );
   }
@@ -267,6 +277,24 @@ export function PredictionForm({
           {state.error}
         </span>
       )}
+      {!state.error && state.syncWarning && (
+        <span className="max-w-[220px] text-center text-xs font-semibold text-warning">
+          ⚠️ {state.syncWarning}
+        </span>
+      )}
+      {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+        <span className="max-w-[220px] text-center text-xs font-semibold text-faint-foreground">
+          {syncedNote(state.syncedCompetitionNames!)}
+        </span>
+      )}
     </form>
   );
+}
+
+// Stejný zápas appka umí sledovat ve víc soutěžích najednou (typicky
+// "Náhodná liga" -- viz syncPredictionToDuplicateMatches() v
+// actions.ts) -- tahle hláška hráči řekne, že se mu tip uložil i tam,
+// ať appka nedělá nic tiše na pozadí bez vysvětlení.
+function syncedNote(names: string[]): string {
+  return `✅ Tip uložen i pro: ${names.join(", ")} (stejný zápas).`;
 }
