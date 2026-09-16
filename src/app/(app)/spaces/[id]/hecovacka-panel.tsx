@@ -67,17 +67,21 @@ export function HecovackaPanel({
       </div>
 
       {isOwner && inviteUrl && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2">
           <span className="text-xs font-bold">Pozvánkový odkaz:</span>
-          <code className="rounded-lg bg-surface px-2 py-1 text-xs">{inviteUrl}</code>
-          <button
-            type="button"
-            onClick={copyInviteLink}
-            className="btn-press flex items-center gap-1 rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs font-bold text-accent hover:bg-accent/10"
-          >
-            {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2.4} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.4} />}
-            {copied ? "Zkopírováno" : "Zkopírovat"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 break-all rounded-lg bg-surface px-2 py-1 text-xs">
+              {inviteUrl}
+            </code>
+            <button
+              type="button"
+              onClick={copyInviteLink}
+              className="btn-press flex shrink-0 items-center gap-1 rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs font-bold text-accent hover:bg-accent/10"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2.4} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.4} />}
+              {copied ? "Zkopírováno" : "Zkopírovat"}
+            </button>
+          </div>
         </div>
       )}
 
