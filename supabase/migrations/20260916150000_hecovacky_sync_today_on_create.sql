@@ -19,12 +19,19 @@
 -- (stejné WINDOW_DAYS), ne jen dnešek (uživatel správně upozornil, že
 -- appka pro zdrojovou soutěž má nastahované zápasy na celý týden
 -- dopředu už teď, není důvod čekat na zítřejší/pozítřejší den až na
--- další pravidelný běh hecovacky.mjs). Jediné zjednodušení oproti JS
--- verzi: appka nepotřebuje kontrolu "co už dřív vybrala" (žádné
--- zápasy u čerstvě založené hecovačky ještě neexistují), takže
--- appka na rozdíl od hecovacky.mjs nemusí dopočítávat, kolik do
--- denního limitu ještě zbývá -- rovnou vybere až `max_matches_per_day`
--- z toho, co je pro daný den k dispozici.
+-- další pravidelný běh hecovacky.mjs).
+--
+-- Idempotence (nalezeno Codex review 16.9.2026): appka má tuhle funkci
+-- grantnutou přímo `authenticated`, ne jen volanou zevnitř
+-- `create_hecovacka()` -- vlastník hecovačky ji tak může zavolat
+-- opakovaně (např. ručně přes RPC). Bez kontroly, kolik zápasů daný
+-- den v hecovačce UŽ je, by každé další volání přidalo další náhodnou
+-- dávku až do `max_matches_per_day` NAVÍC (přes `on conflict` appka
+-- jen vyřadí přesné duplicity stejného zápasu, ne jiné zápasy stejného
+-- dne) -- denní limit by se tak dal opakovaným voláním obejít. Appka
+-- proto před výběrem pro každý den spočítá, kolik zápasů v hecovačce
+-- pro ten den už existuje, a limit o to sníží (stejný princip jako
+-- `hecovacky.mjs` dopočítává "kolik do limitu ještě zbývá").
 create or replace function public.sync_hecovacka_matches_initial(p_hecovacka_id uuid)
 returns int
 language plpgsql
@@ -39,6 +46,8 @@ declare
   v_day date;
   v_day_start timestamptz;
   v_day_end timestamptz;
+  v_existing_count int;
+  v_limit int;
   v_total int := 0;
   v_count int;
   i int;
@@ -70,6 +79,18 @@ begin
     v_day_start := (v_day::timestamp) at time zone 'Europe/Prague';
     v_day_end := v_day_start + interval '1 day';
 
+    if v_max_per_day is null then
+      v_limit := null;
+    else
+      select count(*) into v_existing_count
+      from public.matches
+      where competition_id = p_hecovacka_id
+        and kickoff_at >= v_day_start
+        and kickoff_at < v_day_end;
+
+      v_limit := greatest(v_max_per_day - v_existing_count, 0);
+    end if;
+
     insert into public.matches (
       competition_id, external_id, home_team, away_team, kickoff_at,
       status, home_score, away_score, overtime_flag, sport, source_match_id
@@ -94,7 +115,7 @@ begin
     order by random()
     -- LIMIT NULL v PostgreSQL znamená "bez limitu" -- appka tak
     -- nemusí řešit zvlášť případ nastaveného/nenastaveného stropu.
-    limit v_max_per_day
+    limit v_limit
     on conflict (competition_id, external_id) do nothing;
 
     get diagnostics v_count = row_count;
