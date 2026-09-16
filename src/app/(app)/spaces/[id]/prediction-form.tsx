@@ -195,7 +195,12 @@ export function PredictionForm({
             {state.error}
           </span>
         )}
-        {!state.error && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+        {!state.error && state.syncWarning && (
+          <span className="max-w-[220px] text-center text-xs font-semibold text-warning">
+            ⚠️ {state.syncWarning}
+          </span>
+        )}
+        {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
           <span className="max-w-[220px] text-center text-xs font-semibold text-white/60">
             {syncedNote(state.syncedCompetitionNames!)}
           </span>
@@ -272,7 +277,12 @@ export function PredictionForm({
           {state.error}
         </span>
       )}
-      {!state.error && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+      {!state.error && state.syncWarning && (
+        <span className="max-w-[220px] text-center text-xs font-semibold text-warning">
+          ⚠️ {state.syncWarning}
+        </span>
+      )}
+      {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
         <span className="max-w-[220px] text-center text-xs font-semibold text-faint-foreground">
           {syncedNote(state.syncedCompetitionNames!)}
         </span>

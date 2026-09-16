@@ -13,6 +13,12 @@ export type SubmitPredictionState = {
    * nenalezena/nikam nebylo co propsat -- appka pak žádnou hlášku
    * neukazuje. */
   syncedCompetitionNames?: string[];
+  /** Primární tip se uložil v pořádku, ale propsání do sourozeneckých
+   * kopií zápasu (viz syncPredictionToDuplicateMatches) selhalo na
+   * chybě databáze/RLS -- appka o tom hráče musí informovat, ať
+   * netuší, že je tip všude stejný, když ve skutečnosti není
+   * (nalezeno v review 16.9.2026). */
+  syncWarning?: string;
 };
 
 export async function joinCompetition(competitionId: string) {
@@ -163,7 +169,7 @@ export async function submitPrediction(
 
   revalidatePath(`/spaces/${competitionId}`);
 
-  const syncedCompetitionNames = await syncPredictionToDuplicateMatches({
+  const syncResult = await syncPredictionToDuplicateMatches({
     supabase,
     matchId,
     userId: user.id,
@@ -172,8 +178,28 @@ export async function submitPrediction(
     overtime,
   });
 
-  return { error: null, syncedCompetitionNames };
+  if (!syncResult.ok) {
+    return {
+      error: null,
+      syncWarning:
+        "Tip se uložil, ale nepodařilo se ho propsat do ostatních soutěží se stejným zápasem -- zkus prosím tip znovu uložit (např. drobnou úpravou skóre a vrácením zpátky).",
+    };
+  }
+
+  return {
+    error: null,
+    syncedCompetitionNames:
+      syncResult.competitionNames.length > 0 ? syncResult.competitionNames : undefined,
+  };
 }
+
+type SyncOutcome =
+  | { ok: true; competitionNames: string[] }
+  // Skutečná chyba databáze/RLS při hledání/zápisu sourozeneckých kopií
+  // zápasu -- odlišeno od "legitimně není co propisovat" (ok: true,
+  // prázdné pole), ať appka na tenhle stav umí hráče upozornit (viz
+  // volání výše).
+  | { ok: false };
 
 // Stejný reálný zápas se dokáže objevit ve víc soutěžích najednou --
 // typicky "Náhodná liga" nabírá zápasy ze sledovaných domácích lig
@@ -186,6 +212,14 @@ export async function submitPrediction(
 // Propisuje se JEN do soutěží, kde hráč UŽ hraje (odsouhlaseno
 // s uživatelem) -- appka ho nikam sama nepřihlašuje jen kvůli
 // propsání tipu, to zůstává jeho vlastní krok ("Chci hrát").
+//
+// Primární tip (submitPrediction výše) je v tuhle chvíli už bezpečně
+// uložený bez ohledu na výsledek týhle funkce -- proto každý dílčí
+// dotaz/zápis tady vrací explicitní `error`, ne jen tichou hodnotu
+// `undefined`/`null` (nalezeno v review 16.9.2026: appka dřív chybu
+// nerozlišila od "není co propisovat" a UI tak tiše předstíralo
+// úspěch, i když třeba propsání do jiné soutěže spadlo na dočasné
+// chybě databáze).
 async function syncPredictionToDuplicateMatches({
   supabase,
   matchId,
@@ -200,24 +234,26 @@ async function syncPredictionToDuplicateMatches({
   homeScore: number;
   awayScore: number;
   overtime: boolean | null;
-}): Promise<string[] | undefined> {
-  const { data: match } = await supabase
+}): Promise<SyncOutcome> {
+  const { data: match, error: matchError } = await supabase
     .from("matches")
     .select("external_id")
     .eq("id", matchId)
     .single();
 
-  if (!match?.external_id) return undefined;
+  if (matchError) return { ok: false };
+  if (!match?.external_id) return { ok: true, competitionNames: [] };
 
-  const { data: siblings } = await supabase
+  const { data: siblings, error: siblingsError } = await supabase
     .from("matches")
     .select("id, competition_id, kickoff_at, status, competitions(name)")
     .eq("external_id", match.external_id)
     .neq("id", matchId);
 
-  if (!siblings || siblings.length === 0) return undefined;
+  if (siblingsError) return { ok: false };
+  if (!siblings || siblings.length === 0) return { ok: true, competitionNames: [] };
 
-  const { data: participations } = await supabase
+  const { data: participations, error: participationsError } = await supabase
     .from("competition_participants")
     .select("competition_id")
     .eq("user_id", userId)
@@ -225,6 +261,8 @@ async function syncPredictionToDuplicateMatches({
       "competition_id",
       siblings.map((s) => s.competition_id),
     );
+
+  if (participationsError) return { ok: false };
 
   const joinedCompetitionIds = new Set(
     (participations ?? []).map((p) => p.competition_id),
@@ -242,7 +280,7 @@ async function syncPredictionToDuplicateMatches({
       new Date(s.kickoff_at).getTime() > now,
   );
 
-  if (targets.length === 0) return undefined;
+  if (targets.length === 0) return { ok: true, competitionNames: [] };
 
   const { error: syncError } = await supabase.from("predictions").upsert(
     targets.map((t) => ({
@@ -255,13 +293,16 @@ async function syncPredictionToDuplicateMatches({
     { onConflict: "match_id,user_id" },
   );
 
-  if (syncError) return undefined;
+  if (syncError) return { ok: false };
 
   for (const t of targets) {
     revalidatePath(`/spaces/${t.competition_id}`);
   }
 
-  return targets
-    .map((t) => t.competitions?.name)
-    .filter((name): name is string => Boolean(name));
+  return {
+    ok: true,
+    competitionNames: targets
+      .map((t) => t.competitions?.name)
+      .filter((name): name is string => Boolean(name)),
+  };
 }
