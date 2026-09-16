@@ -1708,6 +1708,15 @@ udržuje v provozu sama.
   `max_matches_per_day` o to sníží (`greatest(v_max_per_day -
   v_existing_count, 0)`) -- stejný princip, jaký `hecovacky.mjs` už
   používá pro svůj vlastní dopočet zbývajícího limitu.
+
+  **Ruční krok uživatele**: spustit
+  `20260916150000_hecovacky_sync_today_on_create.sql` (finální verze
+  s Codex opravou výše) v Supabase SQL editoru. PR #198 smergován a
+  migrace spuštěna (16.9.2026) — ověřeno testovacím voláním funkce
+  přes `db-probe.yml` (service role, vymyšlené `p_hecovacka_id`):
+  appka vrátila vlastní `"not_owner"` chybu funkce (ne "function does
+  not exist"), což potvrzuje, že nová verze funkce v databázi
+  skutečně běží.
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
