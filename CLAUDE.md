@@ -154,7 +154,21 @@ do prohlížeče.
 
 ## Dokumentace
 
+- Dokumentace je rozdělená na dva soubory (od 16.9.2026, kvůli
+  tokenové efektivitě — viz `docs/PROJECT.md` sekce "Údržba
+  dokumentace" pro detailní zdůvodnění):
+  - **`docs/PROJECT.md`** — @importovaný sem, čte se automaticky na
+    začátku KAŽDÉ session. Musí zůstat stručný: aktuální stav appky,
+    datový model, účty, jak navázat. Jedna věta na featuru.
+  - **`docs/HISTORY.md`** — NEimportovaný, čte se jen na vyžádání
+    (podle potřeby, např. narazíš na povědomou chybu nebo potřebuješ
+    zrekonstruovat historii rozhodnutí). Sem patří podrobný popis
+    bugů/rozhodnutí/alternativ — piš stejně podrobně jako dřív, jen
+    sem, ne do `PROJECT.md`.
 - Po každé větší dokončené funkci nebo rozhodnutí (nová tabulka, nová
   RLS politika, nová stránka, nové rozhodnutí o chování appky) **rovnou
-  aktualizuj `docs/PROJECT.md`** — sekci "Stav" a případně datový
-  model/rozhodnutí. Neptej se na to, dělej to průběžně.
+  aktualizuj oba soubory** — stručný záznam do `docs/PROJECT.md`
+  ("Co appka umí") + podrobný do `docs/HISTORY.md`. Neptej se na to,
+  dělej to průběžně. Pokud si nejsi jistý, kam nová informace patří:
+  pravidlo je "vešlo by se to do 2-3 řádků a je to potřeba vědět
+  pokaždé?" → `PROJECT.md`; jinak `HISTORY.md`.
