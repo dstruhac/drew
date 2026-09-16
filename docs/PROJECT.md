@@ -1661,6 +1661,54 @@ udržuje v provozu sama.
   `competition_participants_select_visible` se ptají na `competitions`
   přes cizí klíč, ne na svou vlastní tabulku, takže tenhle konkrétní
   problém nehrozí).
+
+  **Zápasy appka doplní hned při založení, ne až při dalším pravidelném
+  běhu (16.9.2026, na žádost uživatele)** — appka měla dřív první
+  zápasy hecovačky viditelné až po ručním/naplánovaném běhu
+  `hecovacky.mjs`, což uživatel po prvním úspěšném založení hecovačky
+  nahlásil jako matoucí ("zápasy hokeje se hrají, ale v hecovačce
+  žádné nejsou"). K zápisu do `matches` appka dosud potřebovala service
+  roli (`authenticated` má na `matches` jen `select`, viz "Grants"
+  výše) -- místo plošného grantu (bezpečnostní riziko, kdokoliv
+  přihlášený by pak appce mohl podstrčit libovolný vymyšlený zápas)
+  přidána úzce vymezená `SECURITY DEFINER` funkce
+  `sync_hecovacka_matches_initial()`
+  (`20260916150000_hecovacky_sync_today_on_create.sql`, stejný vzorec
+  jako `accept_hecovacka_invite()`/`hecovacka_is_visible()`): nejdřív
+  ověří, že volající je vlastník dané hecovačky, pak zkopíruje zápasy
+  ze schválených zdrojových soutěží (`hecovacka_sources`) -- logika
+  kopíruje `pickMatchesForHecovacky()` z `hecovacky.mjs` 1:1, včetně
+  celého klouzavého okna 7 dní dopředu (respektuje datum od/do), ne
+  jen dnešek -- uživatel upozornil, že appka pro zdrojovou soutěž má
+  zápasy na celý týden dopředu nastahované už teď (to dělá
+  `sync-fixtures` denně samo o sobě), takže není důvod čekat na
+  zítřejší/pozítřejší den až na další pravidelný běh `hecovacky.mjs`.
+  Appka na rozdíl od JS verze nepotřebuje kontrolu "co už dřív
+  vybrala" (žádné zápasy u čerstvě založené hecovačky ještě
+  neexistují). `create_hecovacka()` ji zavolá sama, ve STEJNÉ
+  transakci jako založení -- appka tak vrátí `id` hecovačky, která už
+  má rovnou vyplněné zápasy na celý dostupný týden dopředu. Appka
+  zdrojová data jen kopíruje ze své vlastní databáze (žádný
+  Playwright/scraping), takže i sedm dnů najednou proběhne v rámci
+  jedné transakce prakticky okamžitě. Pravidelný běh `hecovacky.mjs`
+  (ten teprve čeká na zapnutí rozvrhu, viz níže) appce dál doplňuje
+  nové dny, jak se posouvá 7denní okno, a propaguje skóre/stav.
+
+  **Bug nalezený Codex review na PR #198 (16.9.2026), opraveno ve
+  stejném PR před smergováním:** appka `sync_hecovacka_matches_initial()`
+  grantuje přímo roli `authenticated`, ne jen jako interní volání
+  zevnitř `create_hecovacka()` -- vlastník hecovačky ji tak může
+  zavolat opakovaně (např. ručně přes RPC). Funkce bez kontroly, kolik
+  zápasů daný den v hecovačce UŽ je, by při každém dalším volání
+  přidala další náhodnou dávku až do `max_matches_per_day` NAVÍC --
+  `on conflict` vyřadí jen přesné duplicity stejného zápasu, ne jiné
+  zápasy stejného dne, takže by šlo denní limit opakovaným voláním
+  obejít. Opraveno: appka si před výběrem pro každý den nejdřív
+  spočítá, kolik zápasů v hecovačce ten den už existuje, a
+  `max_matches_per_day` o to sníží (`greatest(v_max_per_day -
+  v_existing_count, 0)`) -- stejný princip, jaký `hecovacky.mjs` už
+  používá pro svůj vlastní dopočet zbývajícího limitu.
+- [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
   Appka od bodování hokejového prodloužení (11.9.2026, viz krok výše)
