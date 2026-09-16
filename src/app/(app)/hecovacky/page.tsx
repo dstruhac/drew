@@ -114,6 +114,7 @@ export default async function HecovackyPage() {
               <CompetitionCard
                 competition={competition}
                 rank={rankByCompetition.get(competition.id) ?? null}
+                isStake
               />
             </li>
           ))}
