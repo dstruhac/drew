@@ -1832,6 +1832,42 @@ udržuje v provozu sama.
   v Supabase SQL editoru (druhá migrace jednorázově sjednotí staré
   rozdílné tipy, viz rozhodnutí výše).
 
+  **Nalezeno v review PR #201 (16.9.2026, uživatel osobně jako
+  reviewer na GitHubu), opraveno ve stejném PR před smergováním:**
+  `syncPredictionToDuplicateMatches()` tiše ignorovala chyby při
+  načítání zápasu/sourozenců/účastí i při finálním upsertu -- primární
+  tip byl v tu chvíli už bezpečně uložený, ale UI tvářilo běžný úspěch
+  i když propsání do ostatních soutěží se stejným zápasem selhalo na
+  dočasné chybě databáze/RLS, takže by v jednotlivých soutěžích mohly
+  potichu zůstat rozdílné tipy. Funkce teď vrací explicitní `{ok:
+  true, competitionNames}`/`{ok: false}` misto tiché hodnoty
+  `undefined`; při `ok: false` appka hráči ve formuláři ukáže "Tip se
+  uložil, ale nepodařilo se ho propsat do ostatních soutěží... zkus to
+  prosím znovu" (nový `syncWarning` v `SubmitPredictionState`,
+  odlišený stylem/barvou od tvrdé chyby i od hlášky o úspěšném
+  propsání).
+
+  Uživatel navíc navrhoval transakční Postgres/RPC funkci (primární
+  tip + kopie atomicky v jedné transakci) a test na částečné selhání
+  -- appka zatím zůstala u dvoukrokového řešení + viditelného varování
+  (transakce by musela řešit RLS pro dvě různé věci najednou, buď přes
+  rizikovou SECURITY DEFINER funkci obcházející RLS, nebo komplikovanou
+  politiku) a test nepřidala (appka `src/` nemá vlastní test
+  framework, jen `scripts/sync/` má vitest -- zakládat ho kvůli
+  jednomu testu server akce by bylo nepřiměřené pro tenhle PR).
+  Zdůvodnění napsáno přímo do PR komentáře, ať to má uživatel
+  po ruce i zpětně.
+
+  **Ověřeno po spuštění obou migrací (16.9.2026)** přes `db-probe.yml`
+  (GitHub Actions, service role, obchází RLS) -- appka nespoléhala jen
+  na uživatelovo slovo "hotovo". Zkontrolováno všech 568 tipů na
+  zápasy se sdíleným `external_id`: 35 skupin `(user_id, external_id)`
+  s víc než jedním řádkem, 19 z nich mělo PŘED migrací rozdílné skóre
+  -- všech 19 se týkalo skupiny, kde je aspoň jeden ze sourozeneckých
+  zápasů už zamčený (odehraný/probíhající), tedy přesně těch, které
+  migrace záměrně nechala netknuté. **0 nekonzistencí u odemčených
+  zápasů** -- migrace udělala přesně to, co měla.
+
 Logické pořadí (žádné z toho zatím nezačalo, pořadí je jen návrh —
 **při navázání se nejdřív zeptej uživatele, čím pokračovat**, ať se
 nevymýšlí za něj):

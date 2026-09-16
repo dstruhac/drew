@@ -254,10 +254,10 @@ chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
 
-- [ ] `20260916090000_matches_external_id_index.sql` +
-  `20260916090100_reconcile_duplicate_match_predictions.sql`
-  (propsání tipu napříč soutěžemi se stejným zápasem, viz "Co appka
-  umí" výše a `HISTORY.md`).
+**Aktuálně nic nečeká** (revize 16.9.2026) — `20260916090000_matches_external_id_index.sql`
+a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
+uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
+zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).
 
 ## Jak navázat (pro budoucí Claude Code session)
 
