@@ -8,10 +8,22 @@
 # ale běží s plným internetem a používá stejné SUPABASE_URL/
 # SUPABASE_SERVICE_ROLE_KEY secrets jako sync-fixtures/sync-results.
 #
-# Jen čte (GET), nikam nezapisuje. Spouští se ručně (workflow_dispatch).
+# Jen čte (GET), nikam nezapisuje -- POKUD nezadáš `rpc` (viz níže).
+# Spouští se ručně (workflow_dispatch).
 #
 # POZOR: aby šel workflow spustit, musí být tenhle soubor už smergovaný
 # v `main` (GitHub jinak workflow_dispatch nenabídne).
+#
+# Rozšířeno o volání RPC (16.9.2026, stejná konvence jako dřívější
+# rozšíření api-probe.yml o POST/tělo/auth hlavičku 5.9.2026) -- appka
+# potřebovala vyzkoušet `create_hecovacka()` se service rolí (ta
+# obchází RLS), aby se ukázal PŘESNÝ text chyby databáze, ne jen
+# obecná hláška appky. Když je vyplněný `rpc`, appka zavolá `POST
+# /rest/v1/rpc/{rpc}` s `body` jako JSON tělem místo GETu na `table` --
+# `table`/`select`/`query` se v tom případě ignorují. POZOR: na rozdíl
+# od GETu tohle může zapisovat data, pokud RPC funkce něco zapisuje
+# (accepts service role, obchází RLS) -- používej jen na funkce, kde
+# vedlejší efekt buď nevadí, nebo ho po sobě uklidíš.
 
 name: DB probe
 
@@ -19,8 +31,9 @@ on:
   workflow_dispatch:
     inputs:
       table:
-        description: "Název tabulky (nebo view) v public schématu"
-        required: true
+        description: "Název tabulky (nebo view) v public schématu -- ignorováno, když je vyplněný `rpc`"
+        required: false
+        default: ""
         type: string
       select:
         description: "PostgREST select= výraz, čárkou oddělené sloupce (podporuje i vnořené resources, např. 'id,name,matches(home_team)')"
@@ -31,6 +44,16 @@ on:
         description: "Zbytek PostgREST query stringu bez úvodního '&', např. 'competition_id=eq.xxx&order=home_team.asc'"
         required: false
         default: ""
+        type: string
+      rpc:
+        description: "Nepovinné: název databázové funkce k zavolání přes POST /rest/v1/rpc/{rpc} (místo GETu na `table`)"
+        required: false
+        default: ""
+        type: string
+      body:
+        description: "JSON tělo požadavku pro `rpc` (parametry funkce jako JSON objekt)"
+        required: false
+        default: "{}"
         type: string
       max_chars:
         description: "Kolik znaků odpovědi maximálně vypsat do logu"
@@ -52,6 +75,8 @@ jobs:
           TABLE: ${{ inputs.table }}
           SELECT_EXPR: ${{ inputs.select }}
           EXTRA_QUERY: ${{ inputs.query }}
+          RPC_NAME: ${{ inputs.rpc }}
+          RPC_BODY: ${{ inputs.body }}
           MAX_CHARS: ${{ inputs.max_chars }}
         run: |
           set -uo pipefail
@@ -61,23 +86,43 @@ jobs:
             exit 1
           fi
 
-          URL="${SUPABASE_URL}/rest/v1/${TABLE}?select=${SELECT_EXPR}"
-          if [ -n "${EXTRA_QUERY}" ]; then
-            URL="${URL}&${EXTRA_QUERY}"
+          if [ -n "${RPC_NAME}" ]; then
+            URL="${SUPABASE_URL}/rest/v1/rpc/${RPC_NAME}"
+            echo "URL: ${URL}"
+            echo "Tělo: ${RPC_BODY}"
+            echo "----- HTTP status -----"
+
+            HTTP_CODE=$(curl -sS --max-time 30 \
+              -X POST \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Content-Type: application/json" \
+              --data "${RPC_BODY}" \
+              -o body.json \
+              -w '%{http_code}' \
+              "${URL}") || {
+                echo "::error::curl selhal (viz výstup výše)"
+                exit 1
+              }
+          else
+            URL="${SUPABASE_URL}/rest/v1/${TABLE}?select=${SELECT_EXPR}"
+            if [ -n "${EXTRA_QUERY}" ]; then
+              URL="${URL}&${EXTRA_QUERY}"
+            fi
+
+            echo "URL: ${URL}"
+            echo "----- HTTP status -----"
+
+            HTTP_CODE=$(curl -sS --max-time 30 \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -o body.json \
+              -w '%{http_code}' \
+              "${URL}") || {
+                echo "::error::curl selhal (viz výstup výše)"
+                exit 1
+              }
           fi
-
-          echo "URL: ${URL}"
-          echo "----- HTTP status -----"
-
-          HTTP_CODE=$(curl -sS --max-time 30 \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -o body.json \
-            -w '%{http_code}' \
-            "${URL}") || {
-              echo "::error::curl selhal (viz výstup výše)"
-              exit 1
-            }
 
           echo "HTTP kód: ${HTTP_CODE}"
 
