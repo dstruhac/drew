@@ -1672,19 +1672,27 @@ udržuje v provozu sama.
   výše) -- místo plošného grantu (bezpečnostní riziko, kdokoliv
   přihlášený by pak appce mohl podstrčit libovolný vymyšlený zápas)
   přidána úzce vymezená `SECURITY DEFINER` funkce
-  `sync_hecovacka_matches_for_today()`
+  `sync_hecovacka_matches_initial()`
   (`20260916150000_hecovacky_sync_today_on_create.sql`, stejný vzorec
   jako `accept_hecovacka_invite()`/`hecovacka_is_visible()`): nejdřív
-  ověří, že volající je vlastník dané hecovačky, pak zkopíruje jen
-  DNEŠNÍ zápasy ze schválených zdrojových soutěží (`hecovacka_sources`)
-  -- logika kopíruje `pickMatchesForHecovacky()` z `hecovacky.mjs`,
-  jen zúženou na jeden den (čerstvě založená hecovačka nemá co
-  kontrolovat na duplicity). `create_hecovacka()` ji zavolá sama, ve
-  STEJNÉ transakci jako založení -- appka tak vrátí `id` hecovačky,
-  která už (pokud se dnes ve zdrojových soutěžích něco hraje) má
-  rovnou vyplněné dnešní zápasy. Zbytek klouzavého okna (zítřek a dál)
-  pořád doplňuje až následující běh `hecovacky.mjs` -- ten teprve čeká
-  na zapnutí pravidelného rozvrhu (viz níže).
+  ověří, že volající je vlastník dané hecovačky, pak zkopíruje zápasy
+  ze schválených zdrojových soutěží (`hecovacka_sources`) -- logika
+  kopíruje `pickMatchesForHecovacky()` z `hecovacky.mjs` 1:1, včetně
+  celého klouzavého okna 7 dní dopředu (respektuje datum od/do), ne
+  jen dnešek -- uživatel upozornil, že appka pro zdrojovou soutěž má
+  zápasy na celý týden dopředu nastahované už teď (to dělá
+  `sync-fixtures` denně samo o sobě), takže není důvod čekat na
+  zítřejší/pozítřejší den až na další pravidelný běh `hecovacky.mjs`.
+  Appka na rozdíl od JS verze nepotřebuje kontrolu "co už dřív
+  vybrala" (žádné zápasy u čerstvě založené hecovačky ještě
+  neexistují). `create_hecovacka()` ji zavolá sama, ve STEJNÉ
+  transakci jako založení -- appka tak vrátí `id` hecovačky, která už
+  má rovnou vyplněné zápasy na celý dostupný týden dopředu. Appka
+  zdrojová data jen kopíruje ze své vlastní databáze (žádný
+  Playwright/scraping), takže i sedm dnů najednou proběhne v rámci
+  jedné transakce prakticky okamžitě. Pravidelný běh `hecovacky.mjs`
+  (ten teprve čeká na zapnutí rozvrhu, viz níže) appce dál doplňuje
+  nové dny, jak se posouvá 7denní okno, a propaguje skóre/stav.
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.

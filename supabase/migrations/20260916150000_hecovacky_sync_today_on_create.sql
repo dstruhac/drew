@@ -10,30 +10,41 @@
 -- libovolný vymyšlený zápas) appka přidává úzce vymezenou
 -- SECURITY DEFINER funkci, stejný vzorec jako `accept_hecovacka_invite()`/
 -- `hecovacka_is_visible()`: sama si nejdřív ověří, že volající je
--- skutečně vlastník dané hecovačky, a pak zkopíruje jen zápasy z
--- dneška ze schválených zdrojových soutěží (`hecovacka_sources`) --
--- žádný jiný zápis appka nedovolí.
+-- skutečně vlastník dané hecovačky, a pak zkopíruje zápasy ze
+-- schválených zdrojových soutěží (`hecovacka_sources`) -- žádný jiný
+-- zápis appka nedovolí.
 --
 -- Logika kopíruje `pickMatchesForHecovacky()` ze
--- scripts/sync/hecovacky.mjs, jen zúženou na "jen dnešek" -- appce
--- při ČERSTVĚ založené hecovačce odpadá celá kontrola "co už appka
--- dřív vybrala" (žádné zápasy ještě neexistují), takže appka
--- nepotřebuje smyčku přes 7denní okno ani kontrolu duplicit. Zbytek
--- okna (zítřek a dál) appka doplní následujícím pravidelným během
--- `hecovacky.mjs` beze změny.
-create or replace function public.sync_hecovacka_matches_for_today(p_hecovacka_id uuid)
+-- scripts/sync/hecovacky.mjs 1:1 -- CELÉ klouzavé okno 7 dní dopředu
+-- (stejné WINDOW_DAYS), ne jen dnešek (uživatel správně upozornil, že
+-- appka pro zdrojovou soutěž má nastahované zápasy na celý týden
+-- dopředu už teď, není důvod čekat na zítřejší/pozítřejší den až na
+-- další pravidelný běh hecovacky.mjs). Jediné zjednodušení oproti JS
+-- verzi: appka nepotřebuje kontrolu "co už dřív vybrala" (žádné
+-- zápasy u čerstvě založené hecovačky ještě neexistují), takže
+-- appka na rozdíl od hecovacky.mjs nemusí dopočítávat, kolik do
+-- denního limitu ještě zbývá -- rovnou vybere až `max_matches_per_day`
+-- z toho, co je pro daný den k dispozici.
+create or replace function public.sync_hecovacka_matches_initial(p_hecovacka_id uuid)
 returns int
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
+  v_start_date date;
+  v_end_date date;
   v_max_per_day int;
+  v_today date;
+  v_day date;
   v_day_start timestamptz;
   v_day_end timestamptz;
-  v_picked int;
+  v_total int := 0;
+  v_count int;
+  i int;
 begin
-  select max_matches_per_day into v_max_per_day
+  select start_date, end_date, max_matches_per_day
+    into v_start_date, v_end_date, v_max_per_day
   from public.competitions
   where id = p_hecovacka_id and created_by = auth.uid() and visibility = 'private';
 
@@ -41,46 +52,65 @@ begin
     raise exception 'not_owner';
   end if;
 
-  -- Stejný "dvojitý AT TIME ZONE" převod jako appka jinde dělá v JS
-  -- (pragueWallTimeToUtcIso) -- tady rovnou v SQL, ať appka nepotřebuje
-  -- volat databázi znovu zvlášť jen kvůli okну dneška.
-  v_day_start := date_trunc('day', now() at time zone 'Europe/Prague') at time zone 'Europe/Prague';
-  v_day_end := v_day_start + interval '1 day';
+  v_today := (now() at time zone 'Europe/Prague')::date;
 
-  insert into public.matches (
-    competition_id, external_id, home_team, away_team, kickoff_at,
-    status, home_score, away_score, overtime_flag, sport, source_match_id
-  )
-  select
-    p_hecovacka_id, m.external_id, m.home_team, m.away_team, m.kickoff_at,
-    m.status, m.home_score, m.away_score, m.overtime_flag,
-    coalesce(m.sport, c.sport), m.id
-  from public.matches m
-  join public.competitions c on c.id = m.competition_id
-  where m.competition_id in (
-    select source_competition_id from public.hecovacka_sources
-    where hecovacka_id = p_hecovacka_id
-  )
-  and m.kickoff_at >= v_day_start
-  and m.kickoff_at < v_day_end
-  and m.kickoff_at > now()
-  order by random()
-  -- LIMIT NULL v PostgreSQL znamená "bez limitu" -- appka tak nemusí
-  -- řešit zvlášť případ nastaveného/nenastaveného denního stropu.
-  limit v_max_per_day
-  on conflict (competition_id, external_id) do nothing;
+  for i in 0..6 loop
+    v_day := v_today + i;
 
-  get diagnostics v_picked = row_count;
-  return v_picked;
+    -- end_date je poslední den, kdy appka ještě smí vybírat -- dny za
+    -- ním jsou mimo okno úplně (ne jen "zatím ne").
+    exit when v_end_date is not null and v_day > v_end_date;
+    -- start_date ještě nenastalo -- appka pro tenhle den nic
+    -- nevybírá, ale pokračuje dál dny v okně (start_date může padnout
+    -- i později v týdnu).
+    continue when v_start_date is not null and v_day < v_start_date;
+
+    -- Stejný "dvojitý AT TIME ZONE" převod jako appka jinde dělá v JS
+    -- (pragueWallTimeToUtcIso) -- tady rovnou v SQL.
+    v_day_start := (v_day::timestamp) at time zone 'Europe/Prague';
+    v_day_end := v_day_start + interval '1 day';
+
+    insert into public.matches (
+      competition_id, external_id, home_team, away_team, kickoff_at,
+      status, home_score, away_score, overtime_flag, sport, source_match_id
+    )
+    select
+      p_hecovacka_id, m.external_id, m.home_team, m.away_team, m.kickoff_at,
+      m.status, m.home_score, m.away_score, m.overtime_flag,
+      coalesce(m.sport, c.sport), m.id
+    from public.matches m
+    join public.competitions c on c.id = m.competition_id
+    where m.competition_id in (
+      select source_competition_id from public.hecovacka_sources
+      where hecovacka_id = p_hecovacka_id
+    )
+    and m.kickoff_at >= v_day_start
+    and m.kickoff_at < v_day_end
+    -- U dnešního dne (i=0) appka mezi kandidáty nechce zápas, co dnes
+    -- už začal/skončil -- u budoucích dnů tahle podmínka nic nemění
+    -- (v_day_start je vždycky v budoucnu). Stejný filtr jako
+    -- hecovacky.mjs (nalezeno Codex review 15.9.2026).
+    and m.kickoff_at > now()
+    order by random()
+    -- LIMIT NULL v PostgreSQL znamená "bez limitu" -- appka tak
+    -- nemusí řešit zvlášť případ nastaveného/nenastaveného stropu.
+    limit v_max_per_day
+    on conflict (competition_id, external_id) do nothing;
+
+    get diagnostics v_count = row_count;
+    v_total := v_total + v_count;
+  end loop;
+
+  return v_total;
 end;
 $$;
 
-grant execute on function public.sync_hecovacka_matches_for_today(uuid) to authenticated;
+grant execute on function public.sync_hecovacka_matches_initial(uuid) to authenticated;
 
 -- create_hecovacka() zavolá novou funkci sama, hned po založení --
--- appka tak vrátí id hecovačky, která už má (pokud dnes nějaký zápas
--- ve zdrojových soutěžích je) rovnou vyplněné dnešní zápasy, v JEDNÉ
--- transakci s jejím založením. Validace i zbytek beze změny.
+-- appka tak vrátí id hecovačky, která už má (pokud appka pro zdrojové
+-- soutěže nějaké zápasy v okně má) rovnou vyplněné zápasy na celý
+-- dostupný týden dopředu. Validace i zbytek beze změny.
 create or replace function public.create_hecovacka(
   p_name text,
   p_description text,
@@ -144,13 +174,7 @@ begin
     end if;
   end loop;
 
-  -- Datum od (pokud vyplněné) může být v budoucnu -- appka pro
-  -- takovou hecovačku dnešní zápasy nevybírá vůbec (viz
-  -- pickMatchesForHecovacky() stejná logika v hecovacky.mjs), appka
-  -- to necháte na budoucí pravidelný běh skriptu.
-  if p_start_date is null or p_start_date <= current_date then
-    perform public.sync_hecovacka_matches_for_today(v_id);
-  end if;
+  perform public.sync_hecovacka_matches_initial(v_id);
 
   return v_id;
 end;
