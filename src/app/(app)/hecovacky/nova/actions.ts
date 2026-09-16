@@ -82,7 +82,22 @@ export async function createHecovacka(
 
   if (error || !hecovackaId) {
     const message = error?.message ? RPC_ERROR_MESSAGES[error.message] : undefined;
-    return { error: message ?? "Založení hecovačky se nepodařilo." };
+    // Fallback zatím vypisuje i syrový technický detail (kód/hláška
+    // z databáze) -- appka na tenhle chybový stav dosud nenarazila
+    // (nalezeno 16.9.2026 při prvním reálném pokusu uživatele o
+    // založení hecovačky), takže není jasné, o jakou chybu jde. Bez
+    // téhle informace by appka jen tiše zopakovala obecnou hlášku a
+    // příčinu by šlo zjistit jen z databázových logů, na které appka
+    // z týhle session nemá přístup (viz "Síťové omezení" v
+    // CLAUDE.md) -- detail appce umožní diagnózu rovnou z hlášky
+    // v prohlížeči.
+    return {
+      error: message
+        ? message
+        : `Založení hecovačky se nepodařilo (${error?.code ?? "?"}: ${
+            error?.message ?? "neznámá chyba"
+          }).`,
+    };
   }
 
   redirect(`/spaces/${hecovackaId}`);
