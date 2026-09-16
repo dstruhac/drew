@@ -45,7 +45,12 @@ export function HecovackaPanel({
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-hover p-4">
-      {description && <p className="text-sm font-medium">{description}</p>}
+      {description && (
+        <p className="text-sm">
+          <span className="font-bold text-muted-foreground">O co se hraje: </span>
+          <span className="font-medium">{description}</span>
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-semibold text-muted-foreground">
         {endDate && (
