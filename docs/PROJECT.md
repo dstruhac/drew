@@ -1442,8 +1442,8 @@ udržuje v provozu sama.
   u `JoinCompetitionsModal` 10.9.2026) -- appka na skutečná data
   z tohohle sandboxu nedosáhne (viz "Síťové omezení" v `CLAUDE.md`).
   Stránka i dočasná výjimka v middlewaru smazány po ověření, nešly do PR.
-- [ ] **"Hecovačky" -- uživatelsky založené soukromé soutěže
-  (14.9.2026, PR #185, zatím čeká na spuštění migrací a smergování)** --
+- [x] **"Hecovačky" -- uživatelsky založené soukromé soutěže
+  (14.9.2026, PR #185, smergováno 16.9.2026, migrace spuštěné)** --
   první self-service založená competition v appce (dosud jen komentář
   v `competitions.sql`: "self-service založení je budoucí feature").
   Hráč si sám založí soukromou soutěž ("hecovačku") s vlastním názvem,
@@ -1558,12 +1558,32 @@ udržuje v provozu sama.
   zdokumentovaný/běžný vzor, appka na tenhle mechanismus ostatně už
   dřív spoléhala (`next` default `/dashboard`).
 
-  **Zbývá:** migrace čekají na ruční spuštění v Supabase SQL editoru;
-  `hecovacky.yml` na ověřený ruční běh, než se zapne cron-job.org
-  (stejná konvence jako u ostatních 5 naplánovaných úloh); appka
-  nebyla vizuálně ověřená v prohlížeči (tahle session nemá přístup na
-  živou Supabase, viz "Síťové omezení" v `CLAUDE.md`) -- ověří uživatel
-  na Vercel preview PR #185.
+  **Ruční krok uživatele**: spustit všech 9 migrací (`20260914090000`–
+  `20260915100000`) v Supabase SQL editoru, v pořadí podle názvu.
+  **Hotovo (16.9.2026)** — ověřeno přes `db-probe.yml` (nové sloupce/
+  tabulka `hecovacka_sources` existují, všech 7 dosavadních soutěží má
+  `visibility: "public"` beze změny chování). PR #185 následně
+  smergován do `main`.
+
+  **Bug nalezený při prvním ostrém založení hecovačky (16.9.2026)**:
+  `create_hecovacka()` spadla na `function gen_random_bytes(integer)
+  does not exist` -- `encode(gen_random_bytes(16), 'hex')`
+  (generování `invite_token`) je z rozšíření `pgcrypto`, které je
+  v týhle Supabase instanci zjevně nainstalované mimo schéma `public`
+  (typicky `extensions`, běžná konvence Supabase) -- funkce ale má
+  `set search_path = public`, takže ho nenajde, přestože `create
+  extension if not exists pgcrypto;`
+  (`20260824120000_extensions.sql`) proběhla bez chyby už na začátku
+  projektu. Opraveno migrací
+  `20260916120000_hecovacky_fix_invite_token_gen.sql` -- appka žádné
+  rozšíření nepotřebuje vůbec, token se teď generuje přes vestavěnou
+  `gen_random_uuid()` (appka ji už používá jako výchozí hodnotu `id`
+  sloupců, funguje bez ohledu na `search_path`), jen se smažou pomlčky
+  z UUID (`replace(gen_random_uuid()::text, '-', '')`) -- stejná délka
+  (32 hex znaků) i nepředvídatelnost jako dřív.
+
+  `hecovacky.yml` čeká na ověřený ruční běh, než se zapne cron-job.org
+  (stejná konvence jako u ostatních 5 naplánovaných úloh).
 - [x] **Oprava: tipnutý výsledek nikde neukazoval prodloužení/nájezdy
   (15.9.2026)** — uživatel nahlásil, že u probíhajícího zápasu není
   u tipnutého výsledku vidět, jestli tipoval prodloužení/nájezdy.
