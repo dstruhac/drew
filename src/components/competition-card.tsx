@@ -27,6 +27,7 @@ export function CompetitionCard({
   isJoined,
   linkToDetail = true,
   showLogo = true,
+  isStake = false,
 }: {
   competition: {
     id: string;
@@ -52,6 +53,11 @@ export function CompetitionCard({
    * JoinCompetitionsModal (11.9.2026, na žádost uživatele), kde je
    * kartiček víc vedle sebe v mřížce a logo je zbytečně zvyšovalo. */
   showLogo?: boolean;
+  /** `true` u hecovaček -- popisek je tam "o co se hraje" (sázka), ne
+   * obecný text o soutěži jako u veřejných lig, takže se před ním
+   * zobrazí label "O co se hraje:" (stejné znění jako v `HecovackaPanel`
+   * a ve formuláři na založení hecovačky). */
+  isStake?: boolean;
 }) {
   const content = (
     <>
@@ -93,7 +99,10 @@ export function CompetitionCard({
           </span>
         )}
         {competition.description && (
-          <p className="mt-1 text-xs text-faint-foreground">{competition.description}</p>
+          <p className="mt-1 text-xs text-faint-foreground">
+            {isStake && <span className="font-bold">O co se hraje: </span>}
+            {competition.description}
+          </p>
         )}
       </div>
 

@@ -344,6 +344,7 @@ export default async function DashboardPage() {
                     competition={competition}
                     rank={rankByCompetition.get(competition.id) ?? null}
                     allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                    isStake
                   />
                 </li>
               ))}
