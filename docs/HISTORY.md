@@ -612,6 +612,26 @@ udržuje v provozu sama.
   blokující skript v `<head>`, který nastaví `data-theme` dřív, než
   appka cokoliv vykreslí, ať appka na zlomek vteřiny nebliká špatnou
   barvou.
+
+  **Zúženo na 2 stavy (17.9.2026, na žádost uživatele "stačí jenom 2
+  stavy, ten třetí mezistav nechci")** — appka odstranila prostřední
+  volbu "Podle telefonu" (ikona `Contrast`), přepínač teď cykluje jen
+  **Světlý ↔ Tmavý**. Appka systémové nastavení nepřestala respektovat
+  úplně: dokud si hráč sám nic nevybere (žádný záznam v `localStorage`),
+  appka při načtení JEDNORÁZOVĚ zjistí aktuální systémové nastavení
+  (`window.matchMedia("(prefers-color-scheme: dark)")`) jen kvůli tomu,
+  aby ikona hned od začátku ukazovala vzhled, který appka skutečně
+  používá -- samotný vzhled appky dál řídí CSS media query/blokující
+  skript v `layout.tsx` beze změny, dokud hráč sám neklikne. Po prvním
+  kliknutí je volba už natrvalo explicitní, appka se ke "sleduj systém"
+  žádným tlačítkem nevrací. Ověřeno vizuálně (Playwright, `colorScheme:
+  "light"`/`"dark"` v obou prohlížečových kontextech) přes dočasnou
+  `.env.local` a lokální `pnpm dev` (appka na tomhle sandboxu nemá
+  přístup na Supabase, ale veřejná landing stránka `/` s přepínačem
+  appku k přihlášení nevyžaduje) — ikona i popisek v `aria-label`
+  odpovídaly systémovému nastavení hned při načtení a správně se
+  přehodily po kliknutí. Dočasné soubory (`.env.local`, testovací
+  skript) smazány po ověření, nešly do PR.
 - [x] **Sportovní barevný vibe -- fotbal zelený, hokej modrý (6.9.2026)**
   — na žádost uživatele, rozsah odsouhlasen přes `AskUserQuestion`:
   barva sahá úplně všude uvnitř dané soutěže (kartička soutěže,
