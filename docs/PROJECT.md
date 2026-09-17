@@ -227,6 +227,11 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Propsání tipu napříč soutěžemi se stejným reálným zápasem
   (`external_id`) — appka ho po uložení najde a propíše i tam, kde
   hráč už hraje (nikam ho sama nepřihlašuje).
+- [x] Loga u zápasů zkopírovaných do hecovačky (17.9.2026) — appka je
+  dřív hledala jen pod competition_id hecovačky, kde nikdy žádná
+  nebyla; teď se hledají pod PŮVODNÍ soutěží zápasu (sdílený
+  `src/lib/team-logos.ts`, používá i `/spaces/[id]`,
+  `.../matches/[matchId]` a Dashboard).
 
 ### Vědomě odloženo / mimo současný rozsah
 
@@ -254,10 +259,19 @@ chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
 
-**Aktuálně nic nečeká** (revize 16.9.2026) — `20260916090000_matches_external_id_index.sql`
+**Migrace: aktuálně nic nečeká** (revize 16.9.2026) — `20260916090000_matches_external_id_index.sql`
 a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
 uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
 zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).
+
+**Čeká: nastavit cron-job.org pro `hecovacky.yml`** (17.9.2026) —
+appka doteď měla tenhle workflow jen jako `workflow_dispatch`
+(ověřovací ruční běh 16.9.2026) a nikdy nedostala pravidelný rozvrh
+jako zbylých 5 naplánovaných úloh — proto se zápasům v hecovačkách
+nikdy nepropsal výsledek dohraného zápasu ani po výkopu (appka to
+umí, jen se to nikdy nespustilo). Řešení a přesný postup pro
+uživatele viz `HISTORY.md` → "Hecovačky: výsledky se nikdy
+nepropisovaly + chybějící loga (17.9.2026)".
 
 ## Jak navázat (pro budoucí Claude Code session)
 

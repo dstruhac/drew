@@ -7,6 +7,7 @@ import { JoinCompetitionsModal } from "@/components/join-competitions-modal";
 import { competitionFallbackSport } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+import { buildMatchLogos } from "@/lib/team-logos";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
 // odsouhlaseno s uživatelem 29.8.2026 přes AskUserQuestion). Tři
@@ -51,7 +52,6 @@ export default async function DashboardPage() {
     allParticipantsResult,
     predictionsResult,
     upcomingMatchesResult,
-    teamLogosResult,
     weeklyBadgesResult,
     profileResult,
     totalCompetitionsResult,
@@ -73,19 +73,13 @@ export default async function DashboardPage() {
       ? supabase
           .from("matches")
           .select(
-            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
+            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
           )
           .in("competition_id", competitionIds)
           .eq("status", "scheduled")
           .gt("kickoff_at", new Date().toISOString())
           .order("kickoff_at", { ascending: true })
           .limit(50)
-      : Promise.resolve({ data: [], error: null }),
-    competitionIds.length
-      ? supabase
-          .from("team_logos")
-          .select("competition_id, team_name, logo_url")
-          .in("competition_id", competitionIds)
       : Promise.resolve({ data: [], error: null }),
     // Bez filtru na user_id -- BadgeCenter potřebuje vidět i cizí
     // medaile v soutěžích, které hráč hraje, aby ho o nich mohl
@@ -120,7 +114,6 @@ export default async function DashboardPage() {
   throwIfSupabaseError(allParticipantsResult.error ?? null, "Načtení účastníků soutěží");
   throwIfSupabaseError(predictionsResult.error ?? null, "Načtení tipů");
   throwIfSupabaseError(upcomingMatchesResult.error ?? null, "Načtení nadcházejících zápasů");
-  throwIfSupabaseError(teamLogosResult.error ?? null, "Načtení log týmů");
   throwIfSupabaseError(weeklyBadgesResult.error ?? null, "Načtení medailí");
   throwIfSupabaseError(profileResult.error ?? null, "Načtení profilu");
   throwIfSupabaseError(totalCompetitionsResult.error ?? null, "Načtení počtu soutěží");
@@ -129,7 +122,6 @@ export default async function DashboardPage() {
   const allParticipants = allParticipantsResult.data;
   const predictions = predictionsResult.data;
   const upcomingMatches = upcomingMatchesResult.data;
-  const teamLogos = teamLogosResult.data;
   const weeklyBadges = weeklyBadgesResult.data;
   const profileRow = profileResult.data;
   const totalCompetitionsCount = totalCompetitionsResult.count;
@@ -153,11 +145,14 @@ export default async function DashboardPage() {
   const spotlightMatch =
     (upcomingMatches ?? []).find((m) => !ownPredictedMatchIds.has(m.id)) ?? null;
 
-  const spotlightLogoMap = new Map(
-    (teamLogos ?? [])
-      .filter((t) => t.competition_id === spotlightMatch?.competition_id)
-      .map((t) => [t.team_name, t.logo_url]),
-  );
+  // Loga -- u zápasu zkopírovaného z jiné soutěže (hecovačka) se hledají
+  // pod PŮVODNÍ soutěží, viz src/lib/team-logos.ts. Jen jeden zápas
+  // (vysvícená kartička), takže se to vyplatí dohledat rovnou tady,
+  // ne předem tahat loga pro VŠECHNY soutěže hráče (dřívější přístup
+  // -- appka logo potřebovala jen pro tenhle jeden zápas).
+  const spotlightLogos = spotlightMatch
+    ? (await buildMatchLogos(supabase, [spotlightMatch])).get(spotlightMatch.id) ?? {}
+    : {};
 
   // "Vše natipováno" značka na kartičce soutěže (6.9.2026, na žádost
   // uživatele) -- stejné okno jako na /spaces/[id]
@@ -258,7 +253,7 @@ export default async function DashboardPage() {
               isJoined={true}
               sport={competitionFallbackSport(sportByCompetition.get(spotlightMatch.competition_id))}
               competitionId={spotlightMatch.competition_id}
-              logoUrlByTeam={spotlightLogoMap}
+              logos={spotlightLogos}
             />
           ) : myCompetitions.length > 0 ? (
             <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">

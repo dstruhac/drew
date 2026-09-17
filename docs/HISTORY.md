@@ -2934,6 +2934,129 @@ Ze zadání explicitně odloženo, dokud si je uživatel nevyžádá:
   Actions je spouští na každém pull requestu a po změně `main`; zatím
   fungují jako viditelné upozornění, nikoliv povinná brána pro nasazení.
 
+### Hecovačky: výsledky se nikdy nepropisovaly + chybějící loga (17.9.2026)
+
+Uživatel nahlásil dvě související chyby po prvním reálném vyzkoušení
+hecovačky "pasiva hokej": (1) zápasy v hecovačce se nevyhodnocují,
+zatímco stejný reálný zápas ve zdrojové soutěži (Hokejová extraliga)
+vyhodnocený je, a (2) u zápasů v hecovačce chybí loga klubů. Uživatel
+se zeptal, jestli by to appka nešla nějak sjednotit.
+
+**Příčina #1 (výsledky se nepropisují): `hecovacky.yml` nikdy nedostal
+pravidelný rozvrh.** Ověřeno přes `actions_list` (historie běhů
+workflow) — `hecovacky.yml` proběhl v appce přesně JEDNOU, 16.9.2026
+při ověřovacím ručním spuštění hned po smergování PR #197 (než se
+vůbec začalo hrát), a od té doby ani jednou automaticky. Appka
+přitom `propagateScores()` v `scripts/sync/hecovacky.mjs` má správně
+napsané (kopíruje `status`/skóre ze zdrojového zápasu do jeho kopie
+v hecovačce, spustí to existující bodovací trigger) — jen se ten kód
+nikdy nespustil na reálném dohraném zápase, protože appka na `hecovacky.yml`
+(na rozdíl od zbylých 5 naplánovaných úloh, viz "Všech 5 naplánovaných
+úloh přesunuto na cron-job.org" výše) nikdy nezaložila cron-job.org
+úlohu — čekalo se na "ověřený ruční běh", který proběhl, ale appka
+odtamtud nikdy neudělala poslední krok (zapnutí rozvrhu).
+
+**Oprava #1**: appka nemá jak si sama založit účet/úlohu na
+cron-job.org (cizí web, appka na něj navíc nemá síťový přístup z
+tohohle sandboxu, viz "Síťové omezení" v `CLAUDE.md`) — je to ruční
+krok pro uživatele, zapsaný v `PROJECT.md` → "Ruční kroky, na které
+appka čeká". Postup (stejný účet/token, co appka už používá pro
+zbylých 5 úloh):
+1. Přihlásit se na **cron-job.org** (stejný účet jako u ostatních 5
+   naplánovaných úloh appky).
+2. Založit novou úlohu (Create cronjob), stejně jako u `sync-results`:
+   - **URL**: `https://api.github.com/repos/dstruhac/drew/actions/workflows/hecovacky.yml/dispatches`
+   - **Request method**: `POST`
+   - **Request headers**: stejné jako u ostatních 5 úloh — `Authorization: Bearer <fine-grained GitHub token appky>`, `Accept: application/vnd.github+json`, `Content-Type: application/json`
+   - **Request body**: `{"ref":"main"}`
+   - **Schedule**: každých 30 minut (appka od návrhu featury počítala se
+     stejným rozvrhem jako `sync-results` — kopírování skóre je levná
+     operace, appka se sama zeptá databáze, jestli je vůbec co dělat).
+3. Uložit a jednou ručně spustit ("Run now") — appka by měla vrátit
+   `204`, stejně jako při zakládání ostatních 5 úloh 5.9.2026.
+
+Appka zápasy v hecovačkách mezitím vyhodnotí i BEZ tohohle kroku,
+jakmile uživatel jednou ručně spustí `hecovacky.yml` přes
+`workflow_dispatch` (Claude Code to umí spustit i sám) — ruční krok
+řeší jen to, aby appka propisovala výsledky průběžně/automaticky, ne
+jen když si to zrovna někdo ručně spustí.
+
+**Příčina #2 (chybějící loga): `team_logos` je scoped podle
+`competition_id`, ale appka zápasy do hecovačky KOPÍRUJE pod jiné
+`competition_id`, než mělo originál.** `team_logos` je mapovací
+tabulka `(competition_id, team_name, logo_url)` — appka loga
+importovala vždycky jen pod competition_id KONKRÉTNÍ veřejné soutěže
+(Chance Liga, Hokejová extraliga, ...). Hecovačka je ale samostatný
+řádek v `competitions` s VLASTNÍM competition_id (viz architektura
+featury "Hecovačky" výše) — appka pod ním logo nikdy neměla, protože
+tam nikdy žádný import nespustila (ani neexistuje odkud by je
+importovala, hecovačka žádnou skutečnou ligu nereprezentuje). Appka
+teď u zápasu v hecovačce hledala logo přesně tam, kde nikdy nebylo
+— proto "žádná loga".
+
+**Zjištění (ověřeno přes `db-probe.yml`) — stejný problém má i
+"Creme de la Creme liga" (mixed sport pool)**, ale z JINÉHO důvodu:
+appka pro ni logo nikdy neimportovala vůbec, protože pool zahrnuje i
+zahraniční ligy (Bundesliga, La Liga, NHL, ...), pro které appka
+zatím žádný import loga nespustila. Na rozdíl od hecovaček tenhle
+zápas NEMÁ `source_match_id` (Creme de la Creme zápasy appka
+nekopíruje z vlastních tracked soutěží, ale scrapuje NOVĚ přímo z
+`source_scrape_path`, viz krok "Náhodná liga" výše) — appka tak nemá
+odkud logo "vypůjčit", ani kdyby to zkusila. **Tohle zůstává
+neopravené** — řešení by vyžadovalo naimportovat loga pro až 10
+dalších cizích lig (stejný postup jako u dosavadních 7 soutěží), což
+je samostatný, výrazně větší úkol než tahle oprava. Zapsáno jako
+otevřený nápad, čeká na rozhodnutí uživatele, jestli/kdy se do toho
+pustit.
+
+**Oprava #2 (jen hecovačky) — nová sdílená `src/lib/team-logos.ts`,
+funkce `buildMatchLogos()`.** Zvažovaná "jednodušší" varianta (sloučit
+`team_logos` napříč VŠEMI soutěžemi jen podle jména týmu, bez ohledu
+na competition_id) byla **zamítnuta jako nebezpečná** — ověřeno na
+reálných datech (`db-probe.yml`, dotaz na celou tabulku `team_logos`
+seřazený podle jména), že appka má "Sparta Praha" ve `team_logos`
+TŘIKRÁT s různým competition_id (Chance Liga, Evropská liga, Hokejová
+extraliga) a minimálně u hokejové varianty jde o VIZUÁLNĚ jiný znak
+(fotbalový klub vs. hokejový klub, stejné jméno). Prosté sloučení
+podle jména by tak u zápasu jedné soutěže mohlo omylem vykreslit znak
+úplně jiného klubu jiného sportu — stejný vzorec kolize má i
+"Liverpool"/"Manchester City"/"Manchester Utd"/"Sunderland"/
+"Slavia Praha"/"Viktoria Plzeň"/"Pardubice"/"Mladá Boleslav" (dvakrát
+v tabulce, byť tam pravděpodobně jde o stejný klub odjinud, ne o
+kolizi jako u Sparty).
+
+`buildMatchLogos()` proto pro KAŽDÝ zápas se `source_match_id`
+(kopie v hecovačce) nejdřív dohledá `competition_id` PŮVODNÍHO zápasu
+(přes `matches.source_match_id → matches.id → competition_id`) a
+loga hledá přesně tam — ne v competition_id hecovačky, ne prostým
+sloučením přes celou appku. U běžných (nezkopírovaných) zápasů se
+lookup nemění, chová se přesně jako dřívější kód scoped na vlastní
+competition_id.
+
+Sdíleno mezi třemi místy, která si dřív každé tahaly `team_logos`
+zvlášť (přesně to, na co se uživatel ptal — "šlo by to sjednotit?"):
+`src/app/(app)/spaces/[id]/page.tsx`,
+`src/app/(app)/spaces/[id]/matches/[matchId]/page.tsx` a
+`src/app/(app)/dashboard/page.tsx` (vysvícená kartička napříč
+soutěžemi hráče). `SpotlightMatchCard`
+(`src/components/spotlight-match-card.tsx`) dostala nový prop `logos:
+{home?, away?}` místo dřívějšího `logoUrlByTeam: Map<string,string>`
+(appka řeší jen jeden zápas najednou, netřeba předávat celou mapu);
+`MatchCard` (lokální komponenta v `spaces/[id]/page.tsx`, používaná
+pro víc zápasů zároveň) dostala `matchLogos: Map<matchId,
+{home?,away?}>` se stejným důvodem.
+
+**Vedlejší dopad na výkon (vědomě přijatý):** appka dřív dotaz na
+`team_logos` dělala VŽDY souběžně s ostatními dotazy stránky
+(`Promise.all`). `buildMatchLogos()` potřebuje napřed znát
+`source_match_id` z už načtených zápasů, takže běží až PO nich —
+appka tím na `/spaces/[id]` a detailu zápasu přidává jeden malý
+sekvenční dotaz navíc (řádově jednotky ms, `team_logos`/`matches`
+jsou malé indexované tabulky). Na Dashboardu je to naopak ČISTÝ
+výkonový zisk — appka dřív pro vysvícenou kartičku tahala loga pro
+VŠECHNY soutěže, které hráč hraje, teď jen pro tu JEDNU, co se
+skutečně zobrazuje.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
