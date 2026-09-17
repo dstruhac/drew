@@ -1777,6 +1777,28 @@ udržuje v provozu sama.
   Vědomě beze změny zůstává 🏒 na `/pravidla` (vysvětlení bodování,
   jiný kontext — "kolik bodů se dává za hokej", ne zobrazení
   konkrétního tipu).
+
+  **Doladění zobrazení (PP) (17.9.2026)** — uživatel nahlásil dva
+  nedostatky ve zbytku appky, které se do kroku výše nedostaly:
+  1. **Konečný výsledek dohraného zápasu (na rozdíl od vlastního tipu)
+     nikde neukazoval "(PP)"** — appka `overtime_flag` zapisuje a
+     bodovala už od 11.9.2026, ale u samotného SKÓRE (ne tipu) appka
+     dosud nikde nezobrazovala, jestli šlo o prodloužení/nájezdy.
+     Doplněno na dvou místech, kde se appka zobrazuje konečné skóre:
+     řádek "Konečný výsledek" na detailu zápasu
+     (`spaces/[id]/matches/[matchId]/page.tsx`, dřív chybělo
+     `overtime_flag` i v samotném `select()` dotazu na `matches`) a
+     skóre mezi znaky týmů na kartičce zápasu
+     (`spaces/[id]/page.tsx`, sdílený typ `Match` v
+     `spotlight-match-card.tsx` rozšířen o `overtime_flag`).
+  2. **"Tvůj tip: X:Y (PP) po prodloužení/nájezdech" na kartičce
+     zápasu bylo příliš dlouhé** — uživatel chtěl jen krátké "(PP)",
+     stejně jako appka už dřív zkrátila to samé u "Váš tip" na
+     detailu zápasu. Zkráceno na obou zbylých místech, kde ještě
+     přežíval dlouhý text (`spaces/[id]/page.tsx` a
+     `spaces/[id]/matches/[matchId]/page.tsx`, sekce "Váš tip").
+
+  Čistě zobrazovací oprava, beze změny datového modelu i bodování.
 - [x] **Propsání tipu napříč soutěžemi se stejným reálným zápasem
   (16.9.2026)** — uživatel nahlásil, že se stejný zápas dost často
   objeví ve víc soutěžích najednou (typicky domácí liga + Creme de la

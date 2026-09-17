@@ -119,7 +119,7 @@ export default async function CompetitionDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag",
       )
       .eq("competition_id", id)
       .order("kickoff_at", { ascending: true }),
@@ -851,7 +851,7 @@ function MatchCard({
             }`}
           >
             {isLocked && match.home_score !== null && match.away_score !== null
-              ? `${match.home_score}:${match.away_score}`
+              ? `${match.home_score}:${match.away_score}${match.overtime_flag ? " (PP)" : ""}`
               : "–"}
           </span>
           <div className="flex min-w-0 flex-col items-center gap-1.5">
@@ -882,9 +882,7 @@ function MatchCard({
             <p className="text-base font-extrabold text-foreground">
               Tvůj tip: {existing.predicted_home_score}:{existing.predicted_away_score}
               {existing.predicted_overtime_flag && (
-                <span className="ml-1 text-xs font-bold text-muted-foreground">
-                  (PP) po prodloužení/nájezdech
-                </span>
+                <span className="ml-1 text-xs font-bold text-muted-foreground">(PP)</span>
               )}
             </p>
           ) : match.status === "postponed" ? (
