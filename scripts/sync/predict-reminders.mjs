@@ -10,7 +10,10 @@
 // email_reminders_enabled), ale uživatel 11.9.2026 nahlásil, že to
 // bylo matoucí -- appka teď hlídá zápasy napříč VŠEMI soutěžemi, které
 // hráč hraje, jakmile má globální přepínač zapnutý. Skript proto čte
-// jen participanty, jejichž PROFIL má zapnuto (join přes profiles!inner).
+// jen participanty, jejichž PROFIL má zapnuto (join přes
+// profiles!user_id!inner -- FK musí být upřesněný jménem sloupce, protože
+// "Hecovačky" (14.9.2026) přidaly na competition_participants druhý cizí
+// klíč na profiles, added_by, viz PROJECT.md sekce "Hecovačky").
 // Starý sloupec na competition_participants zůstává v databázi
 // (appka v tomhle repu nikdy nedropovala sloupce), ale nikde se už
 // nečte ani nezapisuje.
@@ -110,7 +113,7 @@ async function main() {
     withJwtRetry(() =>
       supabase
         .from("competition_participants")
-        .select("user_id, competition_id, profiles!inner(email_reminders_enabled)")
+        .select("user_id, competition_id, profiles!user_id!inner(email_reminders_enabled)")
         .eq("profiles.email_reminders_enabled", true),
     ),
     withJwtRetry(() =>

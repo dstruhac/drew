@@ -3079,6 +3079,42 @@ výkonový zisk — appka dřív pro vysvícenou kartičku tahala loga pro
 VŠECHNY soutěže, které hráč hraje, teď jen pro tu JEDNU, co se
 skutečně zobrazuje.
 
+### `predict-reminders` padal každé ráno — ambiguitní vztah po "Hecovačkách" (17.9.2026)
+
+Uživatel nahlásil padající běh
+(`https://github.com/dstruhac/drew/actions/runs/35193627768`). Log:
+
+```
+Nepodařilo se načíst participanty: Could not embed because more than
+one relationship was found for 'competition_participants' and 'profiles'
+```
+
+**Příčina**: migrace `20260914090300_competition_participants_hecovacky.sql`
+(featura "Hecovačky") přidala na `competition_participants` druhý cizí
+klíč na `profiles` — sloupec `added_by` (kdo hráče přidal do soukromé
+soutěže). Od tý chvíle je vztah `competition_participants ↔ profiles`
+nejednoznačný a PostgREST u `.select("...profiles(...)")` bez
+upřesnění FK odmítne dotaz (kód `PGRST201`). Appka v `src/app/(app)/`
+už to měla ve všech dotčených dotazech opravené (`profiles!user_id(...)`)
+z doby, kdy se Hecovačky psaly — **jediné zapomenuté místo bylo
+`scripts/sync/predict-reminders.mjs`**, které vzniklo/naposledy se
+upravovalo předtím. Ověřeno přes `db-probe.yml`, že žádná jiná appčina
+stránka/skript touhle ambiguitou netrpí (`weekly_badges`/`predictions`
+mají k `profiles` jen jeden cizí klíč, tam žádné upřesnění potřeba
+není).
+
+**Oprava**: `profiles!inner(...)` → `profiles!user_id!inner(...)` —
+stejná konvence jako zbytek appky (`profiles!user_id(...)` v
+`src/app/(app)/...`, `profiles!added_by(...)` v `hecovacky.mjs`, kde
+appka záměrně chce jméno TOHO, kdo hráče přidal, ne jeho vlastní
+profil).
+
+**Dopad**: skript to sám odchytil (`try/catch` v `main()`, viz
+`HISTORY.md` → oprava z 5.9.2026) a přidal komentář k existujícímu
+GitHub issue #192, místo aby tiše spadl bez záznamu — nikomu se ale
+ráno neposlalo upozornění na nevyplněný tip. Ruční doběh
+`predict-reminders.yml` po opravě běh ověřil.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
