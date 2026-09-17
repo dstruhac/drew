@@ -8,6 +8,7 @@ import { competitionFallbackSport } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos } from "@/lib/team-logos";
+import { findSharedMatchIds } from "@/lib/shared-matches";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
 // odsouhlaseno s uživatelem 29.8.2026 přes AskUserQuestion). Tři
@@ -73,7 +74,7 @@ export default async function DashboardPage() {
       ? supabase
           .from("matches")
           .select(
-            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
+            "id, competition_id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, external_id",
           )
           .in("competition_id", competitionIds)
           .eq("status", "scheduled")
@@ -153,6 +154,12 @@ export default async function DashboardPage() {
   const spotlightLogos = spotlightMatch
     ? (await buildMatchLogos(supabase, [spotlightMatch])).get(spotlightMatch.id) ?? {}
     : {};
+
+  // Trvalý příznak "Tip je sdílen do více soutěží", viz
+  // src/lib/shared-matches.ts.
+  const spotlightSharedMatchIds = spotlightMatch
+    ? await findSharedMatchIds(supabase, [spotlightMatch], user?.id)
+    : new Set<string>();
 
   // "Vše natipováno" značka na kartičce soutěže (6.9.2026, na žádost
   // uživatele) -- stejné okno jako na /spaces/[id]
@@ -254,6 +261,7 @@ export default async function DashboardPage() {
               sport={competitionFallbackSport(sportByCompetition.get(spotlightMatch.competition_id))}
               competitionId={spotlightMatch.competition_id}
               logos={spotlightLogos}
+              isSharedMatch={spotlightSharedMatchIds.has(spotlightMatch.id)}
             />
           ) : myCompetitions.length > 0 ? (
             <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">

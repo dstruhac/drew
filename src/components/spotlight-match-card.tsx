@@ -64,12 +64,14 @@ export function SpotlightMatchCard({
   sport,
   competitionId,
   logos = {},
+  isSharedMatch = false,
 }: {
   match: Match;
   isJoined: boolean;
   sport: "hockey" | "football";
   competitionId: string;
   logos?: { home?: string; away?: string };
+  isSharedMatch?: boolean;
 }) {
   // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
   // každý zápas zvlášť -- jinak je match.sport null a bere se sport
@@ -130,6 +132,7 @@ export function SpotlightMatchCard({
             competitionId={competitionId}
             matchId={match.id}
             existing={null}
+            isSharedMatch={isSharedMatch}
           />
         ) : (
           <p className="text-center text-xs font-semibold text-white/50">
