@@ -106,8 +106,8 @@ async function syncRandomPoolCompetition(supabase, competition) {
   const bySourcePath = new Map();
   for (const m of pending) {
     if (!m.source_scrape_path) continue; // nemělo by nastat, obranná kontrola
-    if (!bySourcePath.has(m.source_scrape_path)) bySourcePath.set(m.source_scrape_path, new Set());
-    bySourcePath.get(m.source_scrape_path).add(m.external_id);
+    if (!bySourcePath.has(m.source_scrape_path)) bySourcePath.set(m.source_scrape_path, []);
+    bySourcePath.get(m.source_scrape_path).push(m);
   }
 
   console.log(
@@ -117,10 +117,41 @@ async function syncRandomPoolCompetition(supabase, competition) {
   let hadFailure = false;
   let totalUpdated = 0;
 
-  for (const [sourcePath, externalIds] of bySourcePath) {
+  for (const [sourcePath, pendingInLeague] of bySourcePath) {
+    const externalIds = new Set(pendingInLeague.map((m) => m.external_id));
     try {
       const scraped = await scrapeLivesportResults(sourcePath);
       const withResult = scraped.filter((m) => m.homeScore != null && m.awayScore != null && externalIds.has(m.externalId));
+
+      // Odložený zápas -- stejná detekce jako syncSingleLeagueCompetition
+      // níže (POSTPONED_THRESHOLD_MS), jen tady omezená na zápasy
+      // TÉHLE competition v TÉHLE zdrojové lize (`pendingInLeague`), ne
+      // na celou stránku výsledků. Bez tohohle zůstal odložený zápas
+      // "Náhodné ligy"/hecovačky navždy zaseknutý na 'scheduled' -- na
+      // rozdíl od běžných soutěží appka tu tenhle stav nikdy nedetekovala
+      // (nalezeno 17.9.2026, reálný případ Levante-Ath. Bilbao v Creme
+      // de la Creme lize).
+      const scrapedExternalIds = new Set(scraped.map((m) => m.externalId));
+      const newlyPostponed = pendingInLeague.filter(
+        (m) =>
+          m.status === "scheduled" &&
+          now - new Date(m.kickoff_at).getTime() > POSTPONED_THRESHOLD_MS &&
+          !scrapedExternalIds.has(m.external_id),
+      );
+
+      if (newlyPostponed.length > 0) {
+        const { error: postponedError } = await supabase
+          .from("matches")
+          .update({ status: "postponed" })
+          .eq("competition_id", competition.id)
+          .in(
+            "external_id",
+            newlyPostponed.map((m) => m.external_id),
+          );
+
+        if (postponedError) throw new Error(`Označení odloženého zápasu selhalo: ${postponedError.message}`);
+        console.log(`${competition.name} (${sourcePath}): označeno jako odložené: ${newlyPostponed.length} zápas(y).`);
+      }
 
       if (withResult.length > 0) {
         const { ok, errors } = validateResults(withResult);

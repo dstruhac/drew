@@ -3251,6 +3251,92 @@ problém (čtení dat na stránkách).
 `src/` (jen pro `scripts/sync/`, vitest), zakládat ho jen kvůli týhle
 opravě by bylo mimo rozsah. Ověřeno přes `tsc --noEmit` a `pnpm build`.
 
+### Creme de la Creme: nenačítala nové zápasy + zaseknutý odložený zápas (17.9.2026)
+
+Uživatel nahlásil dvě věci najednou: "nefunguje načítání zápasů do
+Creme de la Creme ligy a nefunguje vyhodnocování zápasů." Obojí mělo
+stejného viníka -- "Hecovačky" (14.9.2026) -- ale šlo o dva samostatné
+bugy, opravené v jednom PR.
+
+**Bug 1 -- načítání nových zápasů se zastavilo 16.9.2026 16:00 UTC.**
+Ověřeno na historii běhů `random-league.yml` (`actions_list`) — run
+#21 (16.9., poprvé po založení hecovačky "pasiva hokej") spadl:
+
+```
+Error: Nepodařilo se ověřit "Náhodná liga": JSON object requested,
+multiple (or no) rows returned
+    at ensureCompetition (random-league.mjs:65:26)
+```
+
+Příčina: `ensureCompetition()` v `random-league.mjs` hledá "Náhodnou
+ligu"/Creme de la Creme přes `.eq("sport","mixed").maybeSingle()` —
+předpoklad, že appka má se `sport='mixed'` jen JEDNU soutěž (viz
+oprava 6.9.2026 výše, "přejmenování v DB duplikovalo soutěž"). Jenže
+`create_hecovacka()` (`20260916150000_hecovacky_sync_today_on_create.sql`,
+řádek `values (..., 'mixed', 'private', ...)`) dává STEJNOU hodnotu
+`sport='mixed'` úplně KAŽDÉ nově založené hecovačce (hecovačka může
+mít zdroje napříč sporty, appka proto sport řeší per-zápas, ne na
+competition) -- jakmile vznikla první hecovačka, `.maybeSingle()`
+najednou viděl 2 řádky a spadl. Ověřeno přes `db-probe.yml`
+(`competitions?select=id,name,sport,visibility&sport=eq.mixed`):
+opravdu 2 řádky, "Creme de la Creme liga" (`visibility=public`) a
+"pasiva hokej" (`visibility=private`).
+
+Appka od tý chvíle (16.9. 16:00 UTC) nikdy nedoplnila nové zápasy --
+poslední naimportovaný den byl 16.9., pro 17.9. (dnešek, den nahlášení)
+appka neměla nic.
+
+**Oprava 1**: `ensureCompetition()` filtruje navíc `visibility='public'`
+-- appka má jen jednu VEŘEJNOU soutěž se `sport='mixed'`, hecovačky
+jsou vždycky `private`. Insert větev appka neupravovala (sloupcový
+default `visibility` je `'public'`, takže nová "Náhodná liga" by ho
+stejně dostala sama).
+
+**Bug 2 -- odložený zápas zůstal navždy `status='scheduled'`.**
+Nezávisle na bugu 1: appka měla už od 29.8.2026
+(`POSTPONED_THRESHOLD_MS`, "Podpora pro odložené zápasy") detekci
+odloženého zápasu -- ale JEN v `syncSingleLeagueCompetition` větvi
+`results.mjs` (běžné soutěže s jedním `scrape_path`). Větev pro "mixed
+pool" (`syncRandomPoolCompetition`, používaná Creme de la Creme i
+hecovačkami) tuhle detekci nikdy neměla -- zaseknutý/odložený zápas
+tam zůstal `scheduled` navždy, appka to nikdy nezkusila opravit.
+
+Reálný nalezený případ: Levante -- Ath. Bilbao (La Liga, kickoff
+16.9. 19:30 UTC, `external_id g_1_UagHqsek`), v Creme de la Creme lize
+stále `status='scheduled'` skoro 19 hodin po výkopu. Ověřeno přes
+`playwright-probe.yml` na `livesport.cz/fotbal/spanelsko/laliga/vysledky/`:
+zápasy ze stejného dne (Barcelona--Racing Santander, A Coruňa--Sevilla)
+na stránce výsledků JSOU a appka je správně vyhodnotila, ale
+Levante--Ath. Bilbao (`g_1_UagHqsek`) tam není vůbec -- přesně vzorec,
+který appka jinde rozpoznává jako "odloženo" (viz reálný případ
+Bohemians--Mladá Boleslav, 29.8.2026).
+
+**Oprava 2**: `syncRandomPoolCompetition()` teď po každém scrapu jedné
+zdrojové ligy (`sourcePath`) zkontroluje, jestli některý z JEJÍCH
+čekajících zápasů (`pendingInLeague`, dřív appka držela jen holý
+`Set` externích ID, teď celé záznamy -- potřeba `status`/`kickoff_at`
+pro detekci) není `status='scheduled'`, starší než
+`POSTPONED_THRESHOLD_MS` (4 h) a chybí ve scrapu -- pak ho označí
+`postponed`. Stejná logika jako u běžných soutěží, jen scoped na
+zápasy JEDNÉ ligy uvnitř JEDNÉ competition (`.eq("competition_id",
+...).in("external_id", ...)`), ne na celou stránku výsledků.
+
+**Vědomě neřešeno v tomhle PR**: `results.mjs`'s hlavní smyčka pořád
+volá `syncRandomPoolCompetition()` pro KAŽDOU competition se
+`sport='mixed'`, hecovačky nevyjímaje -- appka tak u každé hecovačky
+udělá jeden zbytečný (byť levný, bez prohlížeče) dotaz na `matches`
+navíc, protože jejich zápasy nemají `source_scrape_path`
+(kopírují se přes `source_match_id`, viz `hecovacky.mjs`
+`propagateScores()`, jiný mechanismus). Neškodí to (žádný pád, žádný
+špatný zápis), jen plýtvá jedním dotazem na běh na hecovačku -- necháno
+beze změny, appka řešila jen prokázané dva bugy, ne teoretické
+zjednodušení navíc.
+
+Ověřeno: `pnpm check` (typecheck + 57 testů), `node --check` na obou
+souborech. Žádný nový test -- appka pro `results.mjs`/`random-league.mjs`
+zatím nemá test na "mixed pool" větev vůbec (jen na sdílené `lib/`
+moduly), rozšiřovat pokrytí by bylo mimo rozsah týhle opravy.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

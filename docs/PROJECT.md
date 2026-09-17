@@ -241,6 +241,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   hráč hlásil "Data se nepodařilo načíst" hned při prvním přihlášení.
   `src/lib/supabase/retry-fetch.ts`, zapojeno do `server.ts`/`client.ts`
   přes `global.fetch`, viz `HISTORY.md`.
+- [x] Oprava: Creme de la Creme přestala dostávat nové zápasy a
+  zaseklý odložený zápas nikdy nevyhodnotila (17.9.2026) — obojí
+  způsobené Hecovačkami (`sport='mixed'` sdílené s "Náhodnou ligou").
+  `random-league.mjs` teď hledá jen `visibility='public'`;
+  `results.mjs` umí odložený zápas v "mixed pool" poznat stejně jako
+  u běžných soutěží. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
