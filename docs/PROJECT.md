@@ -236,6 +236,10 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   (17.9.2026) — nahradil dřívější jednorázovou hlášku po uložení
   (`src/lib/shared-matches.ts`, používá `/spaces/[id]`,
   `.../matches/[matchId]` i Dashboard).
+- [x] Automatický retry na přechodné výpadky Supabase (17.9.2026) —
+  hráč hlásil "Data se nepodařilo načíst" hned při prvním přihlášení.
+  `src/lib/supabase/retry-fetch.ts`, zapojeno do `server.ts`/`client.ts`
+  přes `global.fetch`, viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

@@ -3169,6 +3169,68 @@ appka pro něj dělá vlastní malý dotaz místo sdílení s výpočtem z
 vzorec jako u `buildMatchLogos()`, drobný dodatečný dotaz navíc je
 levnější než předávání dat mezi stránkami, které spolu nesdílí request.
 
+### Automatický retry na přechodné výpadky Supabase (17.9.2026)
+
+Hráč se přihlásil do appky úplně poprvé a hned uviděl "Data se teď
+nepodařilo načíst" na Dashboardu (screenshot v chatu). Appka nikam
+neloguje chyby ze serverové strany tak, aby k nim Claude Code měl
+přístup (`console.error` v `(app)/error.tsx` píše jen do konzole
+prohlížeče hráče) — přesný text chyby k tomuhle konkrétnímu incidentu
+proto není znám, diagnostika šla jen strukturálně.
+
+**Vyloučeno jako příčina:** nedávné RLS opravy kolem Hecovaček
+(rekurze mezi politikami `competitions`/`competition_participants`,
+oprava 15.9.2026 výše). Ověřeno přímým zavoláním
+`hecovacka_is_visible()` přes `db-probe.yml` (`rpc`/`body` parametry) —
+funkce v databázi existuje a vrací správně `true` pro veřejnou soutěž,
+takže migrace jsou nasazené a nejde o rozbitou/nespuštěnou migraci.
+
+**Pracovní teorie (nejde ověřit s jistotou, ale odpovídá appčině
+vlastní historii):** krátký přechodný výpadek/timeout Supabase (appka
+tohle opakovaně řešila u `sync-results`/`predict-reminders`/importu
+log — "Gateway Timeout", "JWT issued at future"). Rozdíl je v tom, že
+appčiny GitHub Actions skripty na tenhle druh chyby mají zabudovaný
+krátký automatický retry (`withJwtRetry`/`withTransientRetry` v
+`scripts/sync/`), ale **živá appka na webu žádný neměla** — Dashboard
+dělá při každém načtení až 7 souběžných dotazů do Supabase
+(`Promise.all`), stačí, aby JEDEN z nich zrovna v tu chvíli selhal, a
+appka rovnou ukáže celou chybovou obrazovku.
+
+**Rozhodnutí s uživatelem (přes `AskUserQuestion`):** doplnit stejný
+druh krátkého automatického retry i do živé appky, ne čekat, jestli se
+to zopakuje.
+
+**Implementace — jedno místo místo desítek:** místo přepisování
+každého jednotlivého `supabase.from(...).select(...)` na každé stránce
+zvlášť appka využívá, že Supabase klient dovolí předat vlastní `fetch`
+implementaci (`options.global.fetch`) — tudy prochází ÚPLNĚ VŠECHNY
+jeho síťové požadavky. Nová `src/lib/supabase/retry-fetch.ts`
+(`retryingFetch()`) zabalí `fetch` tak, že na selhání/na status
+502/503/504 zkusí požadavek až 2× znovu s krátkou prodlevou (300 ms,
+600 ms). Zapojeno do `src/lib/supabase/server.ts`
+(`createServerClient`, používané ze server komponent/server akcí) i
+`src/lib/supabase/client.ts` (`createBrowserClient`).
+
+**Vědomě omezeno jen na GET požadavky.** `postgrest-js` posílá GET pro
+`select()`, ale POST pro `insert()`/`update()`/`upsert()`/`.rpc()` —
+appka retry dělá JEN na GET, ať nikdy neriskuje, že by kvůli
+opakovanému pokusu omylem odeslala zápis dvakrát (např. uložení tipu
+nebo `create_hecovacka()`). U zápisů zůstává appka beze změny — jedno
+selhání = jedna chyba, jak tomu bylo dřív.
+
+**Vědomě NEupraveno:** `src/lib/supabase/middleware.ts` (proxy, ověřuje
+přihlášení na každém požadavku přes `getClaims()`) — na rozdíl od
+`server.ts` dřív explicitně NEDĚLÁ síťové volání při normálním provozu
+(ověření podpisu tokenu běží lokálně přes WebCrypto, viz "Výkon" výše),
+síť se použije jen ve vzácné chvíli obnovy tokenu těsně před vypršením.
+Zásah do auth flow (redirecty, zápis cookie) je zároveň rizikovější než
+zásah do čtení dat — ponecháno beze změny, appka řeší jen prokázaný
+problém (čtení dat na stránkách).
+
+**Žádný nový test** — appka nemá testovací framework nastavený pro
+`src/` (jen pro `scripts/sync/`, vitest), zakládat ho jen kvůli týhle
+opravě by bylo mimo rozsah. Ověřeno přes `tsc --noEmit` a `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
