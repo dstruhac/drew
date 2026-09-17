@@ -268,14 +268,13 @@ a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
 uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
 zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).
 
-**Čeká: nastavit cron-job.org pro `hecovacky.yml`** (17.9.2026) —
-appka doteď měla tenhle workflow jen jako `workflow_dispatch`
-(ověřovací ruční běh 16.9.2026) a nikdy nedostala pravidelný rozvrh
-jako zbylých 5 naplánovaných úloh — proto se zápasům v hecovačkách
-nikdy nepropsal výsledek dohraného zápasu ani po výkopu (appka to
-umí, jen se to nikdy nespustilo). Řešení a přesný postup pro
-uživatele viz `HISTORY.md` → "Hecovačky: výsledky se nikdy
-nepropisovaly + chybějící loga (17.9.2026)".
+**cron-job.org pro `hecovacky.yml` nastaveno** (17.9.2026) — uživatel
+založil pravidelnou úlohu, appka ověřila přes log skutečného běhu
+(GitHub Actions run #4, 9:15 UTC), že volání skutečně projde a e-mail
+"byl jsi přidán do hecovačky" se doopravdy odešle (log:
+"Odesláno upozornění uživateli ... o přidání do 'pasiva hokej'."). Viz
+`HISTORY.md` → "Hecovačky: výsledky se nikdy nepropisovaly +
+chybějící loga (17.9.2026)" pro kontext, proč to bylo potřeba.
 
 ## Jak navázat (pro budoucí Claude Code session)
 
