@@ -61,13 +61,13 @@ export function SpotlightMatchCard({
   isJoined,
   sport,
   competitionId,
-  logoUrlByTeam,
+  logos = {},
 }: {
   match: Match;
   isJoined: boolean;
   sport: "hockey" | "football";
   competitionId: string;
-  logoUrlByTeam: Map<string, string>;
+  logos?: { home?: string; away?: string };
 }) {
   // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
   // každý zápas zvlášť -- jinak je match.sport null a bere se sport
@@ -106,14 +106,14 @@ export function SpotlightMatchCard({
         className="relative mt-5 flex items-center justify-center gap-4 sm:gap-10"
       >
         <div className="flex flex-col items-center gap-2">
-          <TeamBadge url={logoUrlByTeam.get(match.home_team)} name={match.home_team} />
+          <TeamBadge url={logos.home} name={match.home_team} />
           <span className="max-w-[92px] text-center text-[13px] font-bold text-white sm:max-w-none">
             {match.home_team}
           </span>
         </div>
         <span className="text-sm font-bold text-white/30">vs</span>
         <div className="flex flex-col items-center gap-2">
-          <TeamBadge url={logoUrlByTeam.get(match.away_team)} name={match.away_team} />
+          <TeamBadge url={logos.away} name={match.away_team} />
           <span className="max-w-[92px] text-center text-[13px] font-bold text-white sm:max-w-none">
             {match.away_team}
           </span>

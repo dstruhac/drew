@@ -26,6 +26,7 @@ import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+import { buildMatchLogos, type MatchLogos } from "@/lib/team-logos";
 
 // Porovná dvě data podle kalendářního dne v pražském čase -- appka
 // ukazuje odložený zápas jen v den, kdy se měl původně hrát (viz
@@ -103,7 +104,6 @@ export default async function CompetitionDetailPage({
     competitionResult,
     participantsResult,
     matchesResult,
-    teamLogosResult,
     predictionsResult,
   ] = await Promise.all([
     getCurrentUser(),
@@ -119,11 +119,10 @@ export default async function CompetitionDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
       )
       .eq("competition_id", id)
       .order("kickoff_at", { ascending: true }),
-    supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
     supabase
       .from("predictions")
       .select(
@@ -135,19 +134,23 @@ export default async function CompetitionDetailPage({
   throwIfSupabaseError(competitionResult.error, "Načtení soutěže", ["PGRST116"]);
   throwIfSupabaseError(participantsResult.error, "Načtení účastníků soutěže");
   throwIfSupabaseError(matchesResult.error, "Načtení zápasů");
-  throwIfSupabaseError(teamLogosResult.error, "Načtení log týmů");
   throwIfSupabaseError(predictionsResult.error, "Načtení tipů");
   const competition = competitionResult.data;
   const participants = participantsResult.data;
   const matches = matchesResult.data;
-  const teamLogos = teamLogosResult.data;
   const predictions = predictionsResult.data;
 
   if (!competition) {
     notFound();
   }
 
-  const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
+  // Loga týmů -- u zápasů zkopírovaných z jiné soutěže (hecovačky) se
+  // hledají pod PŮVODNÍ soutěží, ne pod touhle (viz src/lib/team-logos.ts
+  // pro odůvodnění, proč to nejde řešit prostým sloučením podle jména).
+  const matchLogos = await buildMatchLogos(
+    supabase,
+    (matches ?? []).map((m) => ({ ...m, competition_id: id })),
+  );
 
   const ownParticipant = participants?.find((p) => p.user_id === user?.id);
   const isJoined = ownParticipant !== undefined;
@@ -477,7 +480,7 @@ export default async function CompetitionDetailPage({
                       isJoined={isJoined}
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+                      logos={matchLogos.get(spotlight.id) ?? {}}
                     />
                     {restMissing.length > 0 && (
                       <ExpandableList
@@ -491,7 +494,7 @@ export default async function CompetitionDetailPage({
                             existing={null}
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
-                            logoUrlByTeam={logoUrlByTeam}
+                            matchLogos={matchLogos}
                             layout="carousel"
                           />
                         ))}
@@ -504,7 +507,7 @@ export default async function CompetitionDetailPage({
                             existing={null}
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
-                            logoUrlByTeam={logoUrlByTeam}
+                            matchLogos={matchLogos}
                             layout="stack"
                           />
                         ))}
@@ -537,7 +540,7 @@ export default async function CompetitionDetailPage({
                           existing={ownPredictionByMatch.get(match.id) ?? null}
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
-                          logoUrlByTeam={logoUrlByTeam}
+                          matchLogos={matchLogos}
                           layout="carousel"
                         />
                       ))}
@@ -550,7 +553,7 @@ export default async function CompetitionDetailPage({
                           existing={ownPredictionByMatch.get(match.id) ?? null}
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
-                          logoUrlByTeam={logoUrlByTeam}
+                          matchLogos={matchLogos}
                           layout="stack"
                         />
                       ))}
@@ -576,7 +579,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+                      matchLogos={matchLogos}
                     />
                   ))}
                 </ul>
@@ -599,7 +602,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+                      matchLogos={matchLogos}
                     />
                   ))}
                 </ul>
@@ -622,7 +625,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+                      matchLogos={matchLogos}
                       layout="carousel"
                     />
                   ))}
@@ -635,7 +638,7 @@ export default async function CompetitionDetailPage({
                       existing={ownPredictionByMatch.get(match.id) ?? null}
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
-                      logoUrlByTeam={logoUrlByTeam}
+                      matchLogos={matchLogos}
                       layout="stack"
                     />
                   ))}
@@ -741,7 +744,7 @@ function MatchCard({
   existing,
   sport,
   competitionId,
-  logoUrlByTeam,
+  matchLogos,
   layout = "carousel",
 }: {
   match: Match;
@@ -750,7 +753,7 @@ function MatchCard({
   existing: Prediction;
   sport: "hockey" | "football";
   competitionId: string;
-  logoUrlByTeam: Map<string, string>;
+  matchLogos: Map<string, MatchLogos>;
   /** "carousel" (výchozí) = kartička má na mobilu fixní procentuální
    * šířku (peek dalšího zápasu při swipu), "stack" = plná šířka řádku
    * (appka na to přepne po kliknutí na "Zobrazit všechny", viz
@@ -837,7 +840,7 @@ function MatchCard({
 
         <div className="flex items-center justify-center gap-4 sm:gap-8">
           <div className="flex min-w-0 flex-col items-center gap-1.5">
-            <TeamBadge url={logoUrlByTeam.get(match.home_team)} name={match.home_team} />
+            <TeamBadge url={matchLogos.get(match.id)?.home} name={match.home_team} />
             <span className="max-w-[88px] truncate text-center text-xs font-bold">
               {match.home_team}
             </span>
@@ -852,7 +855,7 @@ function MatchCard({
               : "–"}
           </span>
           <div className="flex min-w-0 flex-col items-center gap-1.5">
-            <TeamBadge url={logoUrlByTeam.get(match.away_team)} name={match.away_team} />
+            <TeamBadge url={matchLogos.get(match.id)?.away} name={match.away_team} />
             <span className="max-w-[88px] truncate text-center text-xs font-bold">
               {match.away_team}
             </span>

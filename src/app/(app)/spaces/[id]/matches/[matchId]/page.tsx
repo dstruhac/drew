@@ -6,6 +6,7 @@ import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { PredictionForm } from "../../prediction-form";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+import { buildMatchLogos } from "@/lib/team-logos";
 
 export default async function MatchDetailPage({
   params,
@@ -19,47 +20,38 @@ export default async function MatchDetailPage({
   // (predictions_select_own_or_locked) u predictions jen vlastní řádek
   // přihlášeného uživatele, cizí tipy prostě nepřijdou -- odemčení po
   // výkopu je tak vynucené v databázi, ne jen skrytím v UI.
-  const [
-    user,
-    competitionResult,
-    matchResult,
-    participantsResult,
-    predictionsResult,
-    teamLogosResult,
-  ] = await Promise.all([
-    getCurrentUser(),
-    supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
-    supabase
-      .from("matches")
-      .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport",
-      )
-      .eq("id", matchId)
-      .eq("competition_id", id)
-      .single(),
-    supabase
-      .from("competition_participants")
-      .select("user_id, profiles!user_id(display_name)")
-      .eq("competition_id", id),
-    supabase
-      .from("predictions")
-      .select(
-        "user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, profiles(display_name)",
-      )
-      .eq("match_id", matchId),
-    supabase.from("team_logos").select("team_name, logo_url").eq("competition_id", id),
-  ]);
+  const [user, competitionResult, matchResult, participantsResult, predictionsResult] =
+    await Promise.all([
+      getCurrentUser(),
+      supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
+      supabase
+        .from("matches")
+        .select(
+          "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
+        )
+        .eq("id", matchId)
+        .eq("competition_id", id)
+        .single(),
+      supabase
+        .from("competition_participants")
+        .select("user_id, profiles!user_id(display_name)")
+        .eq("competition_id", id),
+      supabase
+        .from("predictions")
+        .select(
+          "user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, points, profiles(display_name)",
+        )
+        .eq("match_id", matchId),
+    ]);
 
   throwIfSupabaseError(competitionResult.error, "Načtení soutěže", ["PGRST116"]);
   throwIfSupabaseError(matchResult.error, "Načtení zápasu", ["PGRST116"]);
   throwIfSupabaseError(participantsResult.error, "Načtení účastníků zápasu");
   throwIfSupabaseError(predictionsResult.error, "Načtení tipů k zápasu");
-  throwIfSupabaseError(teamLogosResult.error, "Načtení log týmů");
   const competition = competitionResult.data;
   const match = matchResult.data;
   const participants = participantsResult.data;
   const predictions = predictionsResult.data;
-  const teamLogos = teamLogosResult.data;
 
   if (!competition) {
     notFound();
@@ -69,7 +61,10 @@ export default async function MatchDetailPage({
     notFound();
   }
 
-  const logoUrlByTeam = new Map(teamLogos?.map((t) => [t.team_name, t.logo_url]));
+  // Loga -- u zápasu zkopírovaného z jiné soutěže (hecovačka) se hledají
+  // pod PŮVODNÍ soutěží, viz src/lib/team-logos.ts.
+  const matchLogos = await buildMatchLogos(supabase, [{ ...match, competition_id: id }]);
+  const logos = matchLogos.get(match.id) ?? {};
 
   const isLocked =
     match.status !== "scheduled" || new Date(match.kickoff_at) <= new Date();
@@ -122,19 +117,19 @@ export default async function MatchDetailPage({
           </Link>
         </div>
         <h1 className="mt-2 flex items-center gap-2 text-xl font-extrabold tracking-tight">
-          {logoUrlByTeam.get(match.home_team) && (
+          {logos.home && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={logoUrlByTeam.get(match.home_team)}
+              src={logos.home}
               alt=""
               className="h-6 w-6 rounded bg-white object-contain p-0.5"
             />
           )}
           {match.home_team} – {match.away_team}
-          {logoUrlByTeam.get(match.away_team) && (
+          {logos.away && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={logoUrlByTeam.get(match.away_team)}
+              src={logos.away}
               alt=""
               className="h-6 w-6 rounded bg-white object-contain p-0.5"
             />
