@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import type { Database } from "@/lib/supabase/database.types";
 import { USER_ID_HEADER, USER_EMAIL_HEADER } from "@/lib/supabase/middleware";
+import { retryingFetch } from "@/lib/supabase/retry-fetch";
 
 // Use in Server Components, Server Actions and Route Handlers.
 export async function createClient() {
@@ -12,6 +13,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: retryingFetch() },
       cookies: {
         getAll() {
           return cookieStore.getAll();
