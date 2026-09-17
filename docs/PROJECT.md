@@ -205,8 +205,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Grafický redesign (design tokeny, vysvícený nejbližší zápas,
   "banger" momenty, ikony `lucide-react`) + Dashboard jako vstupní
   stránka po přihlášení.
-- [x] Ruční přepínač světlý/tmavý režim, sportovní barevný vibe
-  (fotbal zelená/hokej modrá).
+- [x] Ruční přepínač světlý/tmavý režim (2 stavy, ikona jen podle
+  aktuálního vzhledu — appka jednorázově sleduje systém, dokud hráč
+  sám nezvolí), sportovní barevný vibe (fotbal zelená/hokej modrá).
 - [x] Hamburger menu na mobilu, odkaz Dashboard v hlavičkách všude.
 - [x] "Creme de la Creme liga" (dřív "Náhodná liga") — denně 0–5
   náhodných zápasů ze 16 lig, noční kickoffy vyřazené z výběru.
