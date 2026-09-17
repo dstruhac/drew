@@ -3003,6 +3003,17 @@ jakmile uživatel jednou ručně spustí `hecovacky.yml` přes
 řeší jen to, aby appka propisovala výsledky průběžně/automaticky, ne
 jen když si to zrovna někdo ručně spustí.
 
+**Dokončeno a ověřeno (17.9.2026, později týž den):** uživatel úlohu v
+cron-job.org založil. Appka to ověřila nezávisle přes log skutečného
+běhu (GitHub Actions run #4, `35204126469`, 9:15 UTC) — volání prošlo
+a skript reálně odeslal e-mail o přidání do hecovačky ("Odesláno
+upozornění uživateli ... o přidání do 'pasiva hokej'."), tedy celý
+řetězec cron-job.org → GitHub Actions dispatch → Gmail SMTP funguje
+end-to-end. Drobná neshoda: uživatel hlásil dvě ruční vyvolání
+("provolání") testu, appka v historii GitHubu viděla jen jedno nové
+spuštění — nekriticky zaznamenáno, appka to nedohledávala dál, protože
+funkčnost už byla ověřená tím jedním úspěšným během.
+
 **Příčina #2 (chybějící loga): `team_logos` je scoped podle
 `competition_id`, ale appka zápasy do hecovačky KOPÍRUJE pod jiné
 `competition_id`, než mělo originál.** `team_logos` je mapovací
