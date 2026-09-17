@@ -55,11 +55,23 @@ const NIGHT_HOUR_END = 6; // exkluzivní horní mez -- vyřazeno je 0:00–5:59
 // založilo DUPLICITNÍ novou competition se starým jménem, protože by
 // tu přejmenovanou nenašlo -- přesně tenhle bug appka měla a smazala
 // tím pádem hráčům viditelnost jejich přejmenované soutěže.
+//
+// I "mixed" samo o sobě přestalo stačit (17.9.2026, reálný incident):
+// "Hecovačky" (14.9.2026) dávají STEJNOU hodnotu sport='mixed' úplně
+// KAŽDÉ soukromé soutěži (viz create_hecovacka() -- hecovačka může mít
+// zdroje napříč sporty, takže appka sport řeší per-zápas, ne na
+// competition), takže "Náhodná liga" přestala být jediná se
+// sport='mixed', jakmile vznikla první hecovačka -- `.maybeSingle()`
+// pak spadl na "multiple rows returned" a appka od tý chvíle nikdy
+// nedoplnila nové zápasy. Přidán filtr `visibility='public'` -- appka
+// má jen jednu VEŘEJNOU soutěž se sport='mixed' (Creme de la Creme),
+// hecovačky jsou vždycky `visibility='private'`.
 async function ensureCompetition(supabase) {
   const { data: existing, error: selectError } = await supabase
     .from("competitions")
     .select("id")
     .eq("sport", "mixed")
+    .eq("visibility", "public")
     .maybeSingle();
 
   if (selectError) throw new Error(`Nepodařilo se ověřit "Náhodná liga": ${selectError.message}`);
