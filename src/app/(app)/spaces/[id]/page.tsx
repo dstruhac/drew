@@ -27,6 +27,7 @@ import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS, upcomingWindowEndIso } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos, type MatchLogos } from "@/lib/team-logos";
+import { findSharedMatchIds } from "@/lib/shared-matches";
 
 // Porovná dvě data podle kalendářního dne v pražském čase -- appka
 // ukazuje odložený zápas jen v den, kdy se měl původně hrát (viz
@@ -119,7 +120,7 @@ export default async function CompetitionDetailPage({
     supabase
       .from("matches")
       .select(
-        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag",
+        "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag, external_id",
       )
       .eq("competition_id", id)
       .order("kickoff_at", { ascending: true }),
@@ -151,6 +152,11 @@ export default async function CompetitionDetailPage({
     supabase,
     (matches ?? []).map((m) => ({ ...m, competition_id: id })),
   );
+
+  // Zápasy, co appka duplikuje i do jiné soutěže, kde hráč taky hraje
+  // -- appka u nich formuláři ukáže trvalý příznak "Tip je sdílen do
+  // více soutěží" (viz src/lib/shared-matches.ts).
+  const sharedMatchIds = await findSharedMatchIds(supabase, matches ?? [], user?.id);
 
   const ownParticipant = participants?.find((p) => p.user_id === user?.id);
   const isJoined = ownParticipant !== undefined;
@@ -481,6 +487,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       logos={matchLogos.get(spotlight.id) ?? {}}
+                      isSharedMatch={sharedMatchIds.has(spotlight.id)}
                     />
                     {restMissing.length > 0 && (
                       <ExpandableList
@@ -495,6 +502,7 @@ export default async function CompetitionDetailPage({
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             matchLogos={matchLogos}
+                            sharedMatchIds={sharedMatchIds}
                             layout="carousel"
                           />
                         ))}
@@ -508,6 +516,7 @@ export default async function CompetitionDetailPage({
                             sport={competitionFallbackSport(competition.sport)}
                             competitionId={competition.id}
                             matchLogos={matchLogos}
+                            sharedMatchIds={sharedMatchIds}
                             layout="stack"
                           />
                         ))}
@@ -541,6 +550,7 @@ export default async function CompetitionDetailPage({
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           matchLogos={matchLogos}
+                          sharedMatchIds={sharedMatchIds}
                           layout="carousel"
                         />
                       ))}
@@ -554,6 +564,7 @@ export default async function CompetitionDetailPage({
                           sport={competitionFallbackSport(competition.sport)}
                           competitionId={competition.id}
                           matchLogos={matchLogos}
+                          sharedMatchIds={sharedMatchIds}
                           layout="stack"
                         />
                       ))}
@@ -580,6 +591,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       matchLogos={matchLogos}
+                      sharedMatchIds={sharedMatchIds}
                     />
                   ))}
                 </ul>
@@ -603,6 +615,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       matchLogos={matchLogos}
+                      sharedMatchIds={sharedMatchIds}
                     />
                   ))}
                 </ul>
@@ -626,6 +639,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       matchLogos={matchLogos}
+                      sharedMatchIds={sharedMatchIds}
                       layout="carousel"
                     />
                   ))}
@@ -639,6 +653,7 @@ export default async function CompetitionDetailPage({
                       sport={competitionFallbackSport(competition.sport)}
                       competitionId={competition.id}
                       matchLogos={matchLogos}
+                      sharedMatchIds={sharedMatchIds}
                       layout="stack"
                     />
                   ))}
@@ -745,6 +760,7 @@ function MatchCard({
   sport,
   competitionId,
   matchLogos,
+  sharedMatchIds,
   layout = "carousel",
 }: {
   match: Match;
@@ -754,6 +770,7 @@ function MatchCard({
   sport: "hockey" | "football";
   competitionId: string;
   matchLogos: Map<string, MatchLogos>;
+  sharedMatchIds: Set<string>;
   /** "carousel" (výchozí) = kartička má na mobilu fixní procentuální
    * šířku (peek dalšího zápasu při swipu), "stack" = plná šířka řádku
    * (appka na to přepne po kliknutí na "Zobrazit všechny", viz
@@ -897,6 +914,7 @@ function MatchCard({
           competitionId={competitionId}
           matchId={match.id}
           existing={existing}
+          isSharedMatch={sharedMatchIds.has(match.id)}
         />
       ) : (
         <p className="mt-2 text-xs font-semibold text-faint-foreground">

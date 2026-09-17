@@ -7,6 +7,7 @@ import { PredictionForm } from "../../prediction-form";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos } from "@/lib/team-logos";
+import { findSharedMatchIds } from "@/lib/shared-matches";
 
 export default async function MatchDetailPage({
   params,
@@ -27,7 +28,7 @@ export default async function MatchDetailPage({
       supabase
         .from("matches")
         .select(
-          "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag",
+          "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag, external_id",
         )
         .eq("id", matchId)
         .eq("competition_id", id)
@@ -65,6 +66,11 @@ export default async function MatchDetailPage({
   // pod PŮVODNÍ soutěží, viz src/lib/team-logos.ts.
   const matchLogos = await buildMatchLogos(supabase, [{ ...match, competition_id: id }]);
   const logos = matchLogos.get(match.id) ?? {};
+
+  // Trvalý příznak "Tip je sdílen do více soutěží", viz
+  // src/lib/shared-matches.ts.
+  const sharedMatchIds = await findSharedMatchIds(supabase, [match], user?.id);
+  const isSharedMatch = sharedMatchIds.has(match.id);
 
   const isLocked =
     match.status !== "scheduled" || new Date(match.kickoff_at) <= new Date();
@@ -205,6 +211,7 @@ export default async function MatchDetailPage({
             competitionId={competition.id}
             matchId={match.id}
             existing={ownPrediction}
+            isSharedMatch={isSharedMatch}
           />
         ) : (
           <p className="mt-2 text-sm font-semibold text-faint-foreground">

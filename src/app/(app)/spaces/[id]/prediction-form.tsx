@@ -9,12 +9,15 @@ const initialState: SubmitPredictionState = { error: null };
 const TIE_WARNING =
   "Hokej remízou nekončí — zadej, kdo nakonec vyhrál. Čekáš prodloužení/nájezdy? Zaškrtni to dole.";
 
+const SHARED_MATCH_NOTE = "✅ Tip je sdílen do více soutěží (stejný zápas).";
+
 export function PredictionForm({
   sport,
   competitionId,
   matchId,
   existing,
   variant = "default",
+  isSharedMatch = false,
 }: {
   sport: Sport;
   competitionId: string;
@@ -28,6 +31,15 @@ export function PredictionForm({
    * tmavé kartě, viz MatchesSpotlightCard v page.tsx) -- stejná akce
    * a auto-save logika, jen jiný vzhled. */
   variant?: "default" | "spotlight";
+  /** `true`, když appka pro tenhle zápas najde stejný reálný zápas
+   * (external_id) i v jiné soutěži, kde hráč taky hraje -- appka tam
+   * tip po uložení automaticky propíše (viz
+   * syncPredictionToDuplicateMatches v actions.ts). Appka to hráči
+   * ukazuje jako TRVALÝ příznak u formuláře (viz
+   * src/lib/shared-matches.ts), ne jen jednorázově hned po uložení --
+   * uživatel 17.9.2026 nahlásil, že jednorázová hláška po uložení
+   * byla matoucí. */
+  isSharedMatch?: boolean;
 }) {
   const action = submitPrediction.bind(null, sport, competitionId, matchId);
   const [state, formAction, isPending] = useActionState(action, initialState);
@@ -200,9 +212,9 @@ export function PredictionForm({
             ⚠️ {state.syncWarning}
           </span>
         )}
-        {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+        {!state.error && !state.syncWarning && isSharedMatch && (
           <span className="max-w-[220px] text-center text-xs font-semibold text-white/60">
-            {syncedNote(state.syncedCompetitionNames!)}
+            {SHARED_MATCH_NOTE}
           </span>
         )}
       </form>
@@ -282,19 +294,11 @@ export function PredictionForm({
           ⚠️ {state.syncWarning}
         </span>
       )}
-      {!state.error && !state.syncWarning && (state.syncedCompetitionNames?.length ?? 0) > 0 && (
+      {!state.error && !state.syncWarning && isSharedMatch && (
         <span className="max-w-[220px] text-center text-xs font-semibold text-faint-foreground">
-          {syncedNote(state.syncedCompetitionNames!)}
+          {SHARED_MATCH_NOTE}
         </span>
       )}
     </form>
   );
-}
-
-// Stejný zápas appka umí sledovat ve víc soutěžích najednou (typicky
-// "Náhodná liga" -- viz syncPredictionToDuplicateMatches() v
-// actions.ts) -- tahle hláška hráči řekne, že se mu tip uložil i tam,
-// ať appka nedělá nic tiše na pozadí bez vysvětlení.
-function syncedNote(names: string[]): string {
-  return `✅ Tip uložen i pro: ${names.join(", ")} (stejný zápas).`;
 }

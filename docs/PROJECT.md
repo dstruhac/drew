@@ -232,6 +232,10 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   nebyla; teď se hledají pod PŮVODNÍ soutěží zápasu (sdílený
   `src/lib/team-logos.ts`, používá i `/spaces/[id]`,
   `.../matches/[matchId]` a Dashboard).
+- [x] Trvalý příznak "Tip je sdílen do více soutěží" u formuláře na tip
+  (17.9.2026) — nahradil dřívější jednorázovou hlášku po uložení
+  (`src/lib/shared-matches.ts`, používá `/spaces/[id]`,
+  `.../matches/[matchId]` i Dashboard).
 
 ### Vědomě odloženo / mimo současný rozsah
 

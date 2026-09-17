@@ -3115,6 +3115,49 @@ GitHub issue #192, místo aby tiše spadl bez záznamu — nikomu se ale
 ráno neposlalo upozornění na nevyplněný tip. Ruční doběh
 `predict-reminders.yml` po opravě běh ověřil.
 
+## Trvalý příznak "Tip je sdílen do více soutěží" (17.9.2026)
+
+**Nahlásil uživatel:** appka po uložení tipu na sdílený zápas (viz
+"Propsání tipu napříč soutěžemi se stejným reálným zápasem" výše)
+ukazovala hlášku "✅ Tip uložen i pro: {jména soutěží} (stejný
+zápas)." — ale JEN jednorázově, hned po odeslání formuláře (šlo o
+`state.syncedCompetitionNames` vrácené z `submitPrediction` server
+akce, tedy vázané na výsledek POSLEDNÍ akce, ne na to, jestli je
+zápas sdílený obecně). Uživatel: "kdy se toot zobrazuje? mně přijde,
+že se to zobrazuje po tom, co jsem akci zadal." a požádal o změnu na
+trvalý příznak, viditelný pokaždé, když se na sdílený zápas dívá/ho
+tipuje — s přesně danou formulací "✅ Tip je sdílen do více soutěží
+(stejný zápas)." (bez dynamického výčtu jmen soutěží).
+
+**Řešení:** nová sdílená `src/lib/shared-matches.ts`, funkce
+`findSharedMatchIds(supabase, matches, userId)` — pro zadané zápasy
+zjistí (dotazem na `matches` podle `external_id` a
+`competition_participants` podle `user_id`), které z nich mají
+"sourozeneckou" kopii v JINÉ soutěži, kde hráč taky hraje, a vrátí
+množinu jejich `id`. Na rozdíl od `syncPredictionToDuplicateMatches`
+(actions.ts, který PROPISUJE tip po uložení) tahle funkce nic
+nezapisuje, jen ZJIŠŤUJE stav při každém vykreslení stránky — proto
+appka nemusí čekat na akci, příznak je vidět rovnou, i u zápasu, na
+který hráč ještě žádný tip nezadal.
+
+Sdíleno stejným trojlístkem míst jako `buildMatchLogos()` výše
+(`/spaces/[id]`, `.../matches/[matchId]`, Dashboard) — `PredictionForm`
+(`src/app/(app)/spaces/[id]/prediction-form.tsx`) dostala nový prop
+`isSharedMatch?: boolean`, který nahradil dřívější
+`state.syncedCompetitionNames` (odstraněno i ze `SubmitPredictionState`
+a `SyncOutcome` v `actions.ts` — appka už dál nikde nepotřebovala
+vědět JMÉNA sourozeneckých soutěží, jen jestli sdílení existuje).
+`MatchCard` (`spaces/[id]/page.tsx`) a `SpotlightMatchCard`
+(`spotlight-match-card.tsx`, používaná i Dashboardem) dostaly nový
+prop `sharedMatchIds: Set<string>` / `isSharedMatch: boolean`.
+
+**Vědomě NEřešeno:** `findSharedMatchIds` na Dashboardu/detailu zápasu
+běží jen nad JEDNÍM zápasem (vysvícená kartička / detail), takže
+appka pro něj dělá vlastní malý dotaz místo sdílení s výpočtem z
+`/spaces/[id]` (kde běží nad všemi zápasy stránky najednou) — stejný
+vzorec jako u `buildMatchLogos()`, drobný dodatečný dotaz navíc je
+levnější než předávání dat mezi stránkami, které spolu nesdílí request.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
