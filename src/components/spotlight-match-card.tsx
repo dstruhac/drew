@@ -22,6 +22,8 @@ export type Match = {
   // jinak null a appka použije sport soutěže, viz matchSport() v
   // spaces/[id]/page.tsx.
   sport?: Sport | null;
+  // Jen hokej -- appka u fotbalu nikdy nezapisuje.
+  overtime_flag?: boolean | null;
 };
 
 export function TeamLogo({ url }: { url: string | undefined }) {

@@ -27,7 +27,7 @@ export default async function MatchDetailPage({
       supabase
         .from("matches")
         .select(
-          "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id",
+          "id, home_team, away_team, kickoff_at, status, home_score, away_score, sport, source_match_id, overtime_flag",
         )
         .eq("id", matchId)
         .eq("competition_id", id)
@@ -151,6 +151,7 @@ export default async function MatchDetailPage({
         {match.status === "finished" && (
           <p className="mt-2 text-lg font-extrabold">
             Konečný výsledek: {match.home_score}:{match.away_score}
+            {match.overtime_flag && " (PP)"}
           </p>
         )}
         {match.status === "live" && (
@@ -184,7 +185,7 @@ export default async function MatchDetailPage({
             <p className="mt-2 text-sm font-semibold">
               {ownPrediction.predicted_home_score}:
               {ownPrediction.predicted_away_score}
-              {ownPrediction.predicted_overtime_flag && " (PP) po prodloužení/nájezdech"}
+              {ownPrediction.predicted_overtime_flag && " (PP)"}
               {ownPrediction.points !== null &&
                 ` — získal(a) jste ${ownPrediction.points} b.`}
             </p>
