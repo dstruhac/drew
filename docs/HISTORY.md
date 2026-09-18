@@ -3337,6 +3337,37 @@ souborech. Žádný nový test -- appka pro `results.mjs`/`random-league.mjs`
 zatím nemá test na "mixed pool" větev vůbec (jen na sdílené `lib/`
 moduly), rozšiřovat pokrytí by bylo mimo rozsah týhle opravy.
 
+## Srozumitelnější banner o cizí výhře medaile (18.9.2026)
+
+**Nahlásil uživatel:** ptal se, jakou textaci appka ukáže hráči, který
+medaili za výhru týdne nevyhrál (na rozdíl od gratulačního modalu pro
+vítěze) — a přišlo mu, že současný text je matoucí.
+
+**Původní stav** (`src/components/badge-center.tsx`, banner zobrazený
+když `myNewBadges.length === 0 && othersNewBadges.length > 0`, tzn.
+hráč sám nevyhrál, ale někdo jiný v jeho soutěži ano): nadpis "Zlepši
+to a ukaž, že na to máš." + řádek "Jméno (2× Soutěž), Jméno2 (1×
+Soutěž2)" — nikde explicitně nestálo, že jde o medaili za týden, ani
+kdo přesně a proč se to zobrazuje. Kontrastovalo to s gratulačním
+modalem pro vítěze, který jasně říká "Jsi vítěz týdne za soutěž: ...".
+
+**Rozhodnutí s uživatelem:** sarkastický/hecovací tón (stejně jako u
+modalu "Gratuluju, jsi jednooký mezi slepými" — ten uživatel explicitně
+potvrdil, že sedí ke stylu appky pro partu kamarádů a nechce ho měnit)
+zůstává, ale text musí jasně říct, CO se stalo a KDO vyhrál.
+
+**Oprava:** nadpis banneru teď zní "Ujela ti medaile týdne." a detail
+pod ním jmenovitě vypisuje "[Jméno] je vítěz týdne v soutěži [Soutěž]
+(2×)." pro každého výherce (násobitel `(N×)` jen když > 1, stejně jako
+dřív), s původní hláškou "Zlepši to a ukaž, že na to máš." připojenou
+na konec. Formulace "je vítěz týdne v soutěži X" vědomě kopíruje vzorec
+z modalu ("vítěz týdne za soutěž:") — použití epicénního podstatného
+jména "vítěz" (ne skloňovaného slovesa v minulém čase) obchází potřebu
+řešit gramatický rod hráče, který appka nikde neeviduje.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm build`. Beze změny logiky, kdy
+se banner/modal zobrazuje (`myNewBadges`/`othersNewBadges`) — jen text.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

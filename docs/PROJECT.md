@@ -247,6 +247,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   `random-league.mjs` teď hledá jen `visibility='public'`;
   `results.mjs` umí odložený zápas v "mixed pool" poznat stejně jako
   u běžných soutěží. Viz `HISTORY.md`.
+- [x] Srozumitelnější banner pro hráče, kterému ujela medaile týdne
+  (18.9.2026) — teď jmenovitě říká "Ujela ti medaile týdne." + kdo a
+  v jaké soutěži vyhrál, sarkastický tón zachován. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
