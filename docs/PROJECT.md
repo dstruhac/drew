@@ -250,6 +250,13 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Srozumitelnější banner pro hráče, kterému ujela medaile týdne
   (18.9.2026) — teď jmenovitě říká "Ujela ti medaile týdne." + kdo a
   v jaké soutěži vyhrál, sarkastický tón zachován. Viz `HISTORY.md`.
+- [x] Oprava: dohrané zápasy Ligy mistrů/Evropské ligy s výkopem
+  chybně o rok napřed (18.9.2026) — scraper výsledků starších než 2
+  měsíce (běžné u zpětného dotažení celé sezóny) je omylem posouval do
+  příštího roku, takže vyskakovaly nahoru v "Proběhlé". Oprava v
+  `scrape-livesport.mjs` (`inferYear`/`parseKickoffAt` dostaly směr
+  "dopředu"/"dozadu") + migrace opravující už poškozená data. Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
@@ -277,7 +284,14 @@ chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
 
-**Migrace: aktuálně nic nečeká** (revize 16.9.2026) — `20260916090000_matches_external_id_index.sql`
+**Migrace čeká na ruční spuštění** (18.9.2026): `20260918090000_fix_future_dated_finished_matches.sql`
+— opravuje 25 dohraných zápasů Ligy mistrů/Evropské ligy s chybně
+zapsaným výkopem o rok napřed (viz `HISTORY.md` → "Oprava: dohrané
+zápasy s výkopem 'za rok'"). Bez spuštění appka dál zobrazuje "Proběhlé"
+v pořadí, které začíná těmito zápasy z roku 2027 — kód (scraper) je
+opravený, jen data v databázi ještě ne.
+
+Dřívější migrace (revize 16.9.2026) — `20260916090000_matches_external_id_index.sql`
 a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
 uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
 zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).

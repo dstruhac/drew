@@ -3368,6 +3368,61 @@ jména "vítěz" (ne skloňovaného slovesa v minulém čase) obchází potřebu
 Ověřeno `pnpm exec tsc --noEmit` + `pnpm build`. Beze změny logiky, kdy
 se banner/modal zobrazuje (`myNewBadges`/`othersNewBadges`) — jen text.
 
+## Oprava: dohrané zápasy s výkopem "za rok" (18.9.2026)
+
+**Nahlásil uživatel:** "nesprávně funguje řazení v konferenční liga,
+liga mistrů apod." Doptáno přes `AskUserQuestion` — konkrétně šlo o
+pořadí PROBĚHLÝCH zápasů na stránce soutěže.
+
+**Diagnostika** (přes `db-probe.yml`, ne odhadem): zápasy v sekci
+"Proběhlé" appka řadí od nejnovějšího výkopu (`kickoff_at` sestupně,
+viz `spaces/[id]/page.tsx` -- `past.reverse()`). Dotaz na zápasy Ligy
+mistrů se `status='finished'` odhalil řádky datované
+**2027-07-07 až 2027-07-16** -- tedy skoro rok DOPŘEDU, přestože jde o
+už odehraná červencová předkola (2026). Tyhle "zápasy z budoucnosti"
+appka kvůli řazení od nejnovějšího data vždycky vypíchla úplně nahoru
+před opravdu nedávné výsledky, takže pořadí vypadalo rozbité. Široký
+dotaz přes `db-probe.yml` (`status=eq.finished&kickoff_at=gt.now()`
+napříč VŠEMI soutěžemi) potvrdil přesně **25 postižených řádků**,
+všechny jen v Lize mistrů a Evropské lize (Konferenční liga zatím
+žádný postižený řádek neměla, i když ji uživatel taky zmínil).
+
+**Kořenová příčina** (`scripts/sync/lib/scrape-livesport.mjs`,
+`inferYear()`): livesport.cz u data neuvádí rok ("29.08. 15:00"),
+appka ho dopočítávala z dnešního data podle jediné heuristiky --
+"když by vyšlo datum víc než ~2 měsíce v minulosti, jde o zápas
+PŘÍŠTÍHO roku" (řeší přechod sezóny přes Nový rok u ROZPISU budoucích
+zápasů, kde to dává smysl). Stejná funkce se ale používala i pro
+stránku VÝSLEDKŮ (`scrapeLivesportResults`), kde je "víc než 2 měsíce
+zpátky" u staršího zápasu ze STEJNÉ sezóny běžný, ne důkaz, že jde o
+příští rok. Liga mistrů a Evropská liga byly založené 8.9.2026 --
+appka jim hned při prvním běhu `sync-results` "zpětně dotáhla" celou
+sezónu (viz komentář v `results.mjs` k `withResult`), včetně
+červencových předkol starých přes 2 měsíce -- heuristika je proto
+omylem posunula o rok dopředu, a `results.mjs`'s `upsert` (větev
+`syncSingleLeagueCompetition`, řádek `kickoff_at: m.kickoffAt`) špatnou
+hodnotu zapsal do databáze. Konferenční liga unikla jen náhodou --
+její tým kvalifikace v předkolech zjevně nezasáhla přesně tuhle
+hranici v okamžiku prvního běhu.
+
+**Oprava:** `inferYear`/`parseKickoffAt` dostaly parametr `direction`
+(`"forward"` výchozí pro rozpis, `"backward"` pro výsledky) --
+`"backward"` mód nikdy neposouvá rok DOPŘEDU, naopak ho posune ZPĚT,
+pokud by naivně spočtené datum vyšlo v budoucnosti (dohraný zápas v
+budoucnosti není nikdy legitimní stav). `scrapeLivesportResults` teď
+volá `parseKickoffAt(..., "backward")`. Přidané testy v
+`scrape-livesport.test.mjs` (stará výsledková data v rámci sezóny
+zůstávají beze změny roku, přechod přes Nový rok se pořád posune
+správně ZPĚT, drobný "budoucí" posun v řádu dní kvůli hodinovému
+posunu appka neřeší jako rok navíc).
+
+**Oprava dat**: migrace
+`20260918090000_fix_future_dated_finished_matches.sql` --
+bezpečný filtr `status='finished' AND kickoff_at > now()` (dohraný
+zápas nikdy nemůže ležet v budoucnosti, žádný legitimní případ pro
+tenhle stav neexistuje) odečte od postižených řádků přesně 1 rok.
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
