@@ -3487,6 +3487,73 @@ domácích má hodnotu "10" a pořád fokus.
 
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
+### Retry na přechodné výpadky rozšířen o "JWT issued at future" (18.9.2026)
+
+Hráčka nahlásila stejnou obrazovku "Data se nepodařilo načíst" i po
+včerejší opravě (`retry-fetch.ts`, 17.9.2026) — hned po prvním
+přihlášení na počítači, pak znovu na telefonu. Kliknutí na "Zkusit
+znovu" nepomohlo. Nešlo tedy o jednorázový výpadek, na jaký byl
+včerejší retry stavěný (síťová chyba / 502/503/504) — appka
+potřebovala zjistit skutečnou příčinu, ne jen zopakovat stejnou opravu
+podruhé.
+
+**Diagnostika:** nejnovější profil v appce (Kamila Rejnišová, založen
+17.9.2026 14:05 UTC) odpovídal popisu. Uživatel (Daniel) upřesnil
+klíčový detail: chyba se objevila HNED po přihlášení, ještě PŘED tím,
+než si hráčka vybrala jakoukoliv soutěž — appka tak nejdřív běžela
+"prázdnou" větví Dashboardu (`competitionIds.length === 0`), teprve
+později (po přidání se do Creme de la Creme ligy) i plnou. Tahle
+informace vyloučila včerejší hypotézu (specifický bug v datech Creme
+de la Creme) — appka totiž spadla ještě předtím, než hráčka do
+jakékoliv soutěže vůbec sáhla.
+
+Systematicky ověřeno (`db-probe.yml`), že appka nemá chybějící `GRANT`
+pro roli `authenticated` na žádné z tabulek, které Dashboard čte
+(`competition_participants`, `predictions`, `matches`, `weekly_badges`,
+`profiles`, `competitions`) — všech pět relevantních migrací grant má.
+`db-probe.yml` navíc běží pod `service_role`, který RLS obchází úplně
+— nedokáže tedy odhalit nic, co by se lámalo jen pro `authenticated`
+roli, jenže ani grantová stránka věci nic nenašla.
+
+**Skutečná příčina (shoda s appkou už dříve zdokumentovaným
+problémem):** appka má dlouho zdokumentované, že Supabase občas na pár
+desítek vteřin až minut vrátí `"JWT issued at future"` na jinak platný
+token — nesoulad hodin na straně Supabase, appka na to nemá vliv (viz
+`scripts/sync/predict-reminders.mjs` `withJwtRetry`,
+`scripts/sync/results.mjs` `withTransientRetry`, oba zavedené po
+opakovaných reálných pádech GitHub Actions běhů, viz "Časté pády —
+vyřešeno" a "sync-results: tichý pád..." výše). Appka na webu měla
+sice od včerejška retry, ale JEN na 5xx stavové kódy a síťové chyby —
+tenhle typ chyby přichází jako **401/403** s jiným tělem odpovědi,
+takže včerejší retry na něj vůbec nezabíral. Zapadá to i do zbytku
+popisu: appka má nejčerstvější (a tedy nejnáchylnější na týhle skew)
+JWT vždycky hned po přihlášení, retry ručním "Zkusit znovu" hned po
+chybě padne pořád do stejného okna (skew netrvá jen pár desítek ms),
+a je to na straně Supabase, takže se to může objevit na libovolném
+zařízení/prohlížeči nezávisle.
+
+**Oprava:** `src/lib/supabase/retry-fetch.ts` — `retryingFetch()` teď
+u odpovědi se stavovým kódem 401 nebo 403 zkontroluje (klonované,
+volajícímu zůstává originál nedotčený) tělo odpovědi; obsahuje-li
+text `"jwt issued at future"` (case-insensitive), zkusí požadavek
+znovu s delší prodlevou (1500 ms × pokus, oproti 300 ms u běžného
+5xx/síťového retry — skew trvá podstatně déle než krátký síťový
+zádrhel). Jiný 401/403 (např. skutečně vypršelá session) appka
+nechává projít beze změny — retry by ho stejně nespravil, jde o
+legitimní důvod k odhlášení.
+
+**Vědomě neopraveno v tomhle kroku:** `src/lib/supabase/middleware.ts`
+(proxy, ověřuje přihlášení přes `getClaims()` na každém požadavku) má
+vlastní, oddělený Supabase klient bez `retryingFetch()` — kdyby stejný
+skew nastal TAM, hráč by dostal jiný symptom (přesměrování na
+`/login`, ne tahle chybová obrazovka), což neodpovídá nahlášenému
+popisu. Appka řeší jen prokázaný problém; případná stejná ochrana
+middlewaru je otevřená otázka do budoucna, pokud se ukáže potřebná.
+
+Ověřeno `tsc --noEmit` + `pnpm build`. Žádný nový test — appka nemá
+testovací framework pro `src/`, stejné zdůvodnění jako u včerejší
+opravy.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
