@@ -260,6 +260,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Strop 20 zápasů v sekci "Proběhlé" (18.9.2026) — u
   dlouhotrvajících soutěží (Liga mistrů apod.) appka po "Zobrazit
   všechny" jinak ukázala desítky starých zápasů. Viz `HISTORY.md`.
+- [x] Prodleva (~0,6 s) před auto-přeskokem na pole hostů při zadávání
+  tipu (18.9.2026) — dřív přeskakovalo okamžitě, takže na mobilu
+  prakticky nešlo zadat dvouciferné skóre (10+). Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
