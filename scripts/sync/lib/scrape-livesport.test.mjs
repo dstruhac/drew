@@ -72,4 +72,28 @@ describe("inferYear", () => {
     const almostToday = new Date("2026-08-26T00:00:00Z");
     expect(inferYear(8, 20, 13, 0, almostToday)).toBe(2026);
   });
+
+  // "backward" (výsledky) -- oprava bugu 18.9.2026: appka omylem
+  // používala "forward" logiku i na stránku výsledků, takže staré
+  // předkolo (déle než ~2 měsíce zpátky, běžné u celé sezóny) omylem
+  // posunula o rok DOPŘEDU, místo aby ho nechala beze změny.
+  describe("direction: backward (výsledky)", () => {
+    it("keeps the current year for an old result within the same season", () => {
+      // Předkolo Ligy mistrů v červenci, výsledky se dotahují v září --
+      // přes 2 měsíce zpátky, ale pořád letošní sezóna, ne příští rok.
+      expect(inferYear(7, 7, 16, 0, today, "backward")).toBe(2026);
+    });
+
+    it("rolls back to last year for a result that would land in the future", () => {
+      // Zpětné dotažení těsně po Novém roce narazí na zápas z prosince
+      // minulého roku -- naivně (letošní rok) by vyšlo datum v
+      // budoucnosti, což dohraný zápas nikdy nemůže být.
+      const newYear = new Date("2027-01-05T00:00:00Z");
+      expect(inferYear(12, 31, 20, 0, newYear, "backward")).toBe(2026);
+    });
+
+    it("does not roll back for a result just a few days ahead (clock skew)", () => {
+      expect(inferYear(8, 28, 13, 0, today, "backward")).toBe(2026);
+    });
+  });
 });

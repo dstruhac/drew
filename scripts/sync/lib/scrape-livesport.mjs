@@ -59,14 +59,33 @@ export function getPragueHour(isoString) {
   return Number(dtf.format(new Date(isoString)));
 }
 
-// "29.08. 15:00" neobsahuje rok — dopočítá se podle dnešního data: když
-// by vyšlo datum víc než ~2 měsíce v minulosti, jde o zápas dalšího
-// roku (řeší přechod sezóny přes Nový rok, např. leden 2027).
-export function inferYear(month, day, hour, minute, referenceDate) {
+// "29.08. 15:00" neobsahuje rok — dopočítá se podle dnešního data A
+// SMĚRU, kterým se appka dívá (`direction`):
+//
+// - "forward" (výchozí, rozpis budoucích zápasů): když by vyšlo datum
+//   víc než ~2 měsíce v MINULOSTI, jde o zápas dalšího roku (řeší
+//   přechod sezóny přes Nový rok, např. leden 2027).
+// - "backward" (výsledky už odehraných zápasů): dohraný zápas nemůže
+//   ležet v budoucnosti -- když by vyšlo datum víc než ~2 měsíce v
+//   BUDOUCNOSTI, jde naopak o zápas MINULÉHO roku.
+//
+// Bug nahlášený uživatelem 18.9.2026 ("špatné řazení proběhlých
+// zápasů" u Ligy mistrů/Evropské ligy): appka pro obě stránky
+// (rozpis i výsledky) používala stejnou "forward" logiku. Výsledková
+// stránka ale běžně obsahuje i zápasy z předkol starší než 2 měsíce
+// (celá sezóna), ne jen pár týdnů dopředu jako rozpis -- appka je proto
+// omylem posunula o rok dopředu (2026 -> 2027), takže vyskakovaly
+// úplně nahoru v sekci "Proběhlé" (řazeno od nejnovějšího výkopu). Viz
+// HISTORY.md pro detaily a opravnou migraci existujících dat.
+export function inferYear(month, day, hour, minute, referenceDate, direction = "forward") {
   let year = referenceDate.getUTCFullYear();
   const candidateMs = Date.UTC(year, month - 1, day, hour, minute);
   const twoMonthsMs = 60 * 24 * 60 * 60 * 1000;
-  if (candidateMs < referenceDate.getTime() - twoMonthsMs) year += 1;
+  if (direction === "forward" && candidateMs < referenceDate.getTime() - twoMonthsMs) {
+    year += 1;
+  } else if (direction === "backward" && candidateMs > referenceDate.getTime() + twoMonthsMs) {
+    year -= 1;
+  }
   return year;
 }
 
@@ -131,7 +150,7 @@ async function scrapeLivesportRaw(scrapePath, urlSuffix) {
   }
 }
 
-function parseKickoffAt(dateTimeText, referenceDate) {
+function parseKickoffAt(dateTimeText, referenceDate, direction = "forward") {
   if (!dateTimeText) return null;
   const m = dateTimeText.match(/^(\d{1,2})\.(\d{1,2})\.\s+(\d{1,2}):(\d{2})$/);
   if (!m) return null; // nerozpoznaný formát (např. běžící minuta u živého zápasu)
@@ -140,7 +159,7 @@ function parseKickoffAt(dateTimeText, referenceDate) {
   const month = Number(monthStr);
   const hour = Number(hourStr);
   const minute = Number(minuteStr);
-  const year = inferYear(month, day, hour, minute, referenceDate);
+  const year = inferYear(month, day, hour, minute, referenceDate, direction);
   return pragueWallTimeToUtcIso(year, month, day, hour, minute);
 }
 
@@ -177,7 +196,7 @@ export async function scrapeLivesportResults(scrapePath, { referenceDate = new D
       externalId: r.externalId,
       homeTeam: r.homeTeam,
       awayTeam: r.awayTeam,
-      kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate),
+      kickoffAt: parseKickoffAt(r.dateTimeText, referenceDate, "backward"),
       homeScore: parseScore(r.homeScoreText),
       awayScore: parseScore(r.awayScoreText),
       // true, jakmile livesport.cz u zápasu ukáže "Po prodl."/"Po náj."

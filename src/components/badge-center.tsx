@@ -169,11 +169,15 @@ export function BadgeCenter({
         <div className="flex items-start gap-3 rounded-2xl border border-border-subtle bg-surface p-4 shadow-[var(--shadow-card)]">
           <Medal className="mt-0.5 h-5 w-5 shrink-0 text-accent" strokeWidth={2.2} />
           <div className="flex-1 text-sm">
-            <p className="font-extrabold">Zlepši to a ukaž, že na to máš.</p>
+            <p className="font-extrabold">Ujela ti medaile týdne.</p>
             <p className="mt-1 text-muted-foreground">
               {othersGrouped
-                .map((o) => `${o.displayName} (${o.count}× ${o.competitionName})`)
-                .join(", ")}
+                .map(
+                  (o) =>
+                    `${o.displayName} je vítěz týdne v soutěži ${o.competitionName}${o.count > 1 ? ` (${o.count}×)` : ""}.`,
+                )
+                .join(" ")}{" "}
+              Zlepši to a ukaž, že na to máš.
             </p>
           </div>
           <button

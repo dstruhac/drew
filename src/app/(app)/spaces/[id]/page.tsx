@@ -50,6 +50,13 @@ const SPORT_LABELS = { hockey: "Hokej", football: "Fotbal", mixed: "Mix" } as co
 // míchal obojí dohromady a u anglických lig s 10 zápasy za víkend
 // uřezával i netipované zápasy z pohledu.
 const PAST_VISIBLE_COUNT = 5;
+// Tvrdý strop na "Proběhlé" -- u soutěží se sezónou dlouhou už pár
+// měsíců (Liga mistrů apod.) by "Zobrazit všechny" jinak odhalilo
+// desítky až stovky starých zápasů, které jen překáží (18.9.2026, na
+// žádost uživatele). Na rozdíl od `PAST_VISIBLE_COUNT` (kolik je vidět
+// BEZ kliknutí) tohle je absolutní maximum i PO kliknutí na "Zobrazit
+// všechny" -- appka staršího konce prostě nikdy neukáže.
+const PAST_MAX_COUNT = 20;
 const UPCOMING_PREDICTED_VISIBLE_COUNT = 3;
 // Kolik dalších netipovaných zápasů appka ukáže VEDLE vysvícené
 // kartičky, než se musí kliknout na "Zobrazit všechny" (odsouhlaseno
@@ -438,8 +445,11 @@ export default async function CompetitionDetailPage({
         }
         // Nejbližší zápas nahoře ve všech sekcích: nadcházející a
         // probíhající vzestupně (jak přišly z DB), proběhlé sestupně
-        // (nejnovější výsledek první).
+        // (nejnovější výsledek první). Ořezáno na PAST_MAX_COUNT --
+        // nejstarší zápasy nad tenhle strop appka vůbec nezobrazí (viz
+        // komentář u konstanty).
         past.reverse();
+        const pastVisible = past.slice(0, PAST_MAX_COUNT);
 
         // "Vysvícený" nejbližší zápas (odsouhlaseno s uživatelem
         // 29.8.2026, viz vizuální návrh): vždy chronologicky nejbližší
@@ -622,14 +632,14 @@ export default async function CompetitionDetailPage({
               </section>
             )}
 
-            {past.length > 0 && (
+            {pastVisible.length > 0 && (
               <section className="mt-2 flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-hover p-4">
                 <h2 className="text-sm font-bold text-muted-foreground">
                   Proběhlé
                 </h2>
                 <ExpandableList
                   initialCount={PAST_VISIBLE_COUNT}
-                  carouselItems={past.map((match) => (
+                  carouselItems={pastVisible.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
@@ -643,7 +653,7 @@ export default async function CompetitionDetailPage({
                       layout="carousel"
                     />
                   ))}
-                  stackItems={past.map((match) => (
+                  stackItems={pastVisible.map((match) => (
                     <MatchCard
                       key={match.id}
                       match={match}
