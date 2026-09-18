@@ -174,6 +174,37 @@ export default async function CompetitionDetailPage({
       .map((p) => [p.match_id, p]),
   );
 
+  // Tipy OSTATNÍCH hráčů na kartičce probíhajícího/proběhlého zápasu
+  // (18.9.2026, na žádost uživatele) -- appka je vypisuje pod "Tvůj
+  // tip", menším písmem. RLS (predictions_select_own_or_locked) appce
+  // vrátí cizí tipy jen u zápasů, co už jsou odemčené (živé/dohrané),
+  // takže appka tenhle seznam nemusí sama filtrovat podle stavu zápasu
+  // -- u ještě zamčených zápasů `predictions` cizí řádky prostě
+  // neobsahuje. Jméno appka bere z `participants` (`profiles`
+  // nenapojené přímo v `predictions` dotazu výše), řazeno abecedně.
+  const displayNameByUserId = new Map(
+    (participants ?? []).map((p) => [p.user_id, p.profiles?.display_name ?? "Neznámý hráč"]),
+  );
+  const othersPredictionsByMatch = new Map<
+    string,
+    { userId: string; displayName: string; homeScore: number; awayScore: number; overtimeFlag: boolean }[]
+  >();
+  for (const prediction of predictions ?? []) {
+    if (prediction.user_id === user?.id) continue;
+    const list = othersPredictionsByMatch.get(prediction.match_id) ?? [];
+    list.push({
+      userId: prediction.user_id,
+      displayName: displayNameByUserId.get(prediction.user_id) ?? "Neznámý hráč",
+      homeScore: prediction.predicted_home_score,
+      awayScore: prediction.predicted_away_score,
+      overtimeFlag: prediction.predicted_overtime_flag ?? false,
+    });
+    othersPredictionsByMatch.set(prediction.match_id, list);
+  }
+  for (const list of othersPredictionsByMatch.values()) {
+    list.sort((a, b) => a.displayName.localeCompare(b.displayName, "cs"));
+  }
+
   // Hecovačka (soukromá soutěž, visibility === "private") -- druhá
   // vlna dotazů jen pro tenhle případ, ať běžné (veřejné) soutěže
   // nezatěžuje dotazem navíc, co by nikdy nepoužily (stejný princip
@@ -513,6 +544,7 @@ export default async function CompetitionDetailPage({
                             competitionId={competition.id}
                             matchLogos={matchLogos}
                             sharedMatchIds={sharedMatchIds}
+                            othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                             layout="carousel"
                           />
                         ))}
@@ -527,6 +559,7 @@ export default async function CompetitionDetailPage({
                             competitionId={competition.id}
                             matchLogos={matchLogos}
                             sharedMatchIds={sharedMatchIds}
+                            othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                             layout="stack"
                           />
                         ))}
@@ -561,6 +594,7 @@ export default async function CompetitionDetailPage({
                           competitionId={competition.id}
                           matchLogos={matchLogos}
                           sharedMatchIds={sharedMatchIds}
+                          othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                           layout="carousel"
                         />
                       ))}
@@ -575,6 +609,7 @@ export default async function CompetitionDetailPage({
                           competitionId={competition.id}
                           matchLogos={matchLogos}
                           sharedMatchIds={sharedMatchIds}
+                          othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                           layout="stack"
                         />
                       ))}
@@ -602,6 +637,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                       matchLogos={matchLogos}
                       sharedMatchIds={sharedMatchIds}
+                      othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                     />
                   ))}
                 </ul>
@@ -626,6 +662,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                       matchLogos={matchLogos}
                       sharedMatchIds={sharedMatchIds}
+                      othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                     />
                   ))}
                 </ul>
@@ -650,6 +687,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                       matchLogos={matchLogos}
                       sharedMatchIds={sharedMatchIds}
+                      othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                       layout="carousel"
                     />
                   ))}
@@ -664,6 +702,7 @@ export default async function CompetitionDetailPage({
                       competitionId={competition.id}
                       matchLogos={matchLogos}
                       sharedMatchIds={sharedMatchIds}
+                      othersPredictions={othersPredictionsByMatch.get(match.id) ?? []}
                       layout="stack"
                     />
                   ))}
@@ -771,6 +810,7 @@ function MatchCard({
   competitionId,
   matchLogos,
   sharedMatchIds,
+  othersPredictions,
   layout = "carousel",
 }: {
   match: Match;
@@ -781,6 +821,17 @@ function MatchCard({
   competitionId: string;
   matchLogos: Map<string, MatchLogos>;
   sharedMatchIds: Set<string>;
+  /** Tipy ostatních hráčů na TENHLE zápas -- appka je vypisuje jen u
+   * probíhajícího/proběhlého zápasu (viz `isLocked` větev níže), pro
+   * ostatní stavy appka pole prostě nevyužije (RLS ho beztak vrátí
+   * prázdné, viz komentář u `othersPredictionsByMatch` výše). */
+  othersPredictions: {
+    userId: string;
+    displayName: string;
+    homeScore: number;
+    awayScore: number;
+    overtimeFlag: boolean;
+  }[];
   /** "carousel" (výchozí) = kartička má na mobilu fixní procentuální
    * šířku (peek dalšího zápasu při swipu), "stack" = plná šířka řádku
    * (appka na to přepne po kliknutí na "Zobrazit všechny", viz
@@ -917,6 +968,21 @@ function MatchCard({
           ) : (
             <p>Nestihl(a) jste tip, zápas je zamčený.</p>
           )}
+
+          {/* Tipy ostatních hráčů (18.9.2026, na žádost uživatele) --
+           * jen u probíhajícího/proběhlého zápasu, menším písmem než
+           * "Tvůj tip" výše. */}
+          {(match.status === "live" || match.status === "finished") &&
+            othersPredictions.length > 0 && (
+              <p className="mt-1.5 text-[11px] font-medium leading-snug text-faint-foreground">
+                {othersPredictions
+                  .map(
+                    (p) =>
+                      `${p.displayName} ${p.homeScore}:${p.awayScore}${p.overtimeFlag ? " (PP)" : ""}`,
+                  )
+                  .join(" · ")}
+              </p>
+            )}
         </div>
       ) : isJoined ? (
         <PredictionForm

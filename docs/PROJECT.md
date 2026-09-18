@@ -268,6 +268,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Prodleva (~0,6 s) před auto-přeskokem na pole hostů při zadávání
   tipu (18.9.2026) — dřív přeskakovalo okamžitě, takže na mobilu
   prakticky nešlo zadat dvouciferné skóre (10+). Viz `HISTORY.md`.
+- [x] Tipy ostatních hráčů na kartičce probíhajícího/proběhlého zápasu
+  (18.9.2026) — menším písmem pod "Tvůj tip", včetně (PP). Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

@@ -3554,6 +3554,49 @@ Ověřeno `tsc --noEmit` + `pnpm build`. Žádný nový test — appka nemá
 testovací framework pro `src/`, stejné zdůvodnění jako u včerejší
 opravy.
 
+## Tipy ostatních hráčů na kartičce zápasu (18.9.2026)
+
+Uživatel: "chci, aby se na karticku probihajiciho a konecneho zapasu
+vypsali tipy vsech hracu, kteri tipnuli dany zapas, mensim pismenem,
+nez je napsano Tvuj tip. vcetne pripadneho (PP)." Appka už tohle uměla
+na `/spaces/[id]/matches/[matchId]` (detail zápasu, celý seznam s
+pořadím/body) -- šlo o zkrácenou verzi přímo na kartičce v přehledu
+soutěže (`MatchCard` v `spaces/[id]/page.tsx`), pro sekce "Probíhající"
+a "Proběhlé" (`isLocked` zápasy).
+
+**Data:** appka na tenhle případ nepotřebovala nový dotaz -- `page.tsx`
+už načítal `predictions` pro VŠECHNY hráče a zápasy competition (ne jen
+vlastní), jen z nich dřív stavěl pouze `ownPredictionByMatch`. RLS
+(`predictions_select_own_or_locked`) appce beztak vrátí cizí tipy jen u
+zápasů, které jsou už odemčené (živé/dohrané/odložené) -- u ještě
+zamčených zápasů `predictions` cizí řádky vůbec neobsahuje, appka tak
+nemusela sama filtrovat podle stavu zápasu na úrovni dotazu. Nová
+`othersPredictionsByMatch` (`Map<string, {...}[]>`) seskupí `predictions`
+podle `match_id` (kromě vlastního `user_id`, ten uživatel vidí zvlášť
+jako "Tvůj tip"), jméno doplní z `participants` (`profiles` tam už bylo
+napojené), seřadí abecedně (`localeCompare(..., "cs")`).
+
+**Zobrazení:** `MatchCard` dostala nový povinný prop `othersPredictions`
+(pole `{userId, displayName, homeScore, awayScore, overtimeFlag}`),
+předávaný na všech 8 míst, kde se `MatchCard` volá (Nadcházející/
+Probíhající/Odloženo/Proběhlé -- jednodušší a bezpečnější předávat ho
+všude stejně než řešit 8 různých volání zvlášť). Appka ho ale
+VYKRESLÍ jen když `match.status === "live" || match.status === "finished"`
+(přesně "probíhající a konečný zápas", jak žádal uživatel) -- u
+ostatních stavů (odloženo, nadcházející) se seznam nezobrazí, i kdyby
+pole nebylo prázdné. Formát: `"Jméno HS:AS (PP)"` spojené `" · "`, jedna
+malá věta pod "Tvůj tip" (`text-[11px] font-medium text-faint-foreground`,
+zjevně menší než `text-base font-extrabold` u vlastního tipu).
+
+**Ověřeno vizuálně přes Playwright** (dočasně exportovaná `MatchCard`
++ testovací stránka `src/app/matchcardtest/page.tsx` se dvěma
+smyšlenými zápasy -- živý s trojicí cizích tipů, dohraný s (PP) u
+vlastního i cizího tipu -- vše smazáno/vráceno po ověření, nešlo do
+PR): screenshot potvrdil správné pořadí, velikost písma i formát
+včetně "(PP)".
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
