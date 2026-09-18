@@ -3423,6 +3423,30 @@ zápas nikdy nemůže ležet v budoucnosti, žádný legitimní případ pro
 tenhle stav neexistuje) odečte od postižených řádků přesně 1 rok.
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
+## Strop 20 zápasů v sekci "Proběhlé" (18.9.2026)
+
+Uživatel: "zobrazujme v proběhlých zápasech pouze 20 zápasů, zbytek
+pak překáží." U soutěží se sezónou dlouhou už pár měsíců (typicky Liga
+mistrů/Evropská liga -- viz i bug výše ve stejný den) appka po kliknutí
+na "Zobrazit všechny" odhalila klidně desítky starých zápasů -- appka
+dřív (12.9.2026, "Zápasy se na širších obrazovkách...") záměrně
+odstranila JAKÝKOLIV limit nad rámec počátečního `initialCount`, na
+mobilu dokonce vždycky ukazovala úplně všechno v carouselu bez
+výjimky. Tahle změna to nevrací zpátky k dřívějšímu chování, jen
+přidává jeden absolutní strop navrch.
+
+`src/app/(app)/spaces/[id]/page.tsx`: nová konstanta `PAST_MAX_COUNT =
+20` vedle existující `PAST_VISIBLE_COUNT` (5, kolik je vidět BEZ
+kliknutí). Pole `past` se hned po `.reverse()` (nejnovější první)
+ořízne na `pastVisible = past.slice(0, PAST_MAX_COUNT)` -- tenhle
+už ořezaný seznam appka dál posílá do `ExpandableList` (carousel i
+stack), takže i tlačítko "Zobrazit všechny (N)" ukáže nanejvýš 20,
+nikdy víc, bez ohledu na to, kolik zápasů soutěž reálně odehrála.
+Nadcházející/Probíhající sekce beze změny (přirozeně malé díky
+`UPCOMING_WINDOW_DAYS`, tenhle problém nemají).
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

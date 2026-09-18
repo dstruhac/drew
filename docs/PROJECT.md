@@ -257,6 +257,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   `scrape-livesport.mjs` (`inferYear`/`parseKickoffAt` dostaly směr
   "dopředu"/"dozadu") + migrace opravující už poškozená data. Viz
   `HISTORY.md`.
+- [x] Strop 20 zápasů v sekci "Proběhlé" (18.9.2026) — u
+  dlouhotrvajících soutěží (Liga mistrů apod.) appka po "Zobrazit
+  všechny" jinak ukázala desítky starých zápasů. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
