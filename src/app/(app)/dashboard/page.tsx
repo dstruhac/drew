@@ -4,11 +4,13 @@ import { CompetitionCard } from "@/components/competition-card";
 import { SpotlightMatchCard } from "@/components/spotlight-match-card";
 import { BadgeCenter } from "@/components/badge-center";
 import { JoinCompetitionsModal } from "@/components/join-competitions-modal";
+import { ExpandableList } from "@/components/expandable-list";
 import { competitionFallbackSport } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos } from "@/lib/team-logos";
 import { findSharedMatchIds } from "@/lib/shared-matches";
+import type { CompetitionSport } from "@/lib/supabase/database.types";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
 // odsouhlaseno s uživatelem 29.8.2026 přes AskUserQuestion). Tři
@@ -306,17 +308,27 @@ export default async function DashboardPage() {
               .
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {myCompetitions.map((competition) => (
-                <li key={competition.id}>
-                  <CompetitionCard
-                    competition={competition}
-                    rank={rankByCompetition.get(competition.id) ?? null}
-                    allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                  />
-                </li>
+            <ExpandableList
+              initialCount={myCompetitions.length}
+              carouselItems={myCompetitions.map((competition) => (
+                <DashboardCompetitionListItem
+                  key={competition.id}
+                  competition={competition}
+                  rank={rankByCompetition.get(competition.id) ?? null}
+                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  layout="carousel"
+                />
               ))}
-            </ul>
+              stackItems={myCompetitions.map((competition) => (
+                <DashboardCompetitionListItem
+                  key={competition.id}
+                  competition={competition}
+                  rank={rankByCompetition.get(competition.id) ?? null}
+                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  layout="stack"
+                />
+              ))}
+            />
           )}
         </section>
 
@@ -340,21 +352,78 @@ export default async function DashboardPage() {
               .
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {myHecovacky.map((competition) => (
-                <li key={competition.id}>
-                  <CompetitionCard
-                    competition={competition}
-                    rank={rankByCompetition.get(competition.id) ?? null}
-                    allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                    isStake
-                  />
-                </li>
+            <ExpandableList
+              initialCount={myHecovacky.length}
+              carouselItems={myHecovacky.map((competition) => (
+                <DashboardCompetitionListItem
+                  key={competition.id}
+                  competition={competition}
+                  rank={rankByCompetition.get(competition.id) ?? null}
+                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  isStake
+                  layout="carousel"
+                />
               ))}
-            </ul>
+              stackItems={myHecovacky.map((competition) => (
+                <DashboardCompetitionListItem
+                  key={competition.id}
+                  competition={competition}
+                  rank={rankByCompetition.get(competition.id) ?? null}
+                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  isStake
+                  layout="stack"
+                />
+              ))}
+            />
           )}
         </section>
       </BadgeCenter>
     </main>
+  );
+}
+
+// Kartička soutěže zabalená do <li> se stejnou logikou šířky jako
+// MatchCard na /spaces/[id] (18.9.2026, na žádost uživatele: "chtěl
+// bych mít stejně tak řešené i soutěže na dashboardu" -- appka tam
+// zápasy zobrazuje jako swipe carousel na mobilu). ExpandableList je
+// Client Component a tahle stránka Server Component -- přes tuhle
+// hranici nejde poslat funkci (jen hotové React elementy, viz stejný
+// důvod zdokumentovaný u ExpandableList/MatchCard), proto je
+// DashboardCompetitionListItem samostatná funkce volaná už tady na
+// serveru, ne renderovaná uvnitř ExpandableList.
+function DashboardCompetitionListItem({
+  competition,
+  rank,
+  allCaughtUp,
+  isStake,
+  layout,
+}: {
+  competition: {
+    id: string;
+    name: string;
+    sport: CompetitionSport;
+    logo_url: string | null;
+    description: string | null;
+  };
+  rank: { rank: number; total: number } | null;
+  allCaughtUp: boolean;
+  isStake?: boolean;
+  /** "carousel" = kartička má na mobilu fixní procentuální šířku (peek
+   * dalšího řádku při swipu), "stack" = plná šířka (počítačová mřížka,
+   * appka tam carousel vzhled nikdy nepoužívá). */
+  layout: "carousel" | "stack";
+}) {
+  const layoutClass =
+    layout === "carousel" ? "w-[85%] shrink-0 snap-start sm:w-auto sm:shrink" : "";
+
+  return (
+    <li className={layoutClass}>
+      <CompetitionCard
+        competition={competition}
+        rank={rank}
+        allCaughtUp={allCaughtUp}
+        isStake={isStake}
+      />
+    </li>
   );
 }

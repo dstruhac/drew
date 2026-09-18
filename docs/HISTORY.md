@@ -3597,6 +3597,55 @@ včetně "(PP)".
 
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
+### "Tvoje soutěže"/"Tvoje hecovačky" na Dashboardu jako swipe carousel (18.9.2026)
+
+Uživatel na žádost: appka má zápasy na `/spaces/[id]` na mobilu už od
+12.9.2026 jako swipe carousel (`ExpandableList`, viz krok "Zápasy na
+mobilu jako swipe carousel" výše) — chtěl stejné řešení i pro kartičky
+soutěží na Dashboardu ("Tvoje soutěže"/"Tvoje hecovačky"), které dosud
+byly na mobilu jen svislá jednosloupcová mřížka (`grid-cols-1`).
+
+**Implementace**: obě sekce v `src/app/(app)/dashboard/page.tsx`
+nahrazují plochý `<ul className="grid ...">` za `<ExpandableList>` —
+stejná sdílená komponenta, stejný mechanismus jako u zápasů (appka
+Client Componentě posílá dvě už HOTOVĚ vykreslená pole JSX uzlů,
+`carouselItems`/`stackItems`, ne funkci — přes hranici Server →
+Client Component totiž nejde poslat obyčejnou funkci, jen Server
+Actions nebo serializovatelná data, viz stejný bug/poučení u zápasů
+12.9.2026). Nová `DashboardCompetitionListItem` (samostatná funkce na
+konci `dashboard/page.tsx`, stejný vzor jako `MatchCard` na
+`/spaces/[id]`) zabalí `CompetitionCard` do `<li>` s podmíněnou
+šířkovou třídou (`w-[85%] shrink-0 snap-start sm:w-auto sm:shrink`
+pro `layout="carousel"`, prázdná pro `layout="stack"`) — `CompetitionCard`
+samotná se neměnila, je sdílená i s `/spaces` a `JoinCompetitionsModal`,
+kde se tahle změna netýká (jen Dashboard).
+
+**`initialCount` = celkový počet soutěží** (ne nějaký menší strop) —
+Dashboard dosud žádný limit na počet zobrazených soutěží neměl (na
+rozdíl od zápasů, kde `initialCount` odpovídalo jednomu kolu) a appka
+tohle chování vědomě zachovala: `ExpandableList` tak nikdy nezobrazí
+tlačítko "Zobrazit všechny" (`hasMore = stackItems.length >
+initialCount`, vždy `false`), mobil vždy ukáže VŠECHNY soutěže v
+carouselu (stejná konvence jako u zápasů — "do carouselu chci
+všechny, které jde zobrazit") a desktopová mřížka zůstává vizuálně
+beze změny (`hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-3` z
+`ExpandableList` — jediný postřehnutelný rozdíl je `gap-3` místo
+dřívějšího natvrdo psaného `gap-4`, appka to nechala sjednocené se
+zbytkem appky spíš než ručně dopisovat vlastní gap do sdílené
+komponenty).
+
+**Ověřeno vizuálně přes Playwright** (dočasná náhledová stránka
+`src/app/preview-dashboard-competitions/page.tsx` se 4 smyšlenými
+soutěžemi + dočasná výjimka v middlewaru, oboje smazáno po ověření,
+nešlo do PR — stejný postup jako u dřívějších podobných ověření):
+screenshot na mobilní šířce (390px) potvrdil carousel s "nakouknutím"
+další kartičky (včetně správné sportovní barvy, modrá u hokeje) a
+funkční horizontální scroll-snap; screenshot na desktopu (1280px)
+potvrdil beze změny vypadající mřížku bez tlačítka "Zobrazit všechny".
+
+Ověřeno `tsc --noEmit` + `pnpm build`. Žádný nový test — appka nemá
+testovací framework pro `src/`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
