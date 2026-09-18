@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { submitPrediction, type SubmitPredictionState } from "./actions";
 import type { Sport } from "@/lib/supabase/database.types";
 
@@ -10,6 +10,14 @@ const TIE_WARNING =
   "Hokej remízou nekončí — zadej, kdo nakonec vyhrál. Čekáš prodloužení/nájezdy? Zaškrtni to dole.";
 
 const SHARED_MATCH_NOTE = "✅ Tip je sdílen do více soutěží (stejný zápas).";
+
+// Prodleva před auto-přeskokem na pole hostů (viz focusAwayOnFirstDigit
+// níže) -- uživatel 18.9.2026 nahlásil, že na mobilu nejde v praxi
+// zadat dvouciferné skóre (10+), protože appka dřív přeskakovala úplně
+// OKAMŽITĚ po první číslici (0 ms, žádná prodleva). 600 ms dá dost
+// času napsat druhou číslici, ale u běžného jednociferného skóre
+// (drtivá většina zápasů) je pořád nepostřehnutelně rychlé.
+const FOCUS_JUMP_DELAY_MS = 600;
 
 export function PredictionForm({
   sport,
@@ -48,6 +56,16 @@ export function PredictionForm({
   // ukládání (blur i klik na tlačítko krátce po sobě), když se hodnoty
   // mezitím nezměnily.
   const lastSubmittedRef = useRef<string | null>(null);
+  // Naplánovaný auto-přeskok na pole hostů (viz focusAwayOnFirstDigit
+  // níže) -- potřeba ho umět zrušit, když hráč mezitím napíše druhou
+  // číslici nebo komponenta zmizí dřív, než prodleva doběhne.
+  const jumpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    };
+  }, []);
 
   // Hokej nikdy nekončí remízou -- ani po prodloužení/nájezdech (vítěz
   // vždycky dostane rozhodující gól navíc), takže stejné skóre domácích
@@ -116,18 +134,35 @@ export function PredictionForm({
   }
 
   // Auto-přeskok na pole hostů (odsouhlaseno s uživatelem 29.8.2026):
-  // hned po zadání PRVNÍ číslice do pole domácích se fokus přesune na
-  // pole hostů -- na mobilu tak jde zadat celý tip bez jediného ťuknutí
-  // navíc. Vědomý kompromis: u vzácného dvouciferného skóre (10+) je
-  // potřeba se po přeskoku ťuknutím vrátit zpátky a dopsat druhou
-  // číslici -- pole hostů samo nikam dál needskakuje.
+  // po zadání PRVNÍ číslice do pole domácích appka počká
+  // FOCUS_JUMP_DELAY_MS a pak přesune fokus na pole hostů -- na
+  // mobilu tak jde zadat celý tip bez jediného ťuknutí navíc.
+  //
+  // Přeskok dřív probíhal OKAMŽITĚ (0 ms) -- uživatel 18.9.2026
+  // nahlásil, že kvůli tomu nešlo v praxi napsat dvouciferné skóre
+  // (10+), protože appka přeskočila dřív, než stihl napsat druhou
+  // číslici. Teď appka přeskok jen NAPLÁNUJE a zruší ho, pokud hráč do
+  // uplynutí prodlevy napíše druhou číslici (viz jumpTimeoutRef) --
+  // druhá kontrola přímo v naplánované funkci (aktuální délka hodnoty
+  // + že pole pořád má fokus) je pojistka pro vzácný souběh, kdy by
+  // mezi naplánováním a proběhnutím přeskoku hráč stihl přejít jinam
+  // sám (např. ťuknutím na jiné pole).
   function focusAwayOnFirstDigit(e: React.ChangeEvent<HTMLInputElement>) {
     recomputeTieWarning();
+    if (jumpTimeoutRef.current) {
+      clearTimeout(jumpTimeoutRef.current);
+      jumpTimeoutRef.current = null;
+    }
     if (e.target.value.length !== 1) return;
-    const away = e.target.form?.elements.namedItem(
-      "predicted_away_score",
-    ) as HTMLInputElement | null;
-    away?.focus();
+    const homeInput = e.target;
+    jumpTimeoutRef.current = setTimeout(() => {
+      jumpTimeoutRef.current = null;
+      if (homeInput.value.length !== 1 || document.activeElement !== homeInput) return;
+      const away = homeInput.form?.elements.namedItem(
+        "predicted_away_score",
+      ) as HTMLInputElement | null;
+      away?.focus();
+    }, FOCUS_JUMP_DELAY_MS);
   }
 
   // Označení celé hodnoty při vstupu do pole (29.8.2026, na žádost

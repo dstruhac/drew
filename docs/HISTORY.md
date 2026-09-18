@@ -3447,6 +3447,46 @@ Nadcházející/Probíhající sekce beze změny (přirozeně malé díky
 
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
+## Prodleva před auto-přeskokem na pole hostů (18.9.2026)
+
+Uživatel: "na telefonu je moc kratky interval pro preklikavani mezi
+okynkama pro zadani tipu. nelze prakticky zadat 10, dcoucifernou
+hodnotu." Formulace "zkrátit" byla matoucí (appka žádný interval ve
+skutečnosti neměla -- přeskok byl OKAMŽITÝ, 0 ms), proto doptáno přes
+`AskUserQuestion`, jestli má appka naopak přeskok ZPOMALIT přidáním
+prodlevy -- uživatel zvolil doporučenou variantu ~0,6 s.
+
+**Původní chování** (`prediction-form.tsx`, `focusAwayOnFirstDigit`,
+zavedeno 29.8.2026): hned po zadání PRVNÍ číslice do pole domácích
+appka okamžitě přesunula fokus do pole hostů -- vědomý tehdejší
+kompromis "u dvouciferného skóre se musí ťuknutím vrátit zpátky",
+který se ukázal v praxi na mobilu nepoužitelný (mezi napsáním první a
+druhé číslice reálně nebyl čas, appka byla vždycky rychlejší).
+
+**Oprava:** nová konstanta `FOCUS_JUMP_DELAY_MS = 600`. Appka po první
+číslici přeskok jen NAPLÁNUJE (`setTimeout`, uložený v `jumpTimeoutRef`)
+místo okamžitého provedení. Napíše-li hráč do 600 ms druhou číslici,
+tenhle handler nejdřív vždy zruší předchozí naplánovaný přeskok (a
+pak teprve zkontroluje, jestli má plánovat nový) -- u dvouciferného
+zadání se tak přeskok nikdy neprovede. V samotné naplánované funkci je
+navíc pojistka (délka hodnoty pořád 1 ZÁROVEŇ pole pořád má fokus) pro
+vzácný souběh, kdy by hráč mezi naplánováním a proběhnutím přeskoku
+sám přešel jinam (např. ťuknutím na jiné pole) -- appka mu tak
+nevyfokusí zpátky pole hostů, když už dávno dělá něco jiného. Časovač
+se ruší i při odmountování komponenty (`useEffect` cleanup).
+
+**Ověřeno vizuálně přes Playwright** (dočasná testovací stránka
+`src/app/focusjumptest/page.tsx` vykreslující `<PredictionForm>` přímo
+bez nutnosti přihlášení -- dočasná výjimka v `PUBLIC_PATHS`
+middlewaru, obojí smazáno po ověření, nešlo do PR, stejný postup jako
+u ověřování theme-togglu 17.9.2026): (1) po zadání jedné číslice a
+čekání pod 600 ms fokus zůstává na poli domácích, (2) po 700 ms čekání
+s jednou číslicí appka správně přeskočí na pole hostů, (3) rychlé
+zadání "10" (obě číslice do 200 ms) -- appka nepřeskočí vůbec, pole
+domácích má hodnotu "10" a pořád fokus.
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
