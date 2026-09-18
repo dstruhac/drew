@@ -241,6 +241,11 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   hráč hlásil "Data se nepodařilo načíst" hned při prvním přihlášení.
   `src/lib/supabase/retry-fetch.ts`, zapojeno do `server.ts`/`client.ts`
   přes `global.fetch`, viz `HISTORY.md`.
+- [x] Retry rozšířen i na "JWT issued at future" (18.9.2026) — stejná
+  chybová obrazovka se hráčce vrátila i po předchozí opravě, retry
+  na 5xx na tenhle typ chyby nezabíral. `retry-fetch.ts` teď u 401/403
+  zkontroluje tělo odpovědi a zkusí znovu s delší prodlevou. Viz
+  `HISTORY.md`.
 - [x] Oprava: Creme de la Creme přestala dostávat nové zápasy a
   zaseklý odložený zápas nikdy nevyhodnotila (17.9.2026) — obojí
   způsobené Hecovačkami (`sport='mixed'` sdílené s "Náhodnou ligou").
