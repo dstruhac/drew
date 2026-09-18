@@ -271,6 +271,10 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Tipy ostatních hráčů na kartičce probíhajícího/proběhlého zápasu
   (18.9.2026) — menším písmem pod "Tvůj tip", včetně (PP). Viz
   `HISTORY.md`.
+- [x] "Tvoje soutěže"/"Tvoje hecovačky" na Dashboardu jako swipe
+  carousel na mobilu (18.9.2026) — stejné řešení jako zápasy na
+  `/spaces/[id]` (`ExpandableList`), na počítači beze změny (mřížka).
+  Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
