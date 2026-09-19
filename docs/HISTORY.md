@@ -3769,15 +3769,61 @@ budíku pro něco, co potřebuje běžet často a spolehlivě.
 
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
-**Nedotestováno end-to-end ze sandboxu** (síťové omezení, viz sekce
-"Síťové omezení tohoto prostředí" v `PROJECT.md`): appka nemůže odsud
-počkat 30 minut na reálný běh `sync-results.yml` ani ho zavolat s
-plným efektem na produkční DB mimo `workflow_dispatch`. Uživatel by
-měl po mergi zkontrolovat, že se hecovačkám do ~30 minut od dalšího
-běhu `sync-results.yml` propíšou aktuální výsledky (např. přes stejný
-`db-probe.yml` dotaz jako výše). `hecovacky.yml` a jeho cron-job.org
-úloha zůstávají potřeba dál -- jen pro denní výběr nových zápasů, ne
-pro propagaci skóre.
+**Dodatečně opraveno v code review PR #221** (Codex, 19.9.2026): propagace
+původně běžela PŘED per-competition smyčkou (zápas, co se stal live/
+finished v tomtéž běhu, by na propagaci čekal až do dalšího běhu o 30
+minut později) a `reportFailure()` nebyl ošetřený proti vlastnímu pádu
+(výpadek GitHub Issues API by shodil zbytek běhu ještě před
+per-competition smyčkou). Obojí opraveno, obojí ověřeno reálným
+`workflow_dispatch` během.
+
+**End-to-end ověřeno hned po mergi** (19.9.2026, přes
+`mcp__github__actions_run_trigger` + `get_job_logs`, ne jen odhadem):
+ruční spuštění `sync-results.yml` na produkci propsalo `Hecovačky:
+propagováno 6 změn skóre/stavu ze zdrojových zápasů.` -- celý
+nahromaděný dvoudenní dluh zmizel napoprvé, bez chyby. Další
+automatický běh (9:00 UTC) mimochodem spadl na nesouvisejícím
+timeoutu scrapingu Chance Ligy (`page.goto: Timeout 30000ms
+exceeded`) -- appka na to sama založila GitHub Issue #222, propagace
+uvnitř téhož běhu proběhla v pořádku (`propagováno 0 změn` -- správně,
+nic nového mezi tím nepřibylo), což potvrzuje, že izolace chyb funguje:
+pád scrapingu jedné soutěže nezastavil zbytek běhu. Re-run o pár minut
+později prošel bez chyby -- jednorázový zádrhel, ne trvalý problém.
+`hecovacky.yml` a jeho cron-job.org úloha zůstávají potřeba dál -- jen
+pro denní výběr nových zápasů, ne pro propagaci skóre.
+
+## Oprava: neviditelná ikonka kalendáře u data v hecovačkách (19.9.2026)
+
+Uživatel nahlásil: "při zakládání hecovačky, konkrétně datumu se mi
+nezobrazí kalendář." Formulář (`src/app/(app)/hecovacky/nova/form.tsx`)
+používá obyčejný nativní `<input type="date">` -- ikonku kalendáře
+(a celé vyskakovací okno s výběrem data) kreslí sám prohlížeč, appka
+do toho nijak nezasahuje.
+
+**Příčina**: appka nikde v `globals.css` nenastavovala CSS vlastnost
+`color-scheme`. Bez ní prohlížeč neví, že appka je v tmavém režimu
+tmavá schválně (appka tmavé pozadí appky nastavuje jen vlastními CSS
+proměnnými, ne systémovým mechanismem) -- takže si vlastní ovládací
+prvky (ikonku kalendáře, ale týkalo by se to i např. posuvníků) kreslí
+v defaultní SVĚTLÉ variantě = tmavá/černá ikonka. Na tmavém pozadí
+appky pak ikonka splyne a je prakticky neviditelná, i když formulář
+jinak funguje normálně (technicky šlo trefit kurzorem přesně to místo
+a kalendář by se otevřel, ale uživatel neměl šanci vědět kam kliknout).
+
+Ověřeno vizuálně přes Playwright (izolovaná testovací HTML stránka
+mimo appku, smazána po ověření, nešla do PR) -- srovnání dvou
+`<input type="date">` vedle sebe se stejným tmavým pozadím, jeden bez
+`color-scheme`, druhý s `color-scheme: dark`: bez něj byla ikonka jen
+matný tmavý obrys, s ním zřetelně bílá.
+
+**Oprava**: `color-scheme: light` na základní `:root` (světlý režim) +
+`color-scheme: dark` na obě existující tmavé varianty
+(`@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`
+pro systémové tmavé nastavení a `:root[data-theme="dark"]` pro ruční
+přepínač) -- stejné dvě místa, kde appka už dřív přepisovala
+`--background`/`--foreground` pro tmavý režim.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + `pnpm build`.
 
 ## Jak navázat (pro budoucí Claude Code session)
 
