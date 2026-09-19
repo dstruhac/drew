@@ -3646,6 +3646,25 @@ potvrdil beze změny vypadající mřížku bez tlačítka "Zobrazit všechny".
 Ověřeno `tsc --noEmit` + `pnpm build`. Žádný nový test — appka nemá
 testovací framework pro `src/`.
 
+## Oprava zalamování: jméno a tip ostatního hráče na 2 řádcích (19.9.2026)
+
+Uživatel k featuře "Tipy ostatních hráčů na kartičce zápasu" (viz výše,
+18.9.2026): "nevadi mi, ze je vic tipu na jednom radku ale vadi mi, ze
+je clovek a jeho tip rozdeleny na 2 radky." Appka jméno a skóre
+spojovala obyčejnou mezerou (`"Petr 2:1"`), takže když se řádek
+zalomil zrovna mezi nimi, jméno zůstalo na jednom řádku a jeho tip na
+druhém — matoucí.
+
+**Oprava:** mezera MEZI jménem a skóre (a před `(PP)`) je teď
+nezalomitelná (` `, non-breaking space) — `"Petr 2:1"`.
+Oddělovač MEZI jednotlivými hráči (`" · "`) zůstává obyčejná mezera,
+tam se zalomit má a smí (uživatel řekl výslovně, že víc tipů na
+jednom řádku nevadí). `src/app/(app)/spaces/[id]/page.tsx`, stejné
+místo jako předchozí featura.
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`. Čistě CSS/textová
+oprava, žádná změna dat ani chování.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

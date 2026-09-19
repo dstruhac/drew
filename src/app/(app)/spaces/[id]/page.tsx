@@ -971,14 +971,18 @@ function MatchCard({
 
           {/* Tipy ostatních hráčů (18.9.2026, na žádost uživatele) --
            * jen u probíhajícího/proběhlého zápasu, menším písmem než
-           * "Tvůj tip" výše. */}
+           * "Tvůj tip" výše. Mezera mezi jménem a skóre (i před "(PP)")
+           * je NEZALOMITELNÁ ( ) -- uživatel 19.9.2026 nahlásil, že
+           * se při zalomení řádku jméno a jeho tip roztrhly na dva
+           * řádky, což vypadalo zmateně. Oddělovač MEZI hráči (" · ")
+           * zůstává obyčejná mezera -- tam se zalomit smí a má. */}
           {(match.status === "live" || match.status === "finished") &&
             othersPredictions.length > 0 && (
               <p className="mt-1.5 text-[11px] font-medium leading-snug text-faint-foreground">
                 {othersPredictions
                   .map(
                     (p) =>
-                      `${p.displayName} ${p.homeScore}:${p.awayScore}${p.overtimeFlag ? " (PP)" : ""}`,
+                      `${p.displayName} ${p.homeScore}:${p.awayScore}${p.overtimeFlag ? " (PP)" : ""}`,
                   )
                   .join(" · ")}
               </p>
