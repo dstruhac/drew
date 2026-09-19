@@ -8,14 +8,19 @@
 //    20260914090100_matches_source_match_id.sql). Na rozdíl od
 //    random-league.mjs appka tu proto nepotřebuje Playwright vůbec --
 //    všechna data už má ve vlastní databázi.
-// 2. Zkopíruje skóre/stav ze zdrojových zápasů do jejich kopií,
-//    kdykoliv se liší -- spustí to existující bodovací trigger
-//    (matches_calculate_points), počítající podle bodovací
-//    konfigurace HECOVAČKY, ne zdrojové soutěže.
-// 3. Archivuje hecovačky, kterým uplynulo end_date.
-// 4. Pošle e-mail hráčům, které do hecovačky přidal někdo jiný přímo
+// 2. Archivuje hecovačky, kterým uplynulo end_date.
+// 3. Pošle e-mail hráčům, které do hecovačky přidal někdo jiný přímo
 //    (ne přes pozvánkový odkaz, tam se hráč přidává sám a vidí to
 //    rovnou na obrazovce) -- "X tě přidal(a) do hecovačky Y".
+//
+// Kopírování SKÓRE ze zdrojových zápasů appka dřív dělala taky tady,
+// ale přesunula to do sync-results.mjs (19.9.2026) -- tenhle skript
+// běží jen na vlastní cron-job.org budík, který se ukázal nespolehlivý
+// (přestal se spouštět 2 dny bez povšimnutí, uživatel nahlásil "výsledky
+// v hecovačce se nepropisují"), zatímco sync-results.mjs běží spolehlivě
+// každých 30 minut. Výběr NOVÝCH zápasů (bod 1 výše) na rychlosti
+// nezáleží, tak zůstává tady na jednou denně. Viz
+// lib/propagate-source-scores.mjs pro samotnou propagaci.
 //
 // Idempotence výběru zápasů: pokud hecovačka pro daný den v okně už
 // nějaký zápas má, den se přeskočí -- výběr při překročení denního
@@ -204,57 +209,6 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
   return totalPicked;
 }
 
-// Kopíruje status/skóre/prodloužení ze zdrojového zápasu do jeho
-// hecovačkových kopií -- žádné nové scrapování, appka jen čte vlastní
-// databázi. Zápis přes .update() (ne upsert) spustí existující
-// bodovací trigger stejně, jako by appka zápas synchronizovala
-// odkudkoliv jinud.
-async function propagateScores(supabase) {
-  const { data: copies, error: copiesError } = await supabase
-    .from("matches")
-    .select("id, source_match_id, status, home_score, away_score, overtime_flag")
-    .not("source_match_id", "is", null);
-  if (copiesError) throw new Error(`Nepodařilo se načíst kopie zápasů hecovaček: ${copiesError.message}`);
-  if (!copies || copies.length === 0) return 0;
-
-  const sourceIds = [...new Set(copies.map((c) => c.source_match_id))];
-  const { data: sources, error: sourcesError } = await supabase
-    .from("matches")
-    .select("id, status, home_score, away_score, overtime_flag")
-    .in("id", sourceIds);
-  if (sourcesError) throw new Error(`Nepodařilo se načíst zdrojové zápasy: ${sourcesError.message}`);
-
-  const sourceById = new Map((sources ?? []).map((s) => [s.id, s]));
-  let updated = 0;
-
-  for (const copy of copies) {
-    const source = sourceById.get(copy.source_match_id);
-    if (!source) continue; // zdrojový zápas mezitím smazán -- cascade delete to vyřeší samo
-
-    const changed =
-      copy.status !== source.status ||
-      copy.home_score !== source.home_score ||
-      copy.away_score !== source.away_score ||
-      copy.overtime_flag !== source.overtime_flag;
-    if (!changed) continue;
-
-    const { error: updateError } = await supabase
-      .from("matches")
-      .update({
-        status: source.status,
-        home_score: source.home_score,
-        away_score: source.away_score,
-        overtime_flag: source.overtime_flag,
-      })
-      .eq("id", copy.id);
-    if (updateError) throw new Error(`Propagace skóre pro zápas ${copy.id} selhala: ${updateError.message}`);
-
-    updated += 1;
-  }
-
-  return updated;
-}
-
 async function archiveFinishedHecovacky(supabase, hecovacky) {
   const { dateString: todayString } = getTodayRange(new Date());
   const toArchive = hecovacky.filter((h) => h.status === "active" && h.end_date && h.end_date < todayString);
@@ -385,11 +339,10 @@ async function main() {
     picked = await pickMatchesForHecovacky(supabase, activeHecovacky, sourcesByHecovacka, sportBySourceCompetition);
   }
 
-  const updated = await propagateScores(supabase);
   const archived = await archiveFinishedHecovacky(supabase, hecovacky ?? []);
   const { sent, failed } = await sendAddedNotifications(supabase);
 
-  const summary = `Vybráno ${picked} nových zápasů, propagováno ${updated} změn skóre/stavu, archivováno ${archived} hecovaček, odesláno ${sent} e-mailů o přidání${failed > 0 ? ` (${failed} selhalo)` : ""}.`;
+  const summary = `Vybráno ${picked} nových zápasů, archivováno ${archived} hecovaček, odesláno ${sent} e-mailů o přidání${failed > 0 ? ` (${failed} selhalo)` : ""}.`;
   console.log(summary);
 
   if (failed > 0) {

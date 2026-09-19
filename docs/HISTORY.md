@@ -3697,6 +3697,88 @@ správným textem, klik mimo ji zavře.
 
 Ověřeno `pnpm check` (60 testů) + `pnpm build`.
 
+## Oprava: propagace skóre do hecovaček přestala fungovat (19.9.2026)
+
+Uživatel nahlásil: "vyhodnocovani zapasu v hecovacce porad nefunguje.
+to se mi moc nelibi." a rovnou navrhl vlastní mentální model appky:
+hecovačka je jen "obálka" pro vybrané zápasy z veřejných soutěží,
+neměla by mít vlastní stahovací mechanismus, měla by jen číst zápasy a
+výsledky, které appka už má odjinud. Ptal se, jestli je to
+proveditelné, a výslovně chtěl nejdřív probrat pochopení, než se sáhne
+do kódu ("musíme si rozumet, než se dáme do nějakých úprav").
+
+**Zjištění: uživatelův model je téměř přesně to, jak appka už reálně
+funguje** -- appka nemá druhý scraping mechanismus pro hecovačky.
+`matches.source_match_id` je self-referenční FK přesně pro tenhle
+účel: kopie zápasu v hecovačce ukazuje zpátky na originál ve veřejné
+soutěži, appka nikdy nescrapuje nic extra pro hecovačky. Problém
+nebyl v architektuře, ale v tom, že KROK "přepiš skóre z originálu do
+kopie" (`propagateScores()` v `scripts/sync/hecovacky.mjs`) běžel jen
+na vlastním workflow `hecovacky.yml`, který má jen
+`workflow_dispatch` (žádný `schedule:`) a spoléhal na externí budík
+cron-job.org -- ten evidentně přestal spouštět.
+
+**Ověřeno přes `mcp__github__actions_list` + `db-probe.yml`, ne
+odhadnuto**: `hecovacky.yml` má za celou dobu jen 4 běhy, poslední
+17.9.2026 9:15 UTC (2 dny stará), zatímco `sync-results.yml` (výsledky
+běžných soutěží) běží spolehlivě po 30 minutách, 714 běhů bez výpadku.
+`db-probe.yml` dotaz potvrdil reálné zápasy hecovačky z 18.9.2026
+uvízlé na `status: "scheduled"` s `null` skóre, zatímco jejich
+`source_match_id`-propojené originály v Hokejové extralize už měly
+`status: "finished"` a skutečné skóre (např. Kladno 3:2 Sparta Praha,
+Třinec 6:5 Kometa Brno) -- tvrdý důkaz mezery, ne jen podezření.
+
+**Zvažované varianty** (přes `AskUserQuestion`, uživatel zvolil
+doporučenou): (a) nechat `hecovacky.yml` jak je a jen opravit/zpevnit
+cron-job.org úlohu, (b) přesunout krok propagace skóre do
+`sync-results.mjs`, který už běží spolehlivě každých 30 minut, a
+`hecovacky.yml` nechat jen na denní výběr NOVÝCH zápasů do hecovaček
+(na tom nezáleží na rychlosti). Uživatel zvolil (b), protože řeší
+problém systémově -- appka pak nezávisí na druhém křehkém vnějším
+budíku pro něco, co potřebuje běžet často a spolehlivě.
+
+**Implementace**:
+- Nová sdílená funkce `scripts/sync/lib/propagate-source-scores.mjs`
+  (`propagateSourceMatchScores`) -- načte všechny kopie zápasů
+  (`source_match_id IS NOT NULL`), jejich originály, porovná
+  `status`/`home_score`/`away_score`/`overtime_flag` a při rozdílu
+  zapíše přes `.update()` (ne `upsert()` -- `.update()` spustí
+  existující bodovací trigger `matches_calculate_points` stejně, jako
+  by appka zápas synchronizovala odkudkoliv jinud).
+- `scripts/sync/results.mjs` -- na začátku `main()` volá
+  `propagateSourceMatchScores(supabase)` nezávisle na hlavní
+  per-competition smyčce (propagace jde napříč všemi hecovačkami
+  najednou, ne po jedné soutěži), s vlastním `reportFailure`/
+  `reportRecovery` (label `sync-results:propagate-hecovacky`), takže
+  selhání propagace nezastaví zbytek běhu (sync běžných soutěží) a
+  naopak.
+- `scripts/sync/results.mjs` -- filtr competitions pro
+  `syncRandomPoolCompetition` (mixed pool / Creme de la Creme) teď
+  vylučuje `visibility === 'private'` (hecovačky). Vedlejší nález při
+  ladění: `create_hecovacka()` (viz
+  `20260916150000_hecovacky_sync_today_on_create.sql`) hardcoduje
+  `sport = 'mixed'` pro každou hecovačku, takže appka je dřív omylem
+  posílala i do `syncRandomPoolCompetition` -- ten kód group-uje podle
+  `source_scrape_path`, který je u hecovaček vždycky `null`, takže šlo
+  jen o zbytečný no-op dotaz na každou hecovačku při každém běhu (žádná
+  škoda, ale zbytečná zátěž DB navíc).
+- `scripts/sync/hecovacky.mjs` -- `propagateScores()` smazána celá,
+  `main()` už tenhle krok nevolá, souhrnná hláška o "propagováno X
+  změn skóre/stavu" odstraněna (skript teď dělá jen výběr nových
+  zápasů + archivaci dohraných hecovaček + e-maily o přidání).
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
+**Nedotestováno end-to-end ze sandboxu** (síťové omezení, viz sekce
+"Síťové omezení tohoto prostředí" v `PROJECT.md`): appka nemůže odsud
+počkat 30 minut na reálný běh `sync-results.yml` ani ho zavolat s
+plným efektem na produkční DB mimo `workflow_dispatch`. Uživatel by
+měl po mergi zkontrolovat, že se hecovačkám do ~30 minut od dalšího
+běhu `sync-results.yml` propíšou aktuální výsledky (např. přes stejný
+`db-probe.yml` dotaz jako výše). `hecovacky.yml` a jeho cron-job.org
+úloha zůstávají potřeba dál -- jen pro denní výběr nových zápasů, ne
+pro propagaci skóre.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
