@@ -49,11 +49,18 @@
 // (viz scrapeLivesportLiveMatches) -- jen UPDATE podle external_id,
 // nikdy insert (na živém zápase chybí platný kickoff_at, viz
 // validate-results.mjs).
+//
+// Každý běh appka navíc propaguje skóre do hecovaček (kopie zápasů
+// podle matches.source_match_id) -- viz propagateSourceMatchScores
+// níže. Přesunuto sem z hecovacky.mjs (19.9.2026), aby to běželo na
+// stejném spolehlivém 30minutovém cron-job.org budíku jako zbytek
+// tohohle skriptu, ne na vlastním, který se ukázal nespolehlivý.
 
 import { createSupabaseClient } from "./lib/supabase-client.mjs";
 import { scrapeLivesportResults, scrapeLivesportLiveMatches } from "./lib/scrape-livesport.mjs";
 import { validateResults } from "./lib/validate-results.mjs";
 import { reportFailure, reportRecovery } from "./lib/notify-issue.mjs";
+import { propagateSourceMatchScores } from "./lib/propagate-source-scores.mjs";
 
 // Supabase REST API občas na pár desítek sekund vrátí přechodnou chybu
 // brány ("Gateway Timeout"/"Service Unavailable"/"Bad Gateway") nebo
@@ -240,21 +247,54 @@ async function main() {
   const supabase = createSupabaseClient();
 
   const { data: allCompetitions, error } = await withTransientRetry(() =>
-    supabase.from("competitions").select("id, name, sport, scrape_source, scrape_path"),
+    supabase.from("competitions").select("id, name, sport, scrape_source, scrape_path, visibility"),
   );
 
   if (error) throw new Error(`Nepodařilo se načíst competitions: ${error.message}`);
 
+  let hadFailure = false;
+
+  // Propagace skóre do hecovaček (kopie zápasů podle source_match_id) --
+  // appka tohle dřív dělala jen v samostatném hecovacky.mjs na vlastním
+  // (nespolehlivém) cron-job.org budíku, viz komentář u
+  // propagateSourceMatchScores. Appka to teď dělá TADY, na stejném
+  // spolehlivém 30minutovém běhu jako všechno ostatní -- nezávisle na
+  // per-competition smyčce níže, protože propagace jde napříč všemi
+  // hecovačkami najednou.
+  try {
+    const updated = await propagateSourceMatchScores(supabase);
+    console.log(`Hecovačky: propagováno ${updated} změn skóre/stavu ze zdrojových zápasů.`);
+    await reportRecovery({
+      label: "sync-results:propagate-hecovacky",
+      summary: `Poslední běh v pořádku, propagováno ${updated} změn.`,
+    });
+  } catch (err) {
+    hadFailure = true;
+    console.log(`::error::Propagace skóre do hecovaček selhala: ${err.message}`);
+    await reportFailure({
+      title: "⚠️ sync-results: propagace skóre do hecovaček selhala",
+      body: `Běh selhal s chybou:\n\n\`\`\`\n${err.stack || err.message}\n\`\`\``,
+      label: "sync-results:propagate-hecovacky",
+    });
+  }
+
   const competitions = (allCompetitions ?? []).filter(
-    (c) => c.sport === "mixed" || (c.scrape_source && c.scrape_path),
+    (c) =>
+      // Hecovačky (sport='mixed' A visibility='private') appka tady
+      // přeskakuje úplně -- jejich zápasy nikdy nemají source_scrape_path
+      // (jsou to kopie podle source_match_id, viz propagace výše), takže
+      // by syncRandomPoolCompetition níže udělal jen zbytečný dotaz bez
+      // jakéhokoliv efektu (nalezeno 19.9.2026 -- appka do tý doby dělala
+      // tenhle no-op dotaz na KAŽDÝ běh pro KAŽDOU hecovačku).
+      (c.sport === "mixed" && c.visibility !== "private") || (c.scrape_source && c.scrape_path),
   );
 
   if (competitions.length === 0) {
     console.log("Žádná competition nemá vyplněné scrape_source/scrape_path (ani není 'mixed') — není co dělat.");
+    if (hadFailure) process.exitCode = 1;
     return;
   }
 
-  let hadFailure = false;
   const now = Date.now();
 
   for (const competition of competitions) {

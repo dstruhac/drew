@@ -281,6 +281,11 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Info tooltip (klikací íčko) u vysvíceného zápasu na Dashboardu
   (19.9.2026) — vysvětlí, že se tam tipuje napříč všemi soutěžemi.
   Jen na Dashboardu, ne na `/spaces/[id]`. Viz `HISTORY.md`.
+- [x] Oprava: propagace skóre/stavu zápasů do hecovaček přestala
+  fungovat, appka je nikdy nevyhodnotila (19.9.2026) — přesunuto z
+  vlastního (nespolehlivého) cron-job.org budíku do spolehlivého
+  30minutového běhu `sync-results.mjs` (`propagate-source-scores.mjs`).
+  Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
