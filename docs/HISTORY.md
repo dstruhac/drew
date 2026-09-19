@@ -3665,6 +3665,38 @@ místo jako předchozí featura.
 Ověřeno `pnpm check` (60 testů) + `pnpm build`. Čistě CSS/textová
 oprava, žádná změna dat ani chování.
 
+## Info tooltip u vysvíceného zápasu na Dashboardu (19.9.2026)
+
+Uživatel: "na dashboardu je jedno velke okynko, do ktereho jde zadavat
+tip. chtel bych v nem v pravem hornim rohu íčko a po kliknuti tooltip
+se zpravou ve smyslu 'zde zadavej tipy na nejblizsi zapasy ze vsech
+tvych hranych souteži'." Jde o `SpotlightMatchCard`
+(`src/components/spotlight-match-card.tsx`) -- tmavá "vysvícená" karta
+s nejbližším netipovaným zápasem, sdílená mezi Dashboardem a
+`/spaces/[id]`.
+
+**Nová sdílená komponenta** `src/components/info-tooltip.tsx`
+(`InfoTooltip`) -- klikací (ne hover) info bublina: appka je primárně
+mobilní, kde hover neexistuje, takže tooltip musí jít otevřít i
+zavřít ťuknutím na íčko (`lucide-react` `Info`), zavírá se i ťuknutím
+kamkoliv jinam (`pointerdown` listener na `document`, kontrola přes
+`ref`). Umístění: `absolute right-3 top-3` v pravém horním rohu karty.
+
+**Zobrazuje se JEN na Dashboardu**, ne na `/spaces/[id]` (stejná
+sdílená komponenta, ale tam appka `infoTooltip` prop nepředává) --
+text "ze všech tvých hraných soutěží" dává smysl jen na Dashboardu,
+kde tahle karta střídá zápasy napříč VŠEMI soutěžemi hráče; na
+`/spaces/[id]` je vždycky jen jedna konkrétní soutěž, tam by ta věta
+byla zavádějící. `SpotlightMatchCard` dostala nový volitelný prop
+`infoTooltip?: string`.
+
+Ověřeno vizuálně přes Playwright (dočasná testovací stránka
+`src/app/tooltiptest/page.tsx`, smazána po ověření, nešla do PR):
+screenshot potvrdil íčko v rohu karty, klik otevře bublinu se
+správným textem, klik mimo ji zavře.
+
+Ověřeno `pnpm check` (60 testů) + `pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

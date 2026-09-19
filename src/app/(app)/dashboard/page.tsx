@@ -264,6 +264,7 @@ export default async function DashboardPage() {
               competitionId={spotlightMatch.competition_id}
               logos={spotlightLogos}
               isSharedMatch={spotlightSharedMatchIds.has(spotlightMatch.id)}
+              infoTooltip="Zde zadávej tipy na nejbližší zápasy ze všech tvých hraných soutěží."
             />
           ) : myCompetitions.length > 0 ? (
             <p className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">

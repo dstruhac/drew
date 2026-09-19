@@ -278,6 +278,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Oprava: jméno a tip ostatního hráče se při zalomení řádku
   netrhají na dva řádky (19.9.2026) — nezalomitelná mezera mezi
   jménem a skóre. Viz `HISTORY.md`.
+- [x] Info tooltip (klikací íčko) u vysvíceného zápasu na Dashboardu
+  (19.9.2026) — vysvětlí, že se tam tipuje napříč všemi soutěžemi.
+  Jen na Dashboardu, ne na `/spaces/[id]`. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

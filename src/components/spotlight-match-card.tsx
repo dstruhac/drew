@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import { PredictionForm } from "@/app/(app)/spaces/[id]/prediction-form";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { sportAccentStyle } from "@/lib/sport";
 import type { Sport } from "@/lib/supabase/database.types";
@@ -65,6 +66,7 @@ export function SpotlightMatchCard({
   competitionId,
   logos = {},
   isSharedMatch = false,
+  infoTooltip,
 }: {
   match: Match;
   isJoined: boolean;
@@ -72,6 +74,13 @@ export function SpotlightMatchCard({
   competitionId: string;
   logos?: { home?: string; away?: string };
   isSharedMatch?: boolean;
+  /** Klikací info bublina v pravém horním rohu (19.9.2026, na žádost
+   * uživatele) -- appka ji předává jen z Dashboardu, kde tahle karta
+   * střídá zápasy napříč VŠEMI soutěžemi hráče, takže vysvětlení dává
+   * smysl. Na `/spaces/[id]` (stejná komponenta, jen jedna konkrétní
+   * soutěž) appka prop nepředává, takže se tam nic nezobrazí -- text
+   * "ze všech tvých soutěží" by tam byl zavádějící. */
+  infoTooltip?: string;
 }) {
   // U "Náhodné ligy" (competition.sport === "mixed") nese vlastní sport
   // každý zápas zvlášť -- jinak je match.sport null a bere se sport
@@ -83,6 +92,8 @@ export function SpotlightMatchCard({
       className="relative overflow-hidden rounded-[26px] bg-[#15171c] p-6 sm:p-8"
     >
       <div className="pointer-events-none absolute -top-10 -right-10 h-36 w-36 rounded-full bg-accent/25" />
+
+      {infoTooltip && <InfoTooltip text={infoTooltip} />}
 
       <div className="relative flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-extrabold tracking-wide text-accent uppercase sm:justify-between">
         <span className="flex items-center gap-1.5">
