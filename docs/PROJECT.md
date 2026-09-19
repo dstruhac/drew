@@ -285,7 +285,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   fungovat, appka je nikdy nevyhodnotila (19.9.2026) — přesunuto z
   vlastního (nespolehlivého) cron-job.org budíku do spolehlivého
   30minutového běhu `sync-results.mjs` (`propagate-source-scores.mjs`).
-  Viz `HISTORY.md`.
+  Ověřeno end-to-end na produkci. Viz `HISTORY.md`.
+- [x] Oprava: neviditelná ikonka kalendáře u data v hecovačkách
+  (19.9.2026) — appka nikde nenastavovala CSS `color-scheme`, takže si
+  prohlížeč v tmavém režimu kreslil vlastní ovládací prvky (ikonku
+  kalendáře) ve světlé variantě = splynula s tmavým pozadím. Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

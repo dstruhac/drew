@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
 :root {
+  /* Říká prohlížeči, že appka je (v tomhle režimu) světlá -- jinak
+     prohlížeč u vlastních ovládacích prvků (ikonka kalendáře u
+     <input type="date">, posuvníky, zaškrtávátka) neví, že má barvy
+     přizpůsobit tmavému pozadí appky, a nechá je v defaultní (tmavé)
+     variantě -- na tmavém pozadí appky pak splynou a vypadají jako
+     zmizelé (nahlášeno 19.9.2026 u kalendáře v hecovačkách). Musí být
+     nastaveno na KAŽDÉ variantě (světlá/tmavá) zvlášť, viz níže.
+     Dokumentace: https://developer.mozilla.org/docs/Web/CSS/color-scheme */
+  color-scheme: light;
+
   /* Základní barvy plochy a textu. */
   --background: #faf9f6;
   --foreground: #15171c;
@@ -89,6 +99,8 @@
    k systému, ne ho vypnout. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
     --background: #0b0e14;
     --foreground: #f1f2f4;
 
@@ -113,6 +125,8 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+
   --background: #0b0e14;
   --foreground: #f1f2f4;
 
