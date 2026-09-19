@@ -275,6 +275,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   carousel na mobilu (18.9.2026) — stejné řešení jako zápasy na
   `/spaces/[id]` (`ExpandableList`), na počítači beze změny (mřížka).
   Viz `HISTORY.md`.
+- [x] Oprava: jméno a tip ostatního hráče se při zalomení řádku
+  netrhají na dva řádky (19.9.2026) — nezalomitelná mezera mezi
+  jménem a skóre. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
