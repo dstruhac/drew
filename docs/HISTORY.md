@@ -3825,6 +3825,65 @@ přepínač) -- stejné dvě místa, kde appka už dřív přepisovala
 
 Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + `pnpm build`.
 
+## Oprava: tip se nepropsal do zápasu nově zkopírovaného do hecovačky (19.9.2026)
+
+Uživatel: založil hecovačku, appka do ní zkopírovala zápasy z Chance
+Ligy, na které už měl dřív zadaný tip -- čekal, že se mu ten tip
+propíše i tam ("čekal jsem, že se mi přenese můj tip, který jsem k
+danému zápasu už dal"). Nejdřív jsem si ověřil přes `db-probe.yml`, že
+zápasy v hecovačce reálně ještě neproběhly (výkop v budoucnu, `status:
+scheduled`) -- takže chybějící VÝSLEDEK je normální (zápas se ještě
+nehrál), ale chybějící TIP byl skutečný nález.
+
+**Příčina**: appka už umí propsat tip mezi "sourozeneckými" kopiemi
+stejného reálného zápasu (stejný `external_id`, jiná `competition_id`)
+-- `syncPredictionToDuplicateMatches` v
+`src/app/(app)/spaces/[id]/actions.ts`. Ten mechanismus ale běží jen
+JEDNÍM směrem: při uložení/změně tipu propíše hodnotu do VŠECH
+sourozenců, KTEŘÍ UŽ V TU CHVÍLI EXISTUJÍ. Kopie zápasu do hecovačky
+ale vznikla AŽ POTÉ, co uživatel svůj tip v Chance Lize zadal --
+appka se o nový sourozenecký zápas nikdy nedozvěděla, protože žádná
+budoucí událost (vznik nového zápasu) tenhle mechanismus nikdy
+nespouští.
+
+**Oprava** (symetrické doplnění existujícího pravidla "propisuje se
+JEN participantům, appka nikoho nikam sama nepřihlašuje" -- žádné nové
+UX rozhodnutí, jen dokončení stejné featury i pro opačný směr): obě
+místa, kde appka do hecovačky kopíruje zápasy, teď po zkopírování
+navíc zkontrolují, jestli má některý PARTICIPANT hecovačky už tip na
+sourozenecký zápas (stejný `external_id`) jinde -- pokud ano, založí
+mu stejný tip i na nové kopii (`on conflict do nothing`, appka nikdy
+nepřepíše existující tip).
+- `supabase/migrations/20260919110000_hecovacky_copy_existing_predictions.sql`
+  -- `sync_hecovacka_matches_initial()` (volá `create_hecovacka()` hned
+  při založení) na konci přidává INSERT ... SELECT DISTINCT ON přes
+  všechny zápasy dané hecovačky (idempotentní, funkce je i tak
+  opakovaně volatelná, viz `20260916150000_hecovacky_sync_today_on_create.sql`).
+  Stejná migrace navíc obsahuje JEDNORÁZOVÝ dolet stejnou logikou přes
+  VŠECHNY už existující hecovačky (bez SECURITY DEFINER/auth.uid(),
+  spouští se rovnou v SQL editoru) -- funkce výše totiž opraví jen
+  BUDOUCÍ založení/doplnění, hecovačky založené PŘED touhle migrací
+  (typicky uživatelova "test") by si samy nedohnaly nic.
+- `scripts/sync/hecovacky.mjs` -- nová funkce
+  `copyExistingPredictionsToNewMatches()`, volaná po každém denním
+  doplnění nových zápasů (`pickMatchesForHecovacky`) -- řeší stejnou
+  díru pro zápasy, co appka do hecovačky přidá POZDĚJI (den 3, den
+  4...), ne jen v den založení.
+- Obě místa omezují backfill na `status = 'scheduled'` -- SQL funkce
+  běží přes SECURITY DEFINER (obchází RLS), takže bez týhle pojistky
+  by při opakovaném volání mohla "podstrčit" tip i na zápas, který
+  mezitím už začal/skončil.
+
+**Migrace čeká na ruční spuštění** -- zapsáno do `PROJECT.md` →
+"Ruční kroky". Bez ní zůstává hecovačka "test" (a jakákoliv jiná už
+existující hecovačka) bez zpětně doplněných tipů, i po mergi PR s
+kódem.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + `pnpm build`.
+SQL migrace nešla ověřit end-to-end ze sandboxu (žádné napojení přes
+Supabase CLI, viz síťové omezení) -- syntakticky zkontrolována ručně,
+běhové ověření až po ručním spuštění uživatelem přes `db-probe.yml`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
