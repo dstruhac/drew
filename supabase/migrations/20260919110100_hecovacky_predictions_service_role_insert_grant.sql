@@ -1,0 +1,14 @@
+-- Stejná třída chyby jako 20260827140000_predictions_service_role_select_grant.sql
+-- (Supabase negrantuje přístup k nové/rozšířené akci nad tabulkou
+-- automaticky ani service_role roli) -- tady u INSERTu, ne SELECTu.
+--
+-- scripts/sync/hecovacky.mjs (service role klíč) teď při denním
+-- doplňování zápasů do hecovačky navíc zapisuje do `predictions`
+-- (copyExistingPredictionsToNewMatches, viz
+-- 20260919110000_hecovacky_copy_existing_predictions.sql) -- dosud měl
+-- service_role na tuhle tabulku jen SELECT, první neprázdný pokus o
+-- zápis by spadl na "permission denied for table predictions" a
+-- shodil by zbytek běhu. Nalezeno v code review PR #224 (Codex,
+-- 20.9.2026), ne až ostrým pádem -- proto tahle migrace vzniká ve
+-- stejném PR jako kód, co insert potřebuje.
+grant insert on public.predictions to service_role;

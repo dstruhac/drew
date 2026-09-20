@@ -80,6 +80,18 @@ export async function addHecovackaPlayer(competitionId: string, userId: string) 
     throw new Error(`Přidání hráče se nepodařilo: ${error.message}`);
   }
 
+  // Nově přidaný hráč mohl už dřív tipovat zápas, který appka do téhle
+  // hecovačky zkopírovala předtím, než ho přidala -- propíše se mu
+  // rovnou (viz 20260919110200_hecovacky_backfill_predictions_on_join.sql).
+  // Chyba se jen zaloguje, ať appka aspoň přidání hráče nezablokuje.
+  const { error: backfillError } = await supabase.rpc("backfill_hecovacka_predictions_for_participant", {
+    p_hecovacka_id: competitionId,
+    p_user_id: userId,
+  });
+  if (backfillError) {
+    console.error("Propsání existujících tipů novému hráči hecovačky selhalo:", backfillError.message);
+  }
+
   revalidatePath(`/spaces/${competitionId}`);
   revalidatePath(`/spaces/${competitionId}/leaderboard`);
   revalidatePath("/hecovacky");

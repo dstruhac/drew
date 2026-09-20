@@ -23,12 +23,14 @@
 -- Stejné pravidlo jako u opačného směru: propisuje se JEN participantům
 -- hecovačky, appka nikoho nikam sama nepřihlašuje.
 --
--- Omezeno na m.status = 'scheduled' -- funkce běží přes SECURITY
--- DEFINER (obchází RLS), takže bez týhle pojistky by opakované
--- volání mohlo "podstrčit" tip i na zápas, který mezitím už začal/
--- skončil (kopírovaly se sem vždycky jen zápasy s výkopem v
--- budoucnu, ale při přeběhu v čase, po repeated volání, se to už
--- nemusí držet).
+-- Omezeno na m.status = 'scheduled' A m.kickoff_at > now() -- stejná
+-- dvě pravidla jako RLS politika `predictions_insert_own_before_kickoff`
+-- (20260825120000_lock_by_status.sql). Funkce běží přes SECURITY
+-- DEFINER (obchází RLS), takže bez týhle pojistky by opakované volání
+-- mohlo "podstrčit" tip i na zápas, který mezitím už začal/skončil,
+-- ale appka ho ještě nestihla označit jako 'live'/'finished' (nalezeno
+-- v code review PR #224, Codex, 20.9.2026 -- appka status hlídala, ale
+-- na kickoff_at zapomněla).
 create or replace function public.sync_hecovacka_matches_initial(p_hecovacka_id uuid)
 returns int
 language plpgsql
@@ -125,6 +127,7 @@ begin
   where m.competition_id = p_hecovacka_id
     and m.source_match_id is not null
     and m.status = 'scheduled'
+    and m.kickoff_at > now()
   order by m.id, cp.user_id, p.updated_at desc
   on conflict (match_id, user_id) do nothing;
 
@@ -154,5 +157,6 @@ join public.predictions p
   )
 where m.source_match_id is not null
   and m.status = 'scheduled'
+  and m.kickoff_at > now()
 order by m.id, cp.user_id, p.updated_at desc
 on conflict (match_id, user_id) do nothing;

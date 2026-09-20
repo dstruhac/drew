@@ -376,6 +376,10 @@ export interface Database {
         Args: { p_token: string };
         Returns: string;
       };
+      backfill_hecovacka_predictions_for_participant: {
+        Args: { p_hecovacka_id: string; p_user_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

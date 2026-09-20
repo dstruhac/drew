@@ -3884,6 +3884,40 @@ SQL migrace nešla ověřit end-to-end ze sandboxu (žádné napojení přes
 Supabase CLI, viz síťové omezení) -- syntakticky zkontrolována ručně,
 běhové ověření až po ručním spuštění uživatelem přes `db-probe.yml`.
 
+**Dodatečně opraveno v code review PR #224** (Codex, 20.9.2026), tři
+reálné nálezy:
+1. **Chybějící `kickoff_at > now()`** v obou backfill dotazech (funkce
+   i jednorázový dolet) -- appka hlídala jen `status = 'scheduled'`,
+   ale skutečná RLS politika (`predictions_insert_own_before_kickoff`,
+   `20260825120000_lock_by_status.sql`) vyžaduje OBĚ podmínky. Protože
+   backfill běží přes SECURITY DEFINER (obchází RLS), bez týhle
+   pojistky by opakované volání funkce mohlo "podstrčit" tip i na
+   zápas, který mezitím už začal, ale appka ho ještě nestihla označit
+   jako 'live'/'finished'.
+2. **Chybějící `GRANT INSERT` pro `service_role` na `predictions`** --
+   `hecovacky.mjs` (service role klíč) teď do `predictions` i zapisuje
+   (`copyExistingPredictionsToNewMatches`), ale service_role měl na tu
+   tabulku dosud jen `SELECT` (`20260827140000_predictions_service_role_select_grant.sql`).
+   První neprázdný pokus o zápis by spadl na "permission denied for
+   table predictions" a shodil zbytek běhu -- stejná opakovaně se
+   vracející třída chyby jako u `matches`/`competitions`, viz
+   `PROJECT.md` → "Grants". Nová migrace
+   `20260919110100_hecovacky_predictions_service_role_insert_grant.sql`.
+3. **Hráč přidaný do hecovačky AŽ POTÉ, co appka zápasy zkopírovala,
+   nedostal zpětné propsání vůbec** -- oprava z 19.9. řešila jen
+   "kopírování zápasu" (participant, co v tu chvíli hecovačku už hraje),
+   ne "přidání hráče" (zápasy v hecovačce už existují, nový hráč přišel
+   až teď). Nová funkce
+   `backfill_hecovacka_predictions_for_participant(p_hecovacka_id,
+   p_user_id)` (`20260919110200_hecovacky_backfill_predictions_on_join.sql`)
+   -- volaná z `accept_hecovacka_invite()` (hráč sám, pozvánkový odkaz)
+   i z `addHecovackaPlayer()` v `src/app/(app)/spaces/[id]/actions.ts`
+   (vlastník přidává přímo, RLS insert bez SECURITY DEFINER RPC, appka
+   proto potřebovala novou funkci, ne jen dovolat existující).
+
+Ověřeno znovu `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) +
+`pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

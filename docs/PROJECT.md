@@ -324,13 +324,18 @@ chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
 
-**Migrace čeká na ruční spuštění** (19.9.2026): `20260919110000_hecovacky_copy_existing_predictions.sql`
-— doplňuje zpětné propsání tipu do zápasů, které appka do hecovačky
-zkopírovala AŽ POTÉ, co na ně hráč už dřív tipoval jinde (viz
-`HISTORY.md` → "Oprava: tip se nepropsal do zápasu nově zkopírovaného
-do hecovačky"). Migrace obsahuje i jednorázový dolet pro už existující
-hecovačky (např. uživatelovu "test") — bez spuštění zůstanou jejich
-zkopírované zápasy bez tipu, i po mergi PR s kódem.
+**Migrace čekají na ruční spuštění** (19.–20.9.2026), tři soubory
+(spustit v tomhle pořadí podle názvu/timestampu):
+`20260919110000_hecovacky_copy_existing_predictions.sql`,
+`20260919110100_hecovacky_predictions_service_role_insert_grant.sql`,
+`20260919110200_hecovacky_backfill_predictions_on_join.sql`
+— dohromady doplňují zpětné propsání tipu do zápasů, které appka do
+hecovačky zkopírovala AŽ POTÉ, co na ně hráč už dřív tipoval jinde,
+včetně hráče přidaného do hecovačky až dodatečně (viz `HISTORY.md` →
+"Oprava: tip se nepropsal do zápasu nově zkopírovaného do hecovačky").
+První migrace obsahuje i jednorázový dolet pro už existující hecovačky
+(např. uživatelovu "test") — bez spuštění zůstanou jejich zkopírované
+zápasy bez tipu, i po mergi PR s kódem.
 
 **Migrace čeká na ruční spuštění** (18.9.2026): `20260918090000_fix_future_dated_finished_matches.sql`
 — opravuje 25 dohraných zápasů Ligy mistrů/Evropské ligy s chybně
