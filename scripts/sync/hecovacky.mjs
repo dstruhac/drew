@@ -7,7 +7,10 @@
 //    (matches.source_match_id pamatuje originál, viz
 //    20260914090100_matches_source_match_id.sql). Na rozdíl od
 //    random-league.mjs appka tu proto nepotřebuje Playwright vůbec --
-//    všechna data už má ve vlastní databázi.
+//    všechna data už má ve vlastní databázi. Participantovi hecovačky,
+//    co na daný zápas (external_id) UŽ dřív tipoval jinde, appka rovnou
+//    propíše i jeho existující tip (viz copyExistingPredictionsToNewMatches,
+//    19.9.2026).
 // 2. Archivuje hecovačky, kterým uplynulo end_date.
 // 3. Pošle e-mail hráčům, které do hecovačky přidal někdo jiný přímo
 //    (ne přes pozvánkový odkaz, tam se hráč přidává sám a vidí to
@@ -190,9 +193,10 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
         source_match_id: m.id,
       }));
 
-      const { error: upsertError } = await supabase
+      const { data: insertedRows, error: upsertError } = await supabase
         .from("matches")
-        .upsert(rows, { onConflict: "competition_id,external_id" });
+        .upsert(rows, { onConflict: "competition_id,external_id" })
+        .select("id, external_id");
       if (upsertError) {
         throw new Error(`${hecovacka.name}: zápis vybraných zápasů na ${dateString} selhal: ${upsertError.message}`);
       }
@@ -203,10 +207,134 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
           .map((r) => `${r.home_team}-${r.away_team}`)
           .join(", ")}`,
       );
+
+      await copyExistingPredictionsToNewMatches(supabase, hecovacka.id, insertedRows ?? []);
     }
   }
 
   return totalPicked;
+}
+
+// Když appka do hecovačky zkopíruje zápas, na který hráč (participant
+// dané hecovačky) UŽ dřív tipoval ve zdrojové soutěži (stejný
+// external_id), appka mu ten tip rovnou propíše -- stejné pravidlo
+// jako opačný směr (syncPredictionToDuplicateMatches v
+// src/app/(app)/spaces/[id]/actions.ts: ulož tip → propiš do UŽ
+// EXISTUJÍCÍCH sourozenců), jen naopak: sourozenec vznikne AŽ TEĎ,
+// appka mu propíše UŽ EXISTUJÍCÍ tip. Bez tohohle appka nový tip
+// nikdy nedostala, pokud hráč zápas natipoval dřív, než ho appka do
+// hecovačky zkopírovala -- nahlášeno uživatelem 19.9.2026 ("čekal
+// jsem, že se mi přenese můj tip"). Stejná oprava i v SQL funkci
+// sync_hecovacka_matches_initial() pro založení hecovačky, viz
+// 20260919110000_hecovacky_copy_existing_predictions.sql -- tahle
+// verze řeší ZBYTEK zápasů, co appka doplní později (den 3, den 4...).
+//
+// Propisuje se JEN participantům hecovačky (appka ho nikam sama
+// nepřihlašuje) a appka nikdy nepřepíše existující tip (`ignoreDuplicates`).
+async function copyExistingPredictionsToNewMatches(supabase, hecovackaId, newMatches) {
+  if (newMatches.length === 0) return;
+
+  // Znovu ověřit zámek TĚSNĚ před zápisem -- appka mezi výběrem
+  // kandidátů (.gt("kickoff_at", now)) výše a tímhle místem stihne
+  // několik dalších dotazů/awaitů, takže zápas mezitím teoreticky mohl
+  // začít. Zápis dole jde přes service role klíč (obchází RLS), takže
+  // bez týhle pojistky by appka mohla založit "platný" tip i na už
+  // zamčený zápas -- nalezeno v code review PR #224 (Codex, 20.9.2026).
+  const { data: currentState, error: currentStateError } = await supabase
+    .from("matches")
+    .select("id, status, kickoff_at")
+    .in(
+      "id",
+      newMatches.map((m) => m.id),
+    );
+  if (currentStateError) {
+    throw new Error(`Nepodařilo se ověřit stav nově vybraných zápasů: ${currentStateError.message}`);
+  }
+  const now = Date.now();
+  const stillOpenIds = new Set(
+    (currentState ?? [])
+      .filter((m) => m.status === "scheduled" && new Date(m.kickoff_at).getTime() > now)
+      .map((m) => m.id),
+  );
+  newMatches = newMatches.filter((m) => stillOpenIds.has(m.id));
+  if (newMatches.length === 0) return;
+
+  const externalIds = [...new Set(newMatches.map((m) => m.external_id).filter(Boolean))];
+  if (externalIds.length === 0) return;
+
+  const { data: participants, error: participantsError } = await supabase
+    .from("competition_participants")
+    .select("user_id")
+    .eq("competition_id", hecovackaId);
+  if (participantsError) {
+    throw new Error(`Nepodařilo se načíst participanty hecovačky: ${participantsError.message}`);
+  }
+  const participantIds = new Set((participants ?? []).map((p) => p.user_id));
+  if (participantIds.size === 0) return;
+
+  const { data: siblings, error: siblingsError } = await supabase
+    .from("matches")
+    .select("id, external_id")
+    .in("external_id", externalIds);
+  if (siblingsError) {
+    throw new Error(`Nepodařilo se najít sourozenecké zápasy: ${siblingsError.message}`);
+  }
+  if (!siblings || siblings.length === 0) return;
+
+  const { data: siblingPredictions, error: predictionsError } = await supabase
+    .from("predictions")
+    .select("match_id, user_id, predicted_home_score, predicted_away_score, predicted_overtime_flag, updated_at")
+    .in(
+      "match_id",
+      siblings.map((s) => s.id),
+    )
+    .in("user_id", [...participantIds]);
+  if (predictionsError) {
+    throw new Error(`Nepodařilo se načíst existující tipy: ${predictionsError.message}`);
+  }
+  if (!siblingPredictions || siblingPredictions.length === 0) return;
+
+  const externalIdByMatchId = new Map(siblings.map((s) => [s.id, s.external_id]));
+
+  // Pro každou dvojici (external_id, user_id) appka vezme nejnovější
+  // tip -- sourozenecké tipy jsou normálně stejné (drží je v souladu
+  // syncPredictionToDuplicateMatches), tohle je jen pojistka pro
+  // nepravděpodobný rozjetý stav.
+  const latestByExternalIdAndUser = new Map();
+  for (const p of siblingPredictions) {
+    const externalId = externalIdByMatchId.get(p.match_id);
+    if (!externalId) continue;
+    const key = `${externalId}::${p.user_id}`;
+    const existing = latestByExternalIdAndUser.get(key);
+    if (!existing || new Date(p.updated_at).getTime() > new Date(existing.updated_at).getTime()) {
+      latestByExternalIdAndUser.set(key, p);
+    }
+  }
+
+  const rows = [];
+  for (const m of newMatches) {
+    if (!m.external_id) continue;
+    for (const userId of participantIds) {
+      const source = latestByExternalIdAndUser.get(`${m.external_id}::${userId}`);
+      if (!source) continue;
+      rows.push({
+        match_id: m.id,
+        user_id: userId,
+        predicted_home_score: source.predicted_home_score,
+        predicted_away_score: source.predicted_away_score,
+        predicted_overtime_flag: source.predicted_overtime_flag,
+      });
+    }
+  }
+  if (rows.length === 0) return;
+
+  const { error: insertError } = await supabase
+    .from("predictions")
+    .upsert(rows, { onConflict: "match_id,user_id", ignoreDuplicates: true });
+  if (insertError) {
+    throw new Error(`Propsání existujících tipů do nových zápasů selhalo: ${insertError.message}`);
+  }
+  console.log(`Propsáno ${rows.length} existujících tipů do nově vybraných zápasů.`);
 }
 
 async function archiveFinishedHecovacky(supabase, hecovacky) {
