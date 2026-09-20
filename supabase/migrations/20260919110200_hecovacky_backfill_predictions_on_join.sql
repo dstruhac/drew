@@ -25,7 +25,24 @@ set search_path = public
 as $$
 begin
   -- Volat smí buď sám nově přidaný hráč (přijetí pozvánky), nebo
-  -- vlastník dané hecovačky (přidání přímo) -- nikdo jiný.
+  -- vlastník dané hecovačky (přidání přímo) -- nikdo jiný. Nalezeno v
+  -- code review PR #224 (Codex, 20.9.2026): tahle podmínka se dřív
+  -- kontrolovala JEN když auth.uid() != p_user_id -- volající si tak
+  -- mohl zavolat funkci s VLASTNÍM uuid a libovolným competition_id
+  -- (i cizí hecovačkou, do které vůbec nepatří, nebo dokonce veřejnou
+  -- soutěží) a appka by mu klidně založila tipy podle sourozeneckých
+  -- zápasů, aniž by kdy ověřila členství -- porušení pravidla
+  -- "přihlášení do soutěže je podmínka pro tip", co appka jinde
+  -- vynucuje přímo v DB (viz PROJECT.md). Teď appka VŽDY (bez ohledu
+  -- na to, kdo volá) ověří, že cílový uživatel v dané hecovačce
+  -- skutečně už je participant.
+  if not exists (
+    select 1 from public.competition_participants
+    where competition_id = p_hecovacka_id and user_id = p_user_id
+  ) then
+    raise exception 'not_a_participant';
+  end if;
+
   if auth.uid() is distinct from p_user_id then
     if not exists (
       select 1 from public.competitions

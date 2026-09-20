@@ -232,6 +232,33 @@ async function pickMatchesForHecovacky(supabase, hecovacky, sourcesByHecovacka, 
 // Propisuje se JEN participantům hecovačky (appka ho nikam sama
 // nepřihlašuje) a appka nikdy nepřepíše existující tip (`ignoreDuplicates`).
 async function copyExistingPredictionsToNewMatches(supabase, hecovackaId, newMatches) {
+  if (newMatches.length === 0) return;
+
+  // Znovu ověřit zámek TĚSNĚ před zápisem -- appka mezi výběrem
+  // kandidátů (.gt("kickoff_at", now)) výše a tímhle místem stihne
+  // několik dalších dotazů/awaitů, takže zápas mezitím teoreticky mohl
+  // začít. Zápis dole jde přes service role klíč (obchází RLS), takže
+  // bez týhle pojistky by appka mohla založit "platný" tip i na už
+  // zamčený zápas -- nalezeno v code review PR #224 (Codex, 20.9.2026).
+  const { data: currentState, error: currentStateError } = await supabase
+    .from("matches")
+    .select("id, status, kickoff_at")
+    .in(
+      "id",
+      newMatches.map((m) => m.id),
+    );
+  if (currentStateError) {
+    throw new Error(`Nepodařilo se ověřit stav nově vybraných zápasů: ${currentStateError.message}`);
+  }
+  const now = Date.now();
+  const stillOpenIds = new Set(
+    (currentState ?? [])
+      .filter((m) => m.status === "scheduled" && new Date(m.kickoff_at).getTime() > now)
+      .map((m) => m.id),
+  );
+  newMatches = newMatches.filter((m) => stillOpenIds.has(m.id));
+  if (newMatches.length === 0) return;
+
   const externalIds = [...new Set(newMatches.map((m) => m.external_id).filter(Boolean))];
   if (externalIds.length === 0) return;
 

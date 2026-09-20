@@ -3918,6 +3918,31 @@ reálné nálezy:
 Ověřeno znovu `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) +
 `pnpm build`.
 
+**Druhé kolo code review PR #224** (Codex, 20.9.2026), další dva P1
+nálezy -- tentokrát jeden skutečná bezpečnostní díra:
+1. **Chybějící kontrola členství v `backfill_hecovacka_predictions_for_participant()`**
+   -- podmínka ověřující oprávnění se kontrolovala JEN když
+   `auth.uid() != p_user_id`. Volající si tak mohl zavolat funkci s
+   VLASTNÍM uuid a libovolným `competition_id` (i cizí hecovačkou, do
+   které vůbec nepatří) a appka by mu klidně založila tipy podle
+   sourozeneckých zápasů -- porušení pravidla "přihlášení do soutěže
+   je podmínka pro tip", které appka jinde vynucuje přímo v DB. Oprava:
+   appka teď VŽDY (bez ohledu na volajícího) ověří, že cílový uživatel
+   v dané hecovačce už je participant (`competition_participants`),
+   teprve pak řeší, jestli volající smí jednat za NĚKOHO JINÉHO.
+2. **`copyExistingPredictionsToNewMatches()` v `hecovacky.mjs` nemělo
+   žádnou pojistku proti souběhu** -- mezi výběrem kandidátů
+   (`.gt("kickoff_at", now)`) a samotným zápisem tipu appka provede
+   několik dalších dotazů/awaitů, takže zápas mezitím teoreticky mohl
+   začít. Zápis jde přes service role klíč (obchází RLS), takže bez
+   pojistky by appka mohla založit "platný" tip i na už zamčený zápas.
+   Oprava: appka těsně před zápisem znovu načte aktuální
+   `status`/`kickoff_at` cílových zápasů a zápasy, co mezitím přestaly
+   být otevřené, z dávky vyřadí.
+
+Ověřeno potřetí `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) +
+`pnpm build`.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
