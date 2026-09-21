@@ -3975,6 +3975,15 @@ mezitím nevybrala. **Zapsáno jako otevřený ruční krok** (viz
 nastavení v cron-job.org, appka to sama ověřit nemůže (žádný přístup na
 cron-job.org z týhle session).
 
+**Příčina dohledána (21.9.2026, uživatel):** úloha v cron-job.org byla
+založená správně (appka to 17.9.2026 ověřovala jen jedním ručním
+"execute now" testem, ne skutečným automatickým tikem), ale byla
+**vypnutá (disabled)** -- appka na tenhle stav nemá jak sama upozornit,
+protože do cron-job.org nevidí vůbec. Uživatel ji zapnul; appka to
+potvrdí dalším automatickým během v historii `hecovacky.yml` (na
+rozdíl od ručního `workflow_dispatch` půjde poznat podle toho, že appka
+ho sama nespustila).
+
 **Implementace (5 souborů + nová komponenta):**
 
 1. **`src/components/hecovacka-results-card.tsx`** (nová) --
