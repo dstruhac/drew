@@ -215,8 +215,12 @@ export default async function CompetitionDetailPage({
   // appka se "zakonzervuje": zmizí pozvánka/přidávání hráčů, týdenní
   // žebříček a "Nadcházející" (žádné další zápasy nepřibydou), místo
   // toho se ukáže vyhodnocení vítězů (uživatel 21.9.2026, viz
-  // HecovackaResultsCard).
-  const isArchived = competition.status === "archived";
+  // HecovackaResultsCard). Podmínka i na visibility==='private'
+  // (nalezeno Codex review na PR #225) -- `status` je obecný sloupec
+  // pro VŠECHNY competitions, appka ho zatím zapisuje jen u hecovaček,
+  // ale bez týhle podmínky by případné budoucí `status='archived'` u
+  // veřejné soutěže omylem spustilo celé tohle "zakonzervování" i tam.
+  const isArchived = competition.visibility === "private" && competition.status === "archived";
   let sourceNames: string[] = [];
   let candidates: { id: string; display_name: string }[] = [];
   if (competition.visibility === "private") {
@@ -742,7 +746,13 @@ export default async function CompetitionDetailPage({
         );
       })()}
 
-      {isJoined && (
+      {/* Skončená hecovačka: "Opustit soutěž" by hráče vymazalo z
+       * finálního pořadí/pódia bez možnosti návratu -- pozvánkový
+       * token po archivaci appka odmítá (accept_hecovacka_invite
+       * vyžaduje status='active', viz migrace 20260915090200), takže
+       * by se hráč nemohl vrátit ani přes pozvánku. Nalezeno Codex
+       * review na PR #225. */}
+      {isJoined && !isArchived && (
         <form
           action={leaveCompetition.bind(null, competition.id)}
           className="mt-4 self-start"
