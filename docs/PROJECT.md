@@ -359,21 +359,21 @@ a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
 uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
 zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).
 
-**⚠️ cron-job.org pro `hecovacky.yml` je potřeba znovu zkontrolovat**
-(zjištěno 21.9.2026) — appka 17.9.2026 potvrdila, že po založení úlohy
-volání funguje (viz `HISTORY.md`). Jenže podle historie GitHub Actions
-běhů `hecovacky.yml` od 17.9. 9:15 UTC do 21.9. **ani jednou
-automaticky neproběhl** (na rozdíl od `sync-results.yml`, který jede
-dál spolehlivě každých 30 minut) — appka proto nestihla archivovat
-uživatelovu skončenou testovací hecovačku "test" (`end_date`
-20.9.2026), dokud appka run ručně nespustila. **Ruční krok pro
-uživatele: znovu se podívat do cron-job.org, jestli úloha pro
-`hecovacky.yml` skutečně běží na pravidelném rozvrhu** (ne jen že
-existuje/byla jednou ručně otestovaná) — bez toho appka nebude
-archivovat/vyhodnocovat žádnou budoucí hecovačku včas. Viz
-`HISTORY.md` → "Hecovačky: výsledky se nikdy nepropisovaly +
-chybějící loga (17.9.2026)" pro kontext, proč to bylo potřeba prvně
-řešit.
+**cron-job.org pro `hecovacky.yml`: příčina 4denního výpadku nalezena**
+(21.9.2026) — appka 17.9.2026 potvrdila, že po založení úlohy volání
+funguje (viz `HISTORY.md`), ale podle historie GitHub Actions běhů
+`hecovacky.yml` od 17.9. 9:15 UTC do 21.9. ani jednou automaticky
+neproběhl (na rozdíl od `sync-results.yml`, který jel dál spolehlivě
+každých 30 minut) — appka proto nestihla archivovat uživatelovu
+skončenou testovací hecovačku "test" (`end_date` 20.9.2026), dokud
+appka run ručně nespustila. **Uživatel ověřil příčinu: úloha v
+cron-job.org byla založená správně, ale byla vypnutá (disabled)** —
+appka to sama zjistit nemohla (nemá do cron-job.org přístup). Zapnutí
+je na uživateli; appka jeho potvrzení, že úloha teď reálně běží na
+rozvrhu, ještě čeká (ověří se dalším automatickým během v historii
+`hecovacky.yml`). Viz `HISTORY.md` → "Hecovačky: výsledky se
+nikdy nepropisovaly + chybějící loga (17.9.2026)" pro kontext, proč to
+bylo potřeba prvně řešit.
 
 ## Jak navázat (pro budoucí Claude Code session)
 
