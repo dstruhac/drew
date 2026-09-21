@@ -24,6 +24,7 @@ export function CompetitionCard({
   competition,
   rank,
   allCaughtUp = false,
+  isArchived = false,
   isJoined,
   linkToDetail = true,
   showLogo = true,
@@ -41,6 +42,11 @@ export function CompetitionCard({
    * nadcházejících zápasů) natipovat -- viz UPCOMING_WINDOW_DAYS.
    * Nastavuje se jen pro soutěže, které hráč hraje (viz volající). */
   allCaughtUp?: boolean;
+  /** `true` u hecovačky, které uplynul end_date (archivuje
+   * hecovacky.mjs) -- appka místo "Vše natipováno" ukáže badge
+   * "Skončilo" (uživatel 21.9.2026, appka dřív skončené hecovačky
+   * nijak neodlišovala od aktivních). */
+  isArchived?: boolean;
   /** `false` zobrazí tlačítko "Chci hrát" přímo na kartě. `undefined`
    * (výchozí, používá Dashboard) tlačítko nikdy nezobrazí -- Dashboard
    * posílá jen soutěže, které hráč už hraje, takže se tam nehodí. */
@@ -93,10 +99,16 @@ export function CompetitionCard({
             Ještě nehraješ
           </p>
         )}
-        {allCaughtUp && (
-          <span className="mt-1.5 inline-block rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-success">
-            Vše natipováno
+        {isArchived ? (
+          <span className="mt-1.5 inline-block rounded-full border border-border-subtle px-2 py-0.5 text-[11px] font-bold text-faint-foreground">
+            🏁 Skončilo
           </span>
+        ) : (
+          allCaughtUp && (
+            <span className="mt-1.5 inline-block rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-success">
+              Vše natipováno
+            </span>
+          )
         )}
         {competition.description && (
           <p className="mt-1 text-xs text-faint-foreground">

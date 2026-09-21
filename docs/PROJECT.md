@@ -297,6 +297,16 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   ne když sourozenecká kopie vznikla až POTÉ. Doplněno v
   `sync_hecovacka_matches_initial()` i `hecovacky.mjs`. Vyžaduje ruční
   spuštění migrace, viz "Ruční kroky" níže. Viz `HISTORY.md`.
+- [x] Skončená hecovačka se "zakonzervuje" a vyhodnotí vítěze
+  (21.9.2026) — appka dřív po uplynutí `end_date` nedělala vůbec nic
+  jinak (pozvánka/přidávání hráčů fungovalo dál, "Nadcházející" a
+  týdenní žebříček visely na "nic se nehraje", nikde žádné
+  vyhodnocení). Teď: pozvánka/přidávání/odebírání hráčů zmizí (i na
+  serveru, ne jen v UI), "Nadcházející" a týdenní žebříček (na
+  `/spaces/[id]` i v celém žebříčku) se schovají, místo toho pompézní
+  `HecovackaResultsCard` s pořadím 1.–3. místa (remízy = víc vítězů na
+  stejné pozici). `/hecovacky` a Dashboard skončené hecovačky odliší
+  badge "🏁 Skončilo". Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
@@ -349,13 +359,21 @@ a `20260916090100_reconcile_duplicate_match_predictions.sql` spuštěny
 uživatelem a ověřeny přes `db-probe.yml` (568 tipů na sdílené zápasy
 zkontrolováno, 0 nekonzistencí u odemčených zápasů — viz `HISTORY.md`).
 
-**cron-job.org pro `hecovacky.yml` nastaveno** (17.9.2026) — uživatel
-založil pravidelnou úlohu, appka ověřila přes log skutečného běhu
-(GitHub Actions run #4, 9:15 UTC), že volání skutečně projde a e-mail
-"byl jsi přidán do hecovačky" se doopravdy odešle (log:
-"Odesláno upozornění uživateli ... o přidání do 'pasiva hokej'."). Viz
+**⚠️ cron-job.org pro `hecovacky.yml` je potřeba znovu zkontrolovat**
+(zjištěno 21.9.2026) — appka 17.9.2026 potvrdila, že po založení úlohy
+volání funguje (viz `HISTORY.md`). Jenže podle historie GitHub Actions
+běhů `hecovacky.yml` od 17.9. 9:15 UTC do 21.9. **ani jednou
+automaticky neproběhl** (na rozdíl od `sync-results.yml`, který jede
+dál spolehlivě každých 30 minut) — appka proto nestihla archivovat
+uživatelovu skončenou testovací hecovačku "test" (`end_date`
+20.9.2026), dokud appka run ručně nespustila. **Ruční krok pro
+uživatele: znovu se podívat do cron-job.org, jestli úloha pro
+`hecovacky.yml` skutečně běží na pravidelném rozvrhu** (ne jen že
+existuje/byla jednou ručně otestovaná) — bez toho appka nebude
+archivovat/vyhodnocovat žádnou budoucí hecovačku včas. Viz
 `HISTORY.md` → "Hecovačky: výsledky se nikdy nepropisovaly +
-chybějící loga (17.9.2026)" pro kontext, proč to bylo potřeba.
+chybějící loga (17.9.2026)" pro kontext, proč to bylo potřeba prvně
+řešit.
 
 ## Jak navázat (pro budoucí Claude Code session)
 

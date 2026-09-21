@@ -12,6 +12,7 @@ import { addHecovackaPlayer, removeHecovackaPlayer } from "./actions";
 export function HecovackaPanel({
   competitionId,
   isOwner,
+  isArchived,
   description,
   endDate,
   sourceNames,
@@ -21,6 +22,12 @@ export function HecovackaPanel({
 }: {
   competitionId: string;
   isOwner: boolean;
+  /** `true` po uplynutí end_date (archivuje hecovacky.mjs) -- appka se
+   * "zakonzervuje": zmizí pozvánkový odkaz, přidávání i odebírání
+   * hráčů, "Hraje se do" se změní na "Skončilo" (uživatel 21.9.2026,
+   * appka dřív nechávala ovládací prvky funkční i po konci hecovačky,
+   * což nedávalo smysl). */
+  isArchived: boolean;
   description: string | null;
   endDate: string | null;
   sourceNames: string[];
@@ -53,9 +60,14 @@ export function HecovackaPanel({
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-semibold text-muted-foreground">
+        {isArchived && (
+          <span className="rounded-full bg-surface px-2 py-0.5 font-bold text-foreground">
+            🏁 Hecovačka skončila
+          </span>
+        )}
         {endDate && (
           <span>
-            Hraje se do{" "}
+            {isArchived ? "Hrálo se do" : "Hraje se do"}{" "}
             {new Date(endDate).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" })}
           </span>
         )}
@@ -71,7 +83,7 @@ export function HecovackaPanel({
         )}
       </div>
 
-      {isOwner && inviteUrl && (
+      {isOwner && !isArchived && inviteUrl && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold">Pozvánkový odkaz:</span>
           <div className="flex flex-wrap items-center gap-2">
@@ -101,7 +113,7 @@ export function HecovackaPanel({
               className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3 py-1 text-xs font-semibold"
             >
               {p.displayName}
-              {isOwner && (
+              {isOwner && !isArchived && (
                 <form action={removeHecovackaPlayer.bind(null, competitionId, p.userId)}>
                   <button
                     type="submit"
@@ -117,7 +129,7 @@ export function HecovackaPanel({
         </ul>
       </div>
 
-      {isOwner && candidates.length > 0 && (
+      {isOwner && !isArchived && candidates.length > 0 && (
         <div className="flex flex-col gap-2">
           <button
             type="button"

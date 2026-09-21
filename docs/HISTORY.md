@@ -3943,6 +3943,100 @@ nálezy -- tentokrát jeden skutečná bezpečnostní díra:
 Ověřeno potřetí `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) +
 `pnpm build`.
 
+## Skončená hecovačka se "zakonzervuje" a vyhodnotí vítěze (21.9.2026)
+
+**Nahlásil uživatel:** "v hecovačkách chybí pořádný konec." Konkrétně
+čtyři věci u jeho skončené testovací hecovačky: (1) appka pořád
+dovolí zvát nové hráče, (2) žebříček tvrdí "dnes se nic dalšího
+nehraje", (3) pořád se zobrazuje sekce "Nadcházející", (4) nikde není
+vidět vítěz/pořadí. Návrh uživatele: appka by se po konci měla
+"zakonzervovat" a vítěze pěkně (pompézně) vyhodnotit.
+
+**Diagnóza (ověřeno čtením kódu):** appka má sloupec
+`competitions.status` (`active`/`archived`, appka ho zapisuje v
+`archiveExpiredHecovacky()` v `hecovacky.mjs`, jakmile `end_date`
+uplyne), ale **nikde v `src/` se nikdy nečetl** — grep na
+`competition.status`/`competition?.status` nenašel žádný zásah. Appka
+tedy po archivaci nedělala vůbec nic jinak, přesně jak uživatel
+popsal.
+
+**Bonus zjištění, které souviselo:** appka měla podle `docs/PROJECT.md`
+(záznam ze 17.9.2026) cron-job.org úlohu pro `hecovacky.yml` potvrzenou
+jako funkční. Historie GitHub Actions běhů ale ukázala, že workflow od
+17.9. 9:15 UTC do 21.9. (4 dny) **ani jednou automaticky neproběhl** —
+zatímco `sync-results.yml` běžel dál spolehlivě každých 30 minut po
+celou dobu. Proto appka uživatelovu hecovačku "test" (`end_date`
+20.9.2026) vůbec nestihla archivovat. Ruční spuštění workflow
+(`actions_run_trigger`) ji ihned archivovalo (log: "Archivováno 1
+hecovaček po uplynutí data konce.") a zároveň dotáhlo 13 zápasů dalším
+dnům "pasiva hokej" (druhá aktivní hecovačka uživatele), co appka
+mezitím nevybrala. **Zapsáno jako otevřený ruční krok** (viz
+`docs/PROJECT.md` → "Ruční kroky") -- uživatel musí znovu zkontrolovat
+nastavení v cron-job.org, appka to sama ověřit nemůže (žádný přístup na
+cron-job.org z týhle session).
+
+**Implementace (5 souborů + nová komponenta):**
+
+1. **`src/components/hecovacka-results-card.tsx`** (nová) --
+   `HecovackaResultsCard`, tmavá "hero" karta recyklující vizuální jazyk
+   `SpotlightMatchCard` (appka na `/spaces/[id]` už tenhle vzhled
+   používá pro nejdůležitější obsah stránky). Bere `standings` (pole
+   `{userId, displayName, totalPoints}`, appka je na `/spaces/[id]` už
+   měla spočítané pro "Celkově: X. místo" v hlavičce -- žádný nový
+   dotaz navíc), seskupí je podle bodů (funkce `groupByRank`) do
+   standardního sportovního pořadí s remízami (1, 1, 3 -- ne 1, 1, 2,
+   stejný princip jako `weekly_badges` "remíza = víc vítězů") a ukáže
+   první tři skupiny se zlatou/stříbrnou/bronzovou medailí (barvy
+   zkopírované z `MEDAL_STYLES` v `leaderboard/page.tsx`, ne
+   exportované sdílené -- obě místa jsou malá a nezávislá, sdílení by
+   přidalo jen nepřímost). Odkaz "Zobrazit celý žebříček →" dole.
+2. **`src/app/(app)/spaces/[id]/page.tsx`** -- doplněn `status` do
+   `competitions` selectu, `isArchived = competition.status ===
+   "archived"`. `HecovackaResultsCard` se vykreslí místo weekly banneru
+   při `isArchived`; banner "Tenhle týden..." a celá sekce
+   "Nadcházející" se při `isArchived` úplně schovají (appka u
+   jednorázové uzavřené soutěže už žádný další zápas nikdy nevybere,
+   viz `hecovacky.mjs` -- "Nadcházející" by jinak věčně viselo na "vše
+   natipováno").
+3. **`src/app/(app)/spaces/[id]/hecovacka-panel.tsx`** -- nový prop
+   `isArchived`. Archivovaná: pozvánkový odkaz, "Přidat hráče ze
+   seznamu appky" i tlačítka na odebrání (X) u jednotlivých hráčů
+   zmizí, "Hraje se do" se změní na "Hrálo se do", navíc badge "🏁
+   Hecovačka skončila".
+4. **`src/app/(app)/spaces/[id]/actions.ts`** -- `addHecovackaPlayer` a
+   `removeHecovackaPlayer` teď PŘED zápisem ověří `competitions.status`
+   a při `archived` vyhodí chybu -- schování tlačítek v UI appku
+   nechrání proti přímému volání server akce mimo formulář (např. přes
+   devtools), appka takovou kontrolu jinde v projektu vždycky dělá i
+   na serveru, ne jen v UI (viz `docs/PROJECT.md` → "Přihlášení do
+   soutěže je podmínka pro tip -- vynuceno v DB"). Vědomě BEZ nové RLS
+   politiky/migrace -- appka to řeší v server akci (žádný ruční krok
+   pro uživatele navíc), skutečnou autorizaci (kdo smí co v
+   `competition_participants`) už jednou vynucuje existující RLS,
+   tohle je jen doplňková kontrola stavu soutěže.
+5. **`src/app/(app)/spaces/[id]/leaderboard/page.tsx`** -- `status`
+   doplněn do selectu, celá sekce "Týdenní žebříček" (appka na
+   "aktuální kalendářní týden" u dávno skončené soutěže nikdy nic
+   nenajde) se při `archived` schová, zůstává jen "Celkový žebříček".
+6. **`src/components/competition-card.tsx`** -- nový prop `isArchived`,
+   badge "🏁 Skončilo" (nahrazuje "Vše natipováno", obojí najednou by
+   bylo matoucí -- skončená hecovačka je triviálně "vše natipováno",
+   protože žádné další zápasy nepřibudou). Zapojeno na
+   `src/app/(app)/hecovacky/page.tsx` a `dashboard/page.tsx`
+   (`DashboardCompetitionListItem`).
+
+**Vědomě rozhodnuto s uživatelem (přes `AskUserQuestion`):** pódium se
+zobrazuje přímo nahoře na `/spaces/[id]` (ne na samostatné stránce) --
+jednodušší, hráč to uvidí hned bez dalšího kliku. E-mailové oznámení o
+konci hecovačky (analogické "byl jsi přidán") zatím NENÍ součástí --
+uživatel zvolil "zatím jen web", appka na to má infrastrukturu
+připravenou (stejný mechanismus jako `sendAddedNotifications` v
+`hecovacky.mjs`), dá se doplnit později jako samostatný krok.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm build` + `pnpm test` (60
+testů, beze změny -- appka nemá testy na Next.js stránky/komponenty,
+jen na `scripts/sync` knihovní funkce).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

@@ -15,6 +15,37 @@ export type SubmitPredictionState = {
   syncWarning?: string;
 };
 
+// Sdílená pojistka pro skončenou hecovačku -- appka "zakonzervuje"
+// finální pořadí, jakmile status přejde na 'archived' (hecovacky.mjs).
+// Používá leaveCompetition/addHecovackaPlayer/removeHecovackaPlayer,
+// ať mimo formulář (přímé volání akce) nejde obejít schované tlačítko
+// v UI (nalezeno Codex review na PR #225). joinCompetition ji
+// nepotřebuje -- samoobslužné "Chci hrát" u soukromé soutěže RLS
+// stejně odmítne (žádná insert policy pro visibility='private').
+//
+// Fail-closed na chybě dotazu (Codex review): appka dřív při
+// přechodné chybě Supabase (appka má na tenhle typ výpadku i vlastní
+// retry na fetch úrovni, viz retry-fetch.ts, tohle je poslední
+// pojistka) tiše pokračovala, jako by soutěž nebyla archivovaná --
+// teď mutaci radši zablokuje, i za cenu chybové hlášky navíc.
+async function assertHecovackaNotArchived(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  message: string,
+) {
+  const { data: competition, error } = await supabase
+    .from("competitions")
+    .select("status, visibility")
+    .eq("id", competitionId)
+    .single();
+  if (error) {
+    throw new Error(`Nepodařilo se ověřit stav soutěže: ${error.message}`);
+  }
+  if (competition.visibility === "private" && competition.status === "archived") {
+    throw new Error(message);
+  }
+}
+
 export async function joinCompetition(competitionId: string) {
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -41,6 +72,18 @@ export async function leaveCompetition(competitionId: string) {
   const user = await getCurrentUser();
 
   if (!user) return;
+
+  // Skončená hecovačka: appka po archivaci nedovolí ani odchod ze
+  // soutěže -- pozvánkový token po archivaci appka odmítá
+  // (accept_hecovacka_invite vyžaduje status='active'), takže by se
+  // hráč nemohl vrátit a "finální" pódium by přišlo o jméno (nalezeno
+  // Codex review na PR #225, appka tlačítko v UI schovává, ale mimo
+  // formulář by šlo akci zavolat přímo).
+  await assertHecovackaNotArchived(
+    supabase,
+    competitionId,
+    "Hecovačka už skončila, ze soutěže nejde odejít.",
+  );
 
   const { error } = await supabase
     .from("competition_participants")
@@ -70,6 +113,17 @@ export async function addHecovackaPlayer(competitionId: string, userId: string) 
   const currentUser = await getCurrentUser();
 
   if (!currentUser) return;
+
+  // Skončená hecovačka se "zakonzervuje" -- appka po archivaci (viz
+  // hecovacky.mjs) schová tlačítko v UI (HecovackaPanel), ale kontrola
+  // patří i sem, ať to nejde obejít přímým voláním akce mimo formulář
+  // (uživatel 21.9.2026 -- appka dřív nechávala přidávání hráčů funkční
+  // i po konci hecovačky).
+  await assertHecovackaNotArchived(
+    supabase,
+    competitionId,
+    "Hecovačka už skončila, hráče nejde přidat.",
+  );
 
   const { error } = await supabase
     .from("competition_participants")
@@ -101,6 +155,14 @@ export async function addHecovackaPlayer(competitionId: string, userId: string) 
 // competition_participants_delete_by_owner).
 export async function removeHecovackaPlayer(competitionId: string, userId: string) {
   const supabase = await createClient();
+
+  // Stejná pojistka jako addHecovackaPlayer výše -- odebírání hráčů po
+  // konci hecovačky nedává smysl (měnilo by to "finální" pořadí).
+  await assertHecovackaNotArchived(
+    supabase,
+    competitionId,
+    "Hecovačka už skončila, hráče nejde odebrat.",
+  );
 
   const { error } = await supabase
     .from("competition_participants")

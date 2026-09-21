@@ -21,6 +21,7 @@ import {
 import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { HecovackaPanel } from "./hecovacka-panel";
+import { HecovackaResultsCard } from "@/components/hecovacka-results-card";
 import { joinCompetition, leaveCompetition } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
@@ -117,7 +118,7 @@ export default async function CompetitionDetailPage({
     getCurrentUser(),
     supabase
       .from("competitions")
-      .select("id, name, sport, logo_url, visibility, description, end_date, invite_token, created_by")
+      .select("id, name, sport, logo_url, visibility, description, end_date, invite_token, created_by, status")
       .eq("id", id)
       .single(),
     supabase
@@ -210,6 +211,16 @@ export default async function CompetitionDetailPage({
   // nezatěžuje dotazem navíc, co by nikdy nepoužily (stejný princip
   // jako lazy MobileMenuCompetitions, viz PROJECT.md sekce "Výkon").
   const isOwner = competition.visibility === "private" && user?.id === competition.created_by;
+  // Hecovačka po uplynutí end_date (archivuje hecovacky.mjs) --
+  // appka se "zakonzervuje": zmizí pozvánka/přidávání hráčů, týdenní
+  // žebříček a "Nadcházející" (žádné další zápasy nepřibydou), místo
+  // toho se ukáže vyhodnocení vítězů (uživatel 21.9.2026, viz
+  // HecovackaResultsCard). Podmínka i na visibility==='private'
+  // (nalezeno Codex review na PR #225) -- `status` je obecný sloupec
+  // pro VŠECHNY competitions, appka ho zatím zapisuje jen u hecovaček,
+  // ale bez týhle podmínky by případné budoucí `status='archived'` u
+  // veřejné soutěže omylem spustilo celé tohle "zakonzervování" i tam.
+  const isArchived = competition.visibility === "private" && competition.status === "archived";
   let sourceNames: string[] = [];
   let candidates: { id: string; display_name: string }[] = [];
   if (competition.visibility === "private") {
@@ -378,6 +389,7 @@ export default async function CompetitionDetailPage({
         <HecovackaPanel
           competitionId={competition.id}
           isOwner={isOwner}
+          isArchived={isArchived}
           description={competition.description}
           endDate={competition.end_date}
           sourceNames={sourceNames}
@@ -390,6 +402,14 @@ export default async function CompetitionDetailPage({
         />
       )}
 
+      {isArchived && (
+        <HecovackaResultsCard
+          standings={standings}
+          sport={competitionFallbackSport(competition.sport)}
+          competitionId={competition.id}
+        />
+      )}
+
       {/* "Jak si vedu tenhle týden" hned pod hlavičkou (14.9.2026, na
        * žádost uživatele "at je hned videt") -- zobrazuje se VŽDY
        * (14.9.2026, uživatel upřesnil "ten banner se na strance
@@ -399,25 +419,33 @@ export default async function CompetitionDetailPage({
        * soutěže, ale zobrazoval se jen přihlášeným v týdnu s odehraným
        * zápasem, takže appka v ostatních případech neměla na žebříček
        * z týhle stránky vůbec žádný proklik). Text se přizpůsobuje
-       * situaci, odkaz na žebříček zůstává vždy stejný. */}
-      <Link
-        href={`/spaces/${competition.id}/leaderboard`}
-        className="btn-press flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-3 transition-colors hover:bg-accent/[0.1]"
-      >
-        <span className="flex items-center gap-2 text-sm font-bold">
-          <Flame className="h-4 w-4 text-accent" strokeWidth={2.4} />
-          {!isJoined
-            ? "Přidej se a bojuj o týdenní žebříček"
-            : weekly.weekMatchCount === 0
-              ? "Tenhle týden se zatím nehraje"
-              : ownWeeklyRank
-                ? `Tenhle týden: ${ownWeeklyPoints} b. · ${ownWeeklyRank.rank}. místo z ${ownWeeklyRank.total}`
-                : "Tenhle týden zatím bez bodů — natipuj si a naskoč do žebříčku"}
-        </span>
-        <span className="shrink-0 text-xs font-bold text-accent">
-          Žebříček →
-        </span>
-      </Link>
+       * situaci, odkaz na žebříček zůstává vždy stejný.
+       *
+       * Skončená hecovačka (isArchived) tenhle banner nemá -- týdenní
+       * žebříček je koncept pro BĚŽÍCÍ soutěž, u uzavřené jednorázové
+       * hecovačky je matoucí ("tenhle týden se nehraje", i když appka
+       * myslí "už se nikdy hrát nebude"). Vyhodnocení je místo toho v
+       * HecovackaResultsCard výše. */}
+      {!isArchived && (
+        <Link
+          href={`/spaces/${competition.id}/leaderboard`}
+          className="btn-press flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-3 transition-colors hover:bg-accent/[0.1]"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <Flame className="h-4 w-4 text-accent" strokeWidth={2.4} />
+            {!isJoined
+              ? "Přidej se a bojuj o týdenní žebříček"
+              : weekly.weekMatchCount === 0
+                ? "Tenhle týden se zatím nehraje"
+                : ownWeeklyRank
+                  ? `Tenhle týden: ${ownWeeklyPoints} b. · ${ownWeeklyRank.rank}. místo z ${ownWeeklyRank.total}`
+                  : "Tenhle týden zatím bez bodů — natipuj si a naskoč do žebříčku"}
+          </span>
+          <span className="shrink-0 text-xs font-bold text-accent">
+            Žebříček →
+          </span>
+        </Link>
+      )}
 
       {!matches?.length && (
         <p className="text-sm text-muted-foreground">
@@ -514,7 +542,12 @@ export default async function CompetitionDetailPage({
 
         return (
           <>
-            {(hasUpcoming || showCaughtUpMessage) && (
+            {/* Skončená hecovačka (isArchived) nemá "Nadcházející" vůbec
+             * -- appka v ní žádný další zápas nikdy nevybere (viz
+             * hecovacky.mjs, archivace se dělá právě proto), takže sekce
+             * by věčně visela na "vše natipováno" i po konci soutěže
+             * (uživatel 21.9.2026 nahlásil přesně tohle). */}
+            {!isArchived && (hasUpcoming || showCaughtUpMessage) && (
               <section className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-muted-foreground">
                   Nadcházející ({upcomingMissing.length + upcomingPredicted.length})
@@ -713,7 +746,13 @@ export default async function CompetitionDetailPage({
         );
       })()}
 
-      {isJoined && (
+      {/* Skončená hecovačka: "Opustit soutěž" by hráče vymazalo z
+       * finálního pořadí/pódia bez možnosti návratu -- pozvánkový
+       * token po archivaci appka odmítá (accept_hecovacka_invite
+       * vyžaduje status='active', viz migrace 20260915090200), takže
+       * by se hráč nemohl vrátit ani přes pozvánku. Nalezeno Codex
+       * review na PR #225. */}
+      {isJoined && !isArchived && (
         <form
           action={leaveCompetition.bind(null, competition.id)}
           className="mt-4 self-start"

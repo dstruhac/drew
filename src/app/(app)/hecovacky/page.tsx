@@ -14,7 +14,7 @@ export default async function HecovackyPage() {
 
   const { data: competitions, error } = await supabase
     .from("competitions")
-    .select("id, name, sport, logo_url, description")
+    .select("id, name, sport, logo_url, description, status")
     .eq("visibility", "private")
     .order("created_at", { ascending: false });
 
@@ -114,6 +114,7 @@ export default async function HecovackyPage() {
               <CompetitionCard
                 competition={competition}
                 rank={rankByCompetition.get(competition.id) ?? null}
+                isArchived={competition.status === "archived"}
                 isStake
               />
             </li>
