@@ -10,6 +10,7 @@ import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos } from "@/lib/team-logos";
 import { findSharedMatchIds } from "@/lib/shared-matches";
+import { topWinnerNames } from "@/lib/hecovacka-standings";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
@@ -317,6 +318,7 @@ export default async function DashboardPage() {
                   competition={competition}
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
                   layout="carousel"
                 />
               ))}
@@ -326,6 +328,7 @@ export default async function DashboardPage() {
                   competition={competition}
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
                   layout="stack"
                 />
               ))}
@@ -361,6 +364,7 @@ export default async function DashboardPage() {
                   competition={competition}
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
                   isStake
                   layout="carousel"
                 />
@@ -371,6 +375,7 @@ export default async function DashboardPage() {
                   competition={competition}
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
                   isStake
                   layout="stack"
                 />
@@ -396,6 +401,7 @@ function DashboardCompetitionListItem({
   competition,
   rank,
   allCaughtUp,
+  winners,
   isStake,
   layout,
 }: {
@@ -409,6 +415,7 @@ function DashboardCompetitionListItem({
   };
   rank: { rank: number; total: number } | null;
   allCaughtUp: boolean;
+  winners: string[];
   isStake?: boolean;
   /** "carousel" = kartička má na mobilu fixní procentuální šířku (peek
    * dalšího řádku při swipu), "stack" = plná šířka (počítačová mřížka,
@@ -425,6 +432,7 @@ function DashboardCompetitionListItem({
         rank={rank}
         allCaughtUp={allCaughtUp}
         isArchived={competition.status === "archived"}
+        winners={winners}
         isStake={isStake}
       />
     </li>

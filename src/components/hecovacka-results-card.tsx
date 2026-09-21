@@ -1,34 +1,15 @@
 import Link from "next/link";
 import { Trophy, Crown } from "lucide-react";
 import { sportAccentStyle } from "@/lib/sport";
+import { groupStandingsByRank, type StandingEntry } from "@/lib/hecovacka-standings";
 
-export type StandingEntry = { userId: string; displayName: string; totalPoints: number };
+export type { StandingEntry };
 
 const MEDAL_BADGE: Record<number, string> = {
   1: "bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 shadow-[0_0_0_3px_rgba(251,191,36,0.35)]",
   2: "bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900",
   3: "bg-gradient-to-br from-orange-300 to-orange-600 text-orange-950",
 };
-
-// Standardní "sportovní" řazení s remízami (1, 1, 3 -- ne 1, 1, 2): dva
-// hráči se stejným počtem bodů sdílí stejné umístění, další hráč pak
-// přeskakuje o tolik míst, kolik jich zabrali. Stejný princip appka už
-// používá u weekly_badges ("remíza = víc vítězů").
-function groupByRank(standings: StandingEntry[]) {
-  const groups: { rank: number; points: number; players: StandingEntry[] }[] = [];
-  let i = 0;
-  while (i < standings.length) {
-    const points = standings[i].totalPoints;
-    const players: StandingEntry[] = [];
-    while (i < standings.length && standings[i].totalPoints === points) {
-      players.push(standings[i]);
-      i++;
-    }
-    const rank = groups.reduce((sum, g) => sum + g.players.length, 0) + 1;
-    groups.push({ rank, points, players });
-  }
-  return groups;
-}
 
 // Vyhodnocení skončené hecovačky (visibility='private', status='archived')
 // -- nahrazuje na /spaces/[id] týdenní žebříček a sekci "Nadcházející",
@@ -46,7 +27,7 @@ export function HecovackaResultsCard({
   sport: "hockey" | "football";
   competitionId: string;
 }) {
-  const podium = groupByRank(standings).filter((g) => g.rank <= 3);
+  const podium = groupStandingsByRank(standings).filter((g) => g.rank <= 3);
 
   return (
     <div

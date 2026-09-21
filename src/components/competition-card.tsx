@@ -25,6 +25,7 @@ export function CompetitionCard({
   rank,
   allCaughtUp = false,
   isArchived = false,
+  winners = [],
   isJoined,
   linkToDetail = true,
   showLogo = true,
@@ -43,10 +44,15 @@ export function CompetitionCard({
    * Nastavuje se jen pro soutěže, které hráč hraje (viz volající). */
   allCaughtUp?: boolean;
   /** `true` u hecovačky, které uplynul end_date (archivuje
-   * hecovacky.mjs) -- appka místo "Vše natipováno" ukáže badge
-   * "Skončilo" (uživatel 21.9.2026, appka dřív skončené hecovačky
-   * nijak neodlišovala od aktivních). */
+   * hecovacky.mjs) -- appka celou kartu ztlumí (stejná desaturace jako
+   * u odehraných zápasů na /spaces/[id]) a místo "Vše natipováno"
+   * ukáže vítěze (uživatel 21.9.2026, appka dřív skončené hecovačky
+   * nijak neodlišovala od aktivních a vítěze bylo vidět až po
+   * prokliknutí na detail). */
   isArchived?: boolean;
+  /** Jména hráčů na 1. místě -- víc jmen při remíze (viz
+   * src/lib/hecovacka-standings.ts). Má smysl jen s `isArchived`. */
+  winners?: string[];
   /** `false` zobrazí tlačítko "Chci hrát" přímo na kartě. `undefined`
    * (výchozí, používá Dashboard) tlačítko nikdy nezobrazí -- Dashboard
    * posílá jen soutěže, které hráč už hraje, takže se tam nehodí. */
@@ -100,8 +106,13 @@ export function CompetitionCard({
           </p>
         )}
         {isArchived ? (
-          <span className="mt-1.5 inline-block rounded-full border border-border-subtle px-2 py-0.5 text-[11px] font-bold text-faint-foreground">
-            🏁 Skončilo
+          <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+            🏆{" "}
+            {winners.length === 0
+              ? "Skončilo"
+              : winners.length === 1
+                ? `Vyhrál(a) ${winners[0]}`
+                : `Vyhráli: ${winners.join(", ")}`}
           </span>
         ) : (
           allCaughtUp && (
@@ -130,7 +141,7 @@ export function CompetitionCard({
   return (
     <div
       style={sportAccentStyle(competition.sport)}
-      className="card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)]"
+      className={`card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)] ${isArchived ? "saturate-[0.55]" : ""}`}
     >
       {linkToDetail ? (
         <Link href={`/spaces/${competition.id}`} className="flex flex-1 flex-col gap-4">

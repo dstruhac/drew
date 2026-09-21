@@ -4046,6 +4046,41 @@ Ověřeno `pnpm exec tsc --noEmit` + `pnpm build` + `pnpm test` (60
 testů, beze změny -- appka nemá testy na Next.js stránky/komponenty,
 jen na `scripts/sync` knihovní funkce).
 
+## Kartička skončené hecovačky rovnou ukáže vítěze (21.9.2026)
+
+**Nahlásil uživatel** (navazuje na "zakonzervování" hecovačky výše):
+"na kartě hecovačky bych chtel po konci soutěže vypsat vítěze. zaroven
+danou kartičku vic oznacit jako dokoncenou." Kartička (`CompetitionCard`,
+sdílená mezi `/hecovacky` a Dashboardem) dřív u skončené hecovačky
+ukazovala jen tichý badge "🏁 Skončilo" -- vítěze bylo vidět až po
+prokliknutí na `HecovackaResultsCard` na detailu soutěže.
+
+**Implementace:**
+
+1. **`src/lib/hecovacka-standings.ts`** (nová) -- vytažena sdílená
+   logika z `HecovackaResultsCard` (`groupStandingsByRank`, stejné
+   "sportovní" řazení s remízami 1,1,3 jako `weekly_badges`), plus nová
+   `topWinnerNames(standings)` vracející jména hráčů na 1. místě (víc
+   jmen při remíze). `hecovacka-results-card.tsx` teď typ/funkci
+   importuje odsud místo lokální definice -- appka měla stejnou logiku
+   žít jen jednou, teď ji potřebovaly dva různé komponenty.
+2. **`src/components/competition-card.tsx`** -- nový prop `winners:
+   string[]` (výchozí `[]`). Badge "🏁 Skončilo" nahrazen "🏆 Vyhrál(a)
+   {jméno}" (nebo "🏆 Vyhráli: X, Y" při remíze), beze jmen (nikdo se
+   nezapojil) zůstává "🏆 Skončilo". Celá kartička navíc dostala
+   `saturate-[0.55]` při `isArchived` -- stejná desaturace, jakou appka
+   už používala pro ODEHRANÉ ZÁPASY na `/spaces/[id]` (`MatchCard`,
+   `finishedMutedClass`), recyklovaný vizuální jazyk pro "tohle je
+   hotové/minulost", ne nový vzor navíc.
+3. **`src/app/(app)/hecovacky/page.tsx`** a **`dashboard/page.tsx`**
+   (`DashboardCompetitionListItem`) -- obě už měly spočítané
+   `standingsByCompetition` (kvůli vlastnímu pořadí hráče na kartičce),
+   appka jen navíc zavolala `topWinnerNames()` nad stejnými daty --
+   žádný nový dotaz do databáze.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm build` + `pnpm test` (60
+testů, beze změny).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
