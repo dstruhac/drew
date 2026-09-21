@@ -307,6 +307,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   `HecovackaResultsCard` s pořadím 1.–3. místa (remízy = víc vítězů na
   stejné pozici). `/hecovacky` a Dashboard skončené hecovačky odliší
   badge "🏁 Skončilo". Viz `HISTORY.md`.
+- [x] Kartička skončené hecovačky rovnou ukáže vítěze (21.9.2026) —
+  na žádost uživatele badge "🏁 Skončilo" nahrazen "🏆 Vyhrál(a)
+  {jméno}" (víc jmen při remíze), celá kartička navíc ztlumená
+  (`saturate-[0.55]`, stejný princip jako u odehraných zápasů), ať je
+  vizuálně jasně "hotová". Sdílená logika s `HecovackaResultsCard`
+  přesunuta do `src/lib/hecovacka-standings.ts`. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

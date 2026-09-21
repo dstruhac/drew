@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { CompetitionCard } from "@/components/competition-card";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+import { topWinnerNames } from "@/lib/hecovacka-standings";
 
 // Přehled hecovaček (soukromých soutěží) -- RLS (competitions_select_visible,
 // viz 20260914090000_competitions_hecovacky.sql) sama zaručuje, že se
@@ -115,6 +116,7 @@ export default async function HecovackyPage() {
                 competition={competition}
                 rank={rankByCompetition.get(competition.id) ?? null}
                 isArchived={competition.status === "archived"}
+                winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
                 isStake
               />
             </li>
