@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   const { data: participantRows, error: participantRowsError } = await supabase
     .from("competition_participants")
     .select(
-      "competitions(id, name, sport, logo_url, description, visibility)",
+      "competitions(id, name, sport, logo_url, description, visibility, status)",
     )
     .eq("user_id", user?.id ?? "");
 
@@ -405,6 +405,7 @@ function DashboardCompetitionListItem({
     sport: CompetitionSport;
     logo_url: string | null;
     description: string | null;
+    status: string;
   };
   rank: { rank: number; total: number } | null;
   allCaughtUp: boolean;
@@ -423,6 +424,7 @@ function DashboardCompetitionListItem({
         competition={competition}
         rank={rank}
         allCaughtUp={allCaughtUp}
+        isArchived={competition.status === "archived"}
         isStake={isStake}
       />
     </li>

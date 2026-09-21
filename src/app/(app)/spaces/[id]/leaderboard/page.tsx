@@ -100,7 +100,7 @@ export default async function LeaderboardPage({
     predictionsResult,
   ] = await Promise.all([
     getCurrentUser(),
-    supabase.from("competitions").select("id, name, sport").eq("id", id).single(),
+    supabase.from("competitions").select("id, name, sport, status").eq("id", id).single(),
     supabase
       .from("competition_participants")
       .select("user_id, profiles!user_id(display_name, avatar_url)")
@@ -266,7 +266,15 @@ export default async function LeaderboardPage({
 
       {/* Týdenní žebříček nahoře -- na žádost uživatele 12.9.2026 ("at je
        * vikendovy nahore"): tenhle je "živý" a nejrelevantnější k
-       * aktuálnímu dění, celkový žebříček za celou sezónu je níž. */}
+       * aktuálnímu dění, celkový žebříček za celou sezónu je níž.
+       *
+       * Skončená hecovačka (competition.status === "archived") tenhle
+       * blok nemá -- appka na "aktuální kalendářní týden" dávno nemá
+       * žádné zápasy (soutěž skončila), takže by pořád jen hlásila "v
+       * tomhle týdnu se nehraje", což u uzavřené soutěže matlo
+       * (uživatel 21.9.2026). Vyhodnocení konečného pořadí appka místo
+       * toho ukazuje na /spaces/[id] (HecovackaResultsCard). */}
+      {competition.status !== "archived" && (
       <section className="flex flex-col gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -335,6 +343,7 @@ export default async function LeaderboardPage({
           </ol>
         )}
       </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

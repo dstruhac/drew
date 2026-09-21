@@ -71,6 +71,20 @@ export async function addHecovackaPlayer(competitionId: string, userId: string) 
 
   if (!currentUser) return;
 
+  // Skončená hecovačka se "zakonzervuje" -- appka po archivaci (viz
+  // hecovacky.mjs) schová tlačítko v UI (HecovackaPanel), ale kontrola
+  // patří i sem, ať to nejde obejít přímým voláním akce mimo formulář
+  // (uživatel 21.9.2026 -- appka dřív nechávala přidávání hráčů funkční
+  // i po konci hecovačky).
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("status")
+    .eq("id", competitionId)
+    .single();
+  if (competition?.status === "archived") {
+    throw new Error("Hecovačka už skončila, hráče nejde přidat.");
+  }
+
   const { error } = await supabase
     .from("competition_participants")
     .insert({ competition_id: competitionId, user_id: userId, added_by: currentUser.id });
@@ -101,6 +115,17 @@ export async function addHecovackaPlayer(competitionId: string, userId: string) 
 // competition_participants_delete_by_owner).
 export async function removeHecovackaPlayer(competitionId: string, userId: string) {
   const supabase = await createClient();
+
+  // Stejná pojistka jako addHecovackaPlayer výše -- odebírání hráčů po
+  // konci hecovačky nedává smysl (měnilo by to "finální" pořadí).
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("status")
+    .eq("id", competitionId)
+    .single();
+  if (competition?.status === "archived") {
+    throw new Error("Hecovačka už skončila, hráče nejde odebrat.");
+  }
 
   const { error } = await supabase
     .from("competition_participants")
