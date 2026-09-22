@@ -25,21 +25,42 @@ const SPORT_LABELS: Record<string, string> = {
 // nevypadá pompézně") -- appka jinde v appce vizuálně seskupuje obsah
 // do zaoblených karet (HecovackaPanel, CompetitionCard), formulář dřív
 // místo toho měl jen volně plovoucí bold labely bez jediné ikony.
+//
+// `htmlFor` (nepovinné) -- karta obalující JEDNO textové pole (Název,
+// O co se hraje) ho musí předat, jinak appka ztratí přístupné
+// propojení labelu s polem (nalezeno Codex review na PR #229: appka
+// dřív měla `<label htmlFor="name">`, po přechodu na kartu se štítkem
+// jako `<span>` o něj přišla -- čtečka obrazovky/hlasové ovládání pak
+// pole poznají jen podle placeholderu, klik na titulek pole nezaostří).
+// Karty obalující SKUPINU polí (Termín, checkboxy) žádné jedno pole
+// nemají, tam zůstává `<span>` -- každé jednotlivé pole uvnitř má svůj
+// vlastní `<label htmlFor>`.
 function SectionCard({
   icon: Icon,
   label,
+  htmlFor,
   children,
 }: {
   icon: LucideIcon;
   label: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
+  const headingContent = (
+    <>
+      <Icon className="h-4 w-4 text-accent" strokeWidth={2.2} />
+      {label}
+    </>
+  );
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-border-subtle bg-surface p-4">
-      <span className="flex items-center gap-2 text-sm font-bold">
-        <Icon className="h-4 w-4 text-accent" strokeWidth={2.2} />
-        {label}
-      </span>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="flex items-center gap-2 text-sm font-bold">
+          {headingContent}
+        </label>
+      ) : (
+        <span className="flex items-center gap-2 text-sm font-bold">{headingContent}</span>
+      )}
       {children}
     </div>
   );
@@ -85,7 +106,7 @@ export function HecovackaForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <SectionCard icon={Type} label="Název hecovačky">
+      <SectionCard icon={Type} label="Název hecovačky" htmlFor="name">
         <input
           id="name"
           name="name"
@@ -99,7 +120,7 @@ export function HecovackaForm({
         />
       </SectionCard>
 
-      <SectionCard icon={Gift} label="O co se hraje">
+      <SectionCard icon={Gift} label="O co se hraje" htmlFor="description">
         <textarea
           id="description"
           name="description"
