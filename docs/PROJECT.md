@@ -319,6 +319,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   sekce formuláře jako vlastní karta s ikonkou + tlačítko "Založit
   hecovačku" ve stejném pompézním stylu jako "Chci hrát". Viz
   `HISTORY.md`.
+- [x] Tlačítko "+ Založit hecovačku" i na Dashboardu (22.9.2026) — vedle
+  nadpisu "Dashboard", stejné jako appka už měla na `/hecovacky`; dřív
+  se k formuláři dalo dostat jen přes `/hecovacky`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
