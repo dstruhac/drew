@@ -241,8 +241,14 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10 sm:max-w-5xl sm:px-10">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
+        <Link
+          href="/hecovacky/nova"
+          className="btn-press h-fit rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90"
+        >
+          + Založit hecovačku
+        </Link>
       </header>
 
       <JoinCompetitionsModal
