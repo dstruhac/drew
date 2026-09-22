@@ -4081,6 +4081,65 @@ prokliknutí na `HecovackaResultsCard` na detailu soutěže.
 Ověřeno `pnpm exec tsc --noEmit` + `pnpm build` + `pnpm test` (60
 testů, beze změny).
 
+## Formulář na založení hecovačky graficky "pompéznější" (22.9.2026)
+
+**Nahlásil uživatel:** "formulář pro vytvoření hecovačky nevypadá
+pompézně. naše aplikace vypadá skvěle a tomu formuláři něco chybí."
+Zbytek appky má výrazný vizuální jazyk (tmavé "hero" karty se
+sportovním glow efektem u nejdůležitějšího obsahu, ikony u všeho,
+pulzující CTA tlačítka, medailové barvy) -- formulář `/hecovacky/nova`
+byl jen strohé řádky label+input bez jediné ikony, bez vizuálního
+seskupení a s obyčejným tlačítkem.
+
+**Rozsah odsouhlasen přes `AskUserQuestion`:** jen vizuální zvýraznění
+(karty, ikony, hezčí tlačítko), BEZ živého náhledu výsledné kartičky
+hecovačky uvnitř formuláře (uživatel zvolil jednodušší/rychlejší
+variantu, kterou jsem doporučil).
+
+**Implementace:**
+
+1. **`src/app/(app)/hecovacky/nova/page.tsx`** -- hlavička nahrazena
+   tmavou "hero" kartou (`bg-[#15171c]`, rozmazaný glow kruh v rohu),
+   stejný vizuál, jaký appka používá pro nejdůležitější obsah
+   (`SpotlightMatchCard`, `HecovackaResultsCard`) -- appka ho tu
+   recyklovala, ne vymýšlela nový vzhled navíc. Ikonka `PartyPopper`
+   (nová v appce, fits "hecovačka" hravou branding -- appka jinde
+   používá spíš `Trophy`, ale ten je už zabraný pro obecný koncept
+   "soutěž").
+2. **`src/app/(app)/hecovacky/nova/form.tsx`** -- nová lokální
+   komponenta `SectionCard` (ikonka + label + obsah v zaoblené kartě,
+   `rounded-2xl border border-border-subtle bg-surface p-4`, stejný
+   vzhled jako `HecovackaPanel`/`CompetitionCard`), obaluje všech 6
+   sekcí formuláře (název, o co se hraje, termín, zdrojové soutěže,
+   limit zápasů, hráči). Tlačítko "Založit hecovačku" dostalo stejnou
+   třídu jako pompézní "Chci hrát" CTA jinde v appce (`btn-hero`,
+   gradient, jemný "sonar" pulz z `hero-cta-pulse` v `globals.css`) +
+   ikonku `Rocket` (stejná ikonka appka používá pro "Chci hrát").
+   Ikony sekcí: `Type` (název), `Gift` (o co se hraje -- sázka/výhra),
+   `Calendar` (termín), `Trophy` (zdrojové soutěže), `SlidersHorizontal`
+   (limit zápasů), `Users` (hráči) -- většina recyklovaná z appky,
+   `Type`/`Gift`/`SlidersHorizontal`/`PartyPopper` nové, ale z lucide-react
+   (appka žádnou novou závislost nepřidala).
+
+**Vizuální ověření:** appka nemá z týhle session přístup na živou
+Supabase ani přihlášení (formulář je za middlewarem), takže appka
+postavila dočasnou neautentizovanou náhledovou stránku
+(`src/app/preview-hecovacka-tmp/`, dočasně přidanou do `PUBLIC_PATHS`
+v `middleware.ts`) s mockovanými daty, vyrenderovala ji lokálním `next
+dev`, screenshotovala Playwrightem (mobilní šířka, světlý i tmavý
+režim -- appka má globálně nainstalovaný Playwright na
+`/opt/node22/lib/node_modules/playwright`, prohlížeč
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, žádné `playwright
+install` potřeba) a výsledek poslala uživateli. Náhledová
+stránka i dočasný zápis v `middleware.ts` byly po screenshotu
+smazané/vrácené -- appka je nikdy neposlala do gitu.
+
+Ověřeno `pnpm typecheck` (raw `tsc --noEmit` bez předchozího `next
+typegen` po smazání `.next` selhává na chybějících generovaných typech
+`PageProps`/`LayoutProps` -- appka na to narazila cestou, `pnpm
+typecheck` skript to řeší správně) + `pnpm build` + `pnpm test` (60
+testů, beze změny).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

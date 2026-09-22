@@ -313,6 +313,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   (`saturate-[0.55]`, stejný princip jako u odehraných zápasů), ať je
   vizuálně jasně "hotová". Sdílená logika s `HecovackaResultsCard`
   přesunuta do `src/lib/hecovacka-standings.ts`. Viz `HISTORY.md`.
+- [x] Formulář na založení hecovačky graficky "pompéznější" (22.9.2026)
+  — dřív strohé řádky label+input bez ikon, teď hero hlavička (tmavá
+  karta s ikonkou, stejný vzhled jako `SpotlightMatchCard`) + každá
+  sekce formuláře jako vlastní karta s ikonkou + tlačítko "Založit
+  hecovačku" ve stejném pompézním stylu jako "Chci hrát". Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

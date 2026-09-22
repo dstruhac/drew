@@ -1,6 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import {
+  Calendar,
+  Gift,
+  Rocket,
+  SlidersHorizontal,
+  Trophy,
+  Type,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { createHecovacka, type CreateHecovackaState } from "./actions";
 
 const initialState: CreateHecovackaState = { error: null };
@@ -10,6 +20,30 @@ const SPORT_LABELS: Record<string, string> = {
   football: "fotbal",
   mixed: "mix",
 };
+
+// Karty se štítkem + ikonkou (22.9.2026, na žádost uživatele "formulář
+// nevypadá pompézně") -- appka jinde v appce vizuálně seskupuje obsah
+// do zaoblených karet (HecovackaPanel, CompetitionCard), formulář dřív
+// místo toho měl jen volně plovoucí bold labely bez jediné ikony.
+function SectionCard({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-border-subtle bg-surface p-4">
+      <span className="flex items-center gap-2 text-sm font-bold">
+        <Icon className="h-4 w-4 text-accent" strokeWidth={2.2} />
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
 
 // React 19 po každém odeslání formuláře přes akci (`useActionState`)
 // vyresetuje needitovaná ("uncontrolled") pole -- i když akce vrátí
@@ -50,11 +84,8 @@ export function HecovackaForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="name" className="text-sm font-bold">
-          Název hecovačky
-        </label>
+    <form action={formAction} className="flex flex-col gap-4">
+      <SectionCard icon={Type} label="Název hecovačky">
         <input
           id="name"
           name="name"
@@ -66,12 +97,9 @@ export function HecovackaForm({
           onChange={(e) => setName(e.target.value)}
           className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
         />
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="description" className="text-sm font-bold">
-          O co se hraje
-        </label>
+      <SectionCard icon={Gift} label="O co se hraje">
         <textarea
           id="description"
           name="description"
@@ -83,43 +111,44 @@ export function HecovackaForm({
           className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
         />
         <p className="text-xs text-faint-foreground">Nepovinné -- appka to jen zobrazí, nijak to nevymáhá.</p>
-      </div>
+      </SectionCard>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="start_date" className="text-sm font-bold">
-            Od (nepovinné)
-          </label>
-          <input
-            id="start_date"
-            name="start_date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
-          />
-          <p className="text-xs text-faint-foreground">
-            Nevyplníš-li, hecovačka začne vybírat zápasy hned od založení.
-          </p>
+      <SectionCard icon={Calendar} label="Termín">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="start_date" className="text-xs font-semibold text-muted-foreground">
+              Od (nepovinné)
+            </label>
+            <input
+              id="start_date"
+              name="start_date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <p className="text-xs text-faint-foreground">
+              Nevyplníš-li, hecovačka začne vybírat zápasy hned od založení.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="end_date" className="text-xs font-semibold text-muted-foreground">
+              Do kdy
+            </label>
+            <input
+              id="end_date"
+              name="end_date"
+              type="date"
+              required
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-2">
-          <label htmlFor="end_date" className="text-sm font-bold">
-            Do kdy
-          </label>
-          <input
-            id="end_date"
-            name="end_date"
-            type="date"
-            required
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
-          />
-        </div>
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-bold">Ze kterých soutěží brát zápasy</span>
+      <SectionCard icon={Trophy} label="Ze kterých soutěží brát zápasy">
         {competitions.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Appka zatím nesleduje žádnou soutěž, ze které by šlo vybírat.
@@ -149,10 +178,9 @@ export function HecovackaForm({
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-bold">Kolik zápasů denně nejvíc</span>
+      <SectionCard icon={SlidersHorizontal} label="Kolik zápasů denně nejvíc">
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -190,10 +218,9 @@ export function HecovackaForm({
         <p className="text-xs text-faint-foreground">
           Když je zápasů víc, appka náhodně vybere tolikhle.
         </p>
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-bold">Koho rovnou přidat</span>
+      <SectionCard icon={Users} label="Koho rovnou přidat">
         {players.length === 0 ? (
           <p className="text-sm text-muted-foreground">V appce zatím nejsou žádní další hráči.</p>
         ) : (
@@ -222,14 +249,18 @@ export function HecovackaForm({
           Přidaným hráčům appka pošle e-mail, že tě přidal(a) do téhle hecovačky. Další hráče
           (i ty, co v appce ještě nemají účet) půjde přidat pozvánkovým odkazem po založení.
         </p>
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2">
+      {/* Pompézní CTA -- stejný styl (gradient + jemný "sonar" pulz) jako
+       * "Chci hrát" na detailu soutěže, appka ho tu recykluje pro
+       * konzistentní vzhled hlavní akce na stránce. */}
+      <div className="mt-2 flex flex-col items-center gap-2">
         <button
           type="submit"
           disabled={isPending}
-          className="btn-press rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground hover:opacity-90 disabled:opacity-50"
+          className="btn-press btn-hero flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))] px-7 py-3.5 text-sm font-extrabold text-accent-foreground hover:brightness-105 disabled:opacity-50"
         >
+          <Rocket className="h-4 w-4" strokeWidth={2.4} />
           {isPending ? "Zakládám…" : "Založit hecovačku"}
         </button>
         {state.error && <span className="text-xs font-semibold text-danger">{state.error}</span>}
