@@ -74,6 +74,16 @@ grant select, insert, delete on public.hecovacka_messages to authenticated;
 -- obnovit stránku (Supabase Realtime naslouchá změnám v týhle
 -- tabulce). RLS výše platí i tady, klient dostane jen zprávy z
 -- hecovaček, kde je participant.
+--
+-- REPLICA IDENTITY FULL -- appka na klientu filtruje DELETE eventy
+-- podle competition_id (`filter: competition_id=eq.…`), ale výchozí
+-- identita (DEFAULT) posílá ve "starém" záznamu jen primární klíč --
+-- competition_id by tam chyběl a filtr by na smazání nikdy nesedl,
+-- takže by se smazaná zpráva ostatním hráčům živě nezmizela (nalezeno
+-- Codex review na PR #231). FULL zajistí, že starý záznam obsahuje
+-- všechny sloupce.
+alter table public.hecovacka_messages replica identity full;
+
 alter publication supabase_realtime add table public.hecovacka_messages;
 
 -- Kdy hráč naposledy viděl chat dané hecovačky -- appka podle toho

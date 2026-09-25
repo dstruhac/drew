@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { markHecovackaChatRead } from "./actions";
+import { useState } from "react";
+import { ChatPanel, type ChatMessage } from "./chat-panel";
 
 // Záložky "Zápasy"/"Chat" na stránce hecovačky (na žádost uživatele
 // 25.9.2026) -- jen pro hecovačky, veřejné soutěže žádný chat nemají.
@@ -10,6 +10,10 @@ import { markHecovackaChatRead } from "./actions";
 // realtime podpisku) POŘÁD, appka mezi nimi jen přepíná viditelnost
 // (`hidden`), ne mount/unmount -- díky tomu je přepnutí okamžité a
 // appka se nemusí znovu přihlašovat k odběru zpráv při každém kliku.
+// ChatPanel se vykresluje přímo tady (ne jako hotový React uzel
+// předaný zvenčí) -- potřebuje vědět, jestli je záložka Chat zrovna
+// aktivní, aby uměl sám označit chat jako přečtený i při příchodu nové
+// zprávy zatímco je otevřený (viz `isActive` v chat-panel.tsx).
 //
 // URL appka mění přes history.replaceState, NE přes next/navigation
 // router -- ten by (na rozdíl od History API) vyvolal nové
@@ -21,25 +25,19 @@ export function SpaceTabs({
   initialTab,
   unreadCount,
   matchesContent,
-  chatContent,
+  chatMessages,
+  currentUserId,
+  displayNameByUserId,
 }: {
   competitionId: string;
   initialTab: "matches" | "chat";
   unreadCount: number;
   matchesContent: React.ReactNode;
-  chatContent: React.ReactNode;
+  chatMessages: ChatMessage[];
+  currentUserId: string;
+  displayNameByUserId: Record<string, string>;
 }) {
   const [tab, setTab] = useState<"matches" | "chat">(initialTab);
-
-  useEffect(() => {
-    if (tab === "chat") {
-      markHecovackaChatRead(competitionId);
-    }
-    // Účelně jen na `tab` -- appka nechce znovu volat při každém
-    // renderu, jen při skutečném přepnutí (nebo hned při načtení, když
-    // appka otevřela rovnou "?tab=chat").
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
 
   function selectTab(next: "matches" | "chat") {
     setTab(next);
@@ -89,7 +87,15 @@ export function SpaceTabs({
       </div>
 
       <div className={tab === "matches" ? "flex flex-col gap-6" : "hidden"}>{matchesContent}</div>
-      <div className={tab === "chat" ? "" : "hidden"}>{chatContent}</div>
+      <div className={tab === "chat" ? "" : "hidden"}>
+        <ChatPanel
+          competitionId={competitionId}
+          initialMessages={chatMessages}
+          currentUserId={currentUserId}
+          displayNameByUserId={displayNameByUserId}
+          isActive={tab === "chat"}
+        />
+      </div>
     </div>
   );
 }

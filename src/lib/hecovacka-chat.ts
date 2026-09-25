@@ -7,6 +7,36 @@ export type UnreadHecovacka = {
   unreadCount: number;
 };
 
+export type HecovackaChatMembership = {
+  competitionId: string;
+  name: string;
+};
+
+async function getPrivateChatParticipations(supabase: SupabaseClient<Database>, userId: string) {
+  const { data } = await supabase
+    .from("competition_participants")
+    .select("competition_id, chat_last_read_at, competitions!inner(name, visibility)")
+    .eq("user_id", userId)
+    .eq("competitions.visibility", "private");
+  return data ?? [];
+}
+
+// Seznam VŠECH hecovaček, kde hráč hraje (bez ohledu na nepřečtené) --
+// appka to potřebuje v ChatNotificationIndicator (nalezeno Codex review
+// na PR #231, viz komentář tam), aby uměl přes vlastní realtime
+// podpisku poznat i úplně první novou zprávu v hecovačce, která do
+// tohohle okamžiku neměla žádnou nepřečtenou.
+export async function getHecovackaChatMemberships(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<HecovackaChatMembership[]> {
+  const participations = await getPrivateChatParticipations(supabase, userId);
+  return participations.map((p) => ({
+    competitionId: p.competition_id,
+    name: p.competitions?.name ?? "",
+  }));
+}
+
 // Použito v AppHeader (ikonka vedle fotečky, viditelná odkudkoliv v
 // appce) i na Dashboardu (odznak na kartičce konkrétní hecovačky) --
 // obojí potřebuje totéž: seznam hecovaček, kde hráč UŽ hraje a má tam
@@ -20,13 +50,9 @@ export async function getUnreadHecovackaChat(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<UnreadHecovacka[]> {
-  const { data: participations } = await supabase
-    .from("competition_participants")
-    .select("competition_id, chat_last_read_at, competitions!inner(name, visibility)")
-    .eq("user_id", userId)
-    .eq("competitions.visibility", "private");
+  const participations = await getPrivateChatParticipations(supabase, userId);
 
-  if (!participations || participations.length === 0) return [];
+  if (participations.length === 0) return [];
 
   const lastReadByCompetition = new Map(
     participations.map((p) => [p.competition_id, p.chat_last_read_at]),

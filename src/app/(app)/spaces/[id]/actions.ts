@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
+import type { ChatMessage } from "./chat-panel";
 
 export type SubmitPredictionState = {
   error: string | null;
@@ -182,14 +183,16 @@ export async function removeHecovackaPlayer(competitionId: string, userId: strin
 const CHAT_MESSAGE_MAX_LENGTH = 500;
 
 // Chat hecovačky (na žádost uživatele 25.9.2026) -- appka nepoužívá
-// revalidatePath: zprávu ostatním hráčům doručí Supabase Realtime
+// revalidatePath: ostatním hráčům zprávu doručí Supabase Realtime
 // (ChatPanel má vlastní podpisku), plný refetch stránky by chat jen
-// zbytečně sekal.
+// zbytečně sekal. Odesílateli appka vrátí uloženou zprávu přímo v
+// odpovědi (ne přes vlastní realtime událost, viz komentář v
+// chat-panel.tsx -- nalezeno Codex review na PR #231).
 export async function sendHecovackaMessage(
   competitionId: string,
   body: string | null,
   gifUrl: string | null,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; message?: ChatMessage }> {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
@@ -209,18 +212,22 @@ export async function sendHecovackaMessage(
     return { error: err instanceof Error ? err.message : "Chat je uzavřený." };
   }
 
-  const { error } = await supabase.from("hecovacka_messages").insert({
-    competition_id: competitionId,
-    user_id: user.id,
-    body: trimmedBody,
-    gif_url: gifUrl,
-  });
+  const { data, error } = await supabase
+    .from("hecovacka_messages")
+    .insert({
+      competition_id: competitionId,
+      user_id: user.id,
+      body: trimmedBody,
+      gif_url: gifUrl,
+    })
+    .select("id, user_id, body, gif_url, created_at")
+    .single();
 
   if (error) {
     return { error: error.message };
   }
 
-  return { error: null };
+  return { error: null, message: data };
 }
 
 // Autor smí smazat jen svou vlastní zprávu (odsouhlaseno s uživatelem)

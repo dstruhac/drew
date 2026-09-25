@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { GifPicker } from "@/components/gif-picker";
-import { sendHecovackaMessage, deleteHecovackaMessage } from "./actions";
+import { sendHecovackaMessage, deleteHecovackaMessage, markHecovackaChatRead } from "./actions";
 
 export type ChatMessage = {
   id: string;
@@ -18,20 +18,32 @@ export type ChatMessage = {
 // místnost pro celou hecovačku, text i GIFky. Appka zprávy doručuje
 // všem participantům přes Supabase Realtime (RLS omezuje jen na
 // hecovačky, kde je hráč participant, viz
-// 20260925130000_hecovacka_chat.sql) -- ODESLÁNÍ i PŘÍCHOZÍ zprávy
-// jdou stejnou cestou (appka po odeslání nic sama nepřidává do
-// seznamu, spolehne se na vlastní realtime podpisku -- díky tomu appka
-// nemusí řešit dvojí zobrazení/deduplikaci vlastní zprávy).
+// 20260925130000_hecovacka_chat.sql).
+//
+// PŘÍCHOZÍ zprávy (od jiných hráčů) jdou vždy přes realtime podpisku.
+// VLASTNÍ odeslanou zprávu appka přidá rovnou z odpovědi server akce
+// (nalezeno Codex review na PR #231: při čerstvém/obnovujícím se
+// websocket spojení mohla appka zprávu úspěšně zapsat do DB dřív, než
+// se podpiska stihla přihlásit -- odesílatel by pak svou vlastní
+// zprávu vůbec neviděl, dokud stránku neobnoví). Obě cesty proto
+// zprávy do seznamu přidávají s kontrolou na duplicitní `id`.
 export function ChatPanel({
   competitionId,
   initialMessages,
   currentUserId,
   displayNameByUserId,
+  isActive,
 }: {
   competitionId: string;
   initialMessages: ChatMessage[];
   currentUserId: string;
   displayNameByUserId: Record<string, string>;
+  /** Appka je vykreslená pořád (viz SpaceTabs), i mimo aktuálně
+   * zvolenou záložku -- `isActive` říká, jestli je hráč zrovna na
+   * záložce Chat, ať appka umí označit chat jako přečtený i při
+   * příchodu nové zprávy zatímco je otevřený (ne jen při přepnutí na
+   * něj, nalezeno Codex review na PR #231). */
+  isActive: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [body, setBody] = useState("");
@@ -52,7 +64,8 @@ export function ChatPanel({
           filter: `competition_id=eq.${competitionId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as ChatMessage]);
+          const incoming = payload.new as ChatMessage;
+          setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
         },
       )
       .on(
@@ -79,6 +92,18 @@ export function ChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // Označí chat jako přečtený, jakmile appka aktivuje tuhle záložku --
+  // a znovu při KAŽDÉ nové zprávě, dokud je aktivní pořád otevřená
+  // (nalezeno Codex review na PR #231: appka dřív volala jen při
+  // přepnutí záložky, takže zpráva doručená přes realtime zatímco byl
+  // chat už otevřený zůstala navěky "nepřečtená").
+  useEffect(() => {
+    if (isActive) {
+      markHecovackaChatRead(competitionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, messages.length, competitionId]);
+
   async function handleSend(gifUrl: string | null) {
     if (sending) return;
     if (!body.trim() && !gifUrl) return;
@@ -92,6 +117,10 @@ export function ChatPanel({
       setError(result.error);
       return;
     }
+    if (result.message) {
+      const sent = result.message;
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+    }
     setBody("");
   }
 
@@ -99,12 +128,24 @@ export function ChatPanel({
     // Appka zprávu z pohledu odesílatele schová hned (appka se
     // nespoléhá na to, že jeho vlastní realtime DELETE dorazí okamžitě)
     // -- u ostatních hráčů ji odstraní příchozí DELETE událost.
+    const removed = messages.find((m) => m.id === messageId);
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
     try {
       await deleteHecovackaMessage(messageId);
     } catch {
-      // Smazání selhalo -- appka zprávu vrátí zpátky, ať nezmizí tiše.
+      // Smazání selhalo -- appka zprávu vrátí zpátky, ať nezmizí tiše
+      // (nalezeno Codex review na PR #231: appka dřív jen ukázala
+      // chybu, ale smazanou zprávu už nikdy nevrátila).
       setError("Smazání zprávy se nepodařilo, zkus to prosím znovu.");
+      if (removed) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === removed.id)
+            ? prev
+            : [...prev, removed].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+              ),
+        );
+      }
     }
   }
 

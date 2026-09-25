@@ -23,7 +23,7 @@ import { ExactScoreCelebration } from "./exact-score-celebration";
 import { HecovackaPanel } from "./hecovacka-panel";
 import { HecovackaResultsCard } from "@/components/hecovacka-results-card";
 import { SpaceTabs } from "./space-tabs";
-import { ChatPanel, type ChatMessage } from "./chat-panel";
+import type { ChatMessage } from "./chat-panel";
 import { joinCompetition, leaveCompetition } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
@@ -791,14 +791,9 @@ export default async function CompetitionDetailPage({
           initialTab={initialTab}
           unreadCount={ownUnreadChatCount}
           matchesContent={matchesSection}
-          chatContent={
-            <ChatPanel
-              competitionId={competition.id}
-              initialMessages={chatMessages}
-              currentUserId={user?.id ?? ""}
-              displayNameByUserId={Object.fromEntries(displayNameByUserId)}
-            />
-          }
+          chatMessages={chatMessages}
+          currentUserId={user?.id ?? ""}
+          displayNameByUserId={Object.fromEntries(displayNameByUserId)}
         />
       ) : (
         matchesSection

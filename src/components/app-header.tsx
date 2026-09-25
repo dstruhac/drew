@@ -8,7 +8,7 @@ import { MobileMenu } from "@/components/mobile-menu";
 import { MobileMenuLink } from "@/components/mobile-menu-link";
 import { MobileMenuCompetitions } from "@/components/mobile-menu-competitions";
 import { ChatNotificationIndicator } from "@/components/chat-notification-indicator";
-import { getUnreadHecovackaChat } from "@/lib/hecovacka-chat";
+import { getHecovackaChatMemberships, getUnreadHecovackaChat } from "@/lib/hecovacka-chat";
 
 // Sdílená horní lišta napříč celou přihlášenou částí appky (viz
 // src/app/(app)/layout.tsx) — fotečka přihlášeného uživatele v rohu,
@@ -21,13 +21,14 @@ export async function AppHeader() {
 
   const supabase = await createClient();
 
-  const [{ data: profile }, unreadHecovackaChat] = await Promise.all([
+  const [{ data: profile }, unreadHecovackaChat, hecovackaChatMemberships] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, avatar_url, email_reminders_enabled")
       .eq("id", user.id)
       .single(),
     getUnreadHecovackaChat(supabase, user.id),
+    getHecovackaChatMemberships(supabase, user.id),
   ]);
 
   async function signOut() {
@@ -83,7 +84,11 @@ export async function AppHeader() {
            * žádost uživatele) -- vedle fotečky, viditelná vždy (i na
            * mobilu), stejně jako appka fotečku samotnou nikdy neschovává
            * do hamburger menu. */}
-          <ChatNotificationIndicator items={unreadHecovackaChat} />
+          <ChatNotificationIndicator
+            items={unreadHecovackaChat}
+            memberships={hecovackaChatMemberships}
+            currentUserId={user.id}
+          />
 
           {/* Fotečka zůstává vidět vždy -- i na mobilu, mimo hamburger
            * menu (odsouhlaseno s uživatelem 12.9.2026). */}
