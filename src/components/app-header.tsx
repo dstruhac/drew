@@ -83,9 +83,14 @@ export async function AppHeader() {
           {/* Ikonka nových zpráv v chatu hecovaček (25.9.2026, na
            * žádost uživatele) -- vedle fotečky, viditelná vždy (i na
            * mobilu), stejně jako appka fotečku samotnou nikdy neschovává
-           * do hamburger menu. */}
+           * do hamburger menu. `?? []` -- `getUnreadHecovackaChat` vrací
+           * `null` při chybě dotazu; appka na prvním vykreslení stránky
+           * nemá žádný předchozí stav na zachování, takže jen ukáže "bez
+           * odznaku" (klientská reconciliace v ChatNotificationIndicator
+           * na chybu reaguje jinak -- zachová poslední známý stav, viz
+           * tam). */}
           <ChatNotificationIndicator
-            items={unreadHecovackaChat}
+            items={unreadHecovackaChat ?? []}
             memberships={hecovackaChatMemberships}
             currentUserId={user.id}
           />

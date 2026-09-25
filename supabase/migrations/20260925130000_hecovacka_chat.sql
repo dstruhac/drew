@@ -14,8 +14,15 @@ create table public.hecovacka_messages (
   body text,
   gif_url text,
   created_at timestamptz not null default now(),
-  -- Zpráva musí mít aspoň jedno z obojího -- ne úplně prázdnou zprávu.
-  constraint hecovacka_messages_body_or_gif check (body is not null or gif_url is not null),
+  -- Zpráva musí mít aspoň jedno z obojího -- appka trimuje a kontroluje
+  -- na serveru (actions.ts), ale RLS insert policy níže sama o sobě
+  -- obsah nekontroluje, takže by šlo přímým zápisem obejít trim a
+  -- uložit vizuálně prázdnou zprávu (samé mezery) bez GIFky -- proto
+  -- appka i tady vyžaduje neprázdný ořezaný text, ne jen "not null"
+  -- (nalezeno Codex review na PR #231, 5. kolo).
+  constraint hecovacka_messages_body_or_gif check (
+    gif_url is not null or (body is not null and btrim(body) <> '')
+  ),
   -- Běžný chatový limit délky, appka to samo o sobě nijak nevymáhá na
   -- klientovi zvlášť přísně, jen jako pojistka proti zjevnému zneužití.
   constraint hecovacka_messages_body_length check (body is null or char_length(body) <= 500),

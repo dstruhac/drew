@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChatPanel, type ChatMessage } from "./chat-panel";
 
 // Záložky "Zápasy"/"Chat" na stránce hecovačky (na žádost uživatele
@@ -38,6 +38,16 @@ export function SpaceTabs({
   displayNameByUserId: Record<string, string>;
 }) {
   const [tab, setTab] = useState<"matches" | "chat">(initialTab);
+  // `useState(initialTab)` čte prop jen při PRVNÍM vykreslení -- pokud
+  // appka na tuhle stránku naviguje znovu s jinou hodnotou (typicky
+  // klik na ikonku v horní liště, co vede přímo na "?tab=chat", zatímco
+  // appka je už na "Zápasech" stejné hecovačky), Next.js komponentu
+  // nemusí vůbec remountovat, jen jí pošle nové propy -- appka by tak
+  // tiše zůstala na staré záložce (nalezeno Codex review na PR #231,
+  // 5. kolo).
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
   // `unreadCount` je jen serverový snapshot z chvíle, kdy appka stránku
   // vykreslila -- appka ho drží dál ve vlastním stavu a průběžně
   // aktualizuje podle živých událostí z ChatPanelu (nová zpráva od

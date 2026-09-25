@@ -46,10 +46,17 @@ export async function getHecovackaChatMemberships(
 // `chat_last_read_at` (NULL = nikdy neotevřel chat, vidí tedy vše jako
 // nové) appka aktualizuje přes markHecovackaChatRead v actions.ts,
 // jakmile hráč záložku Chat skutečně otevře.
+//
+// Vrací `null` (odlišené od "opravdu nula", tedy `[]`), když dotaz na
+// zprávy selže -- appka to používá i pro živou reconciliaci po
+// (znovu)připojení (ChatNotificationIndicator), kde by tichá chyba
+// jinak vymazala i předtím správně zobrazený odznak (nalezeno Codex
+// review na PR #231, 5. kolo). Volající si `null` sám převede na `[]`
+// tam, kde nemá předchozí stav co zachovat (první vykreslení stránky).
 export async function getUnreadHecovackaChat(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<UnreadHecovacka[]> {
+): Promise<UnreadHecovacka[] | null> {
   const participations = await getPrivateChatParticipations(supabase, userId);
 
   if (participations.length === 0) return [];
@@ -87,7 +94,8 @@ export async function getUnreadHecovackaChat(
   if (!hasUnboundedThreshold && oldestThreshold) {
     query = query.gt("created_at", oldestThreshold);
   }
-  const { data: messages } = await query;
+  const { data: messages, error } = await query;
+  if (error) return null;
 
   const unreadCounts = new Map<string, number>();
   for (const m of messages ?? []) {

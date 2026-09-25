@@ -132,8 +132,13 @@ export default async function DashboardPage() {
   const weeklyBadges = weeklyBadgesResult.data;
   const profileRow = profileResult.data;
   const totalCompetitionsCount = totalCompetitionsResult.count;
+  // `getUnreadHecovackaChat` vrací `null` při chybě dotazu (appka ho
+  // odlišuje od "opravdu nula" kvůli klientské reconciliaci jinde, viz
+  // src/lib/hecovacka-chat.ts) -- appka tu na prvním vykreslení stránky
+  // nemá žádný předchozí stav na zachování, takže jen ukáže kartičky
+  // bez odznaku.
   const unreadChatByCompetition = new Map(
-    unreadHecovackaChat.map((u) => [u.competitionId, u.unreadCount]),
+    (unreadHecovackaChat ?? []).map((u) => [u.competitionId, u.unreadCount]),
   );
 
   // Soutěže, které hráč ještě nehraje -- nabídne se mu je

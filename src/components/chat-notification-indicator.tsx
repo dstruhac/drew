@@ -134,29 +134,44 @@ export function ChatNotificationIndicator({
         pendingEventsDuringReconcileRef.current = [];
         getUnreadHecovackaChat(supabase, currentUserId).then((fresh) => {
           reconcileInFlightRef.current = false;
-          let merged = fresh;
-          for (const event of pendingEventsDuringReconcileRef.current) {
-            if (event.type === "read") {
-              merged = merged.filter((p) => p.competitionId !== event.competitionId);
-              continue;
-            }
-            const existing = merged.find((p) => p.competitionId === event.message.competition_id);
-            if (existing) {
-              merged = merged.map((p) =>
-                p.competitionId === event.message.competition_id
-                  ? { ...p, unreadCount: p.unreadCount + 1 }
-                  : p,
-              );
-            } else {
-              const name =
-                memberships.find((m) => m.competitionId === event.message.competition_id)?.name ?? "";
-              merged = [...merged, { competitionId: event.message.competition_id, name, unreadCount: 1 }].sort(
-                (a, b) => a.name.localeCompare(b.name, "cs"),
-              );
-            }
-          }
+          const pending = pendingEventsDuringReconcileRef.current;
           pendingEventsDuringReconcileRef.current = [];
-          setUnreadItems(merged);
+
+          function applyPending(base: UnreadHecovacka[]) {
+            let merged = base;
+            for (const event of pending) {
+              if (event.type === "read") {
+                merged = merged.filter((p) => p.competitionId !== event.competitionId);
+                continue;
+              }
+              const existing = merged.find((p) => p.competitionId === event.message.competition_id);
+              if (existing) {
+                merged = merged.map((p) =>
+                  p.competitionId === event.message.competition_id
+                    ? { ...p, unreadCount: p.unreadCount + 1 }
+                    : p,
+                );
+              } else {
+                const name =
+                  memberships.find((m) => m.competitionId === event.message.competition_id)?.name ?? "";
+                merged = [...merged, { competitionId: event.message.competition_id, name, unreadCount: 1 }].sort(
+                  (a, b) => a.name.localeCompare(b.name, "cs"),
+                );
+              }
+            }
+            return merged;
+          }
+
+          if (fresh === null) {
+            // Dotaz na dorovnání selhal (výpadek/chyba) -- appka radši
+            // zachová poslední známý (dobrý) stav, než aby ho tiše
+            // přepsala prázdným seznamem (nalezeno Codex review na PR
+            // #231, 5. kolo). Souběžně doručené eventy appka i tak
+            // aplikuje, ty jsou reálné bez ohledu na výsledek dotazu.
+            setUnreadItems((prev) => applyPending(prev));
+            return;
+          }
+          setUnreadItems(applyPending(fresh));
         });
       });
 

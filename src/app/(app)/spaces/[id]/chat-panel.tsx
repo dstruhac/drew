@@ -207,8 +207,15 @@ export function ChatPanel({
         }
       });
     }
+    // Účelně na `messages` (celé pole), ne `messages.length` -- appka
+    // reconciliaci po (znovu)připojení ohraničuje na posledních 50 (viz
+    // výše), takže při plném okně smazání nejstarší a přidání nové
+    // zprávy délka zůstane stejná a appka by tak "viditelně" doručenou
+    // zprávu nikdy neoznačila za přečtenou (nalezeno Codex review na
+    // PR #231, 5. kolo). `setMessages` vždy vytvoří nové pole, takže
+    // efekt spolehlivě pozná KAŽDOU změnu obsahu, ne jen změnu počtu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, messages.length, competitionId]);
+  }, [isActive, messages, competitionId]);
 
   async function handleSend(gifUrl: string | null) {
     if (sending) return;
@@ -283,7 +290,13 @@ export function ChatPanel({
                     type="button"
                     onClick={() => handleDelete(m.id)}
                     aria-label="Smazat zprávu"
-                    className="opacity-0 transition-opacity group-hover:opacity-100"
+                    // Napůl viditelné vždy (dřív `opacity-0` + jen
+                    // `group-hover`, takže tlačítko na dotykových
+                    // zařízeních a přes klávesnici nešlo vůbec objevit
+                    // -- appka na mobilu myš/hover nemá, nalezeno Codex
+                    // review na PR #231, 5. kolo), plně viditelné při
+                    // hoveru/focusu.
+                    className="opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
                   >
                     <X className="h-3 w-3 text-faint-foreground hover:text-danger" strokeWidth={2.6} />
                   </button>
