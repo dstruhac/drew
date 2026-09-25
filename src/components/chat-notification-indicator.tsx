@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { HecovackaChatMembership, UnreadHecovacka } from "@/lib/hecovacka-chat";
+import { getUnreadHecovackaChat, type HecovackaChatMembership, type UnreadHecovacka } from "@/lib/hecovacka-chat";
 
 // Ikonka vedle fotečky v horní liště appky (na žádost uživatele
 // 25.9.2026), viditelná odkudkoliv v appce (AppHeader je sdílený
@@ -99,7 +99,18 @@ export function ChatNotificationIndicator({
           });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Stejný důvod jako u ChatPanelu (chat-panel.tsx) -- zpráva
+        // vložená mezi serverovým vykreslením hlavičky a okamžikem, kdy
+        // se tahle podpiska skutečně přihlásí (nebo znovu po výpadku
+        // spojení), by appce jinak zmizela navěky (nalezeno Codex
+        // review na PR #231, 3. kolo). Appka proto při KAŽDÉM úspěšném
+        // přihlášení znovu spočítá nepřečtené přímo přes stejnou funkci
+        // jako server (`getUnreadHecovackaChat`, jen s klientským
+        // Supabase klientem -- RLS platí i tady) a seznamem nahradí.
+        if (status !== "SUBSCRIBED") return;
+        getUnreadHecovackaChat(supabase, currentUserId).then(setUnreadItems);
+      });
 
     return () => {
       supabase.removeChannel(channel);

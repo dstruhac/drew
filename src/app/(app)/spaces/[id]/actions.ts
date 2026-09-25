@@ -270,12 +270,15 @@ export async function deleteHecovackaMessage(messageId: string) {
 // Appka si pamatuje, dokdy hráč chat naposledy viděl -- podle toho pak
 // pozná nepřečtené zprávy (ikonka v horní liště + odznak na kartičce
 // Dashboardu, viz src/lib/hecovacka-chat.ts). Volá se, jakmile hráč
-// záložku Chat na stránce hecovačky skutečně otevře.
-export async function markHecovackaChatRead(competitionId: string) {
+// záložku Chat na stránce hecovačky skutečně otevře. Appka vrací
+// `{ ok }` -- volající (ChatPanel) podle toho pozná, jestli zápis
+// doopravdy prošel, než zmizí odznak v horní liště (nalezeno Codex
+// review na PR #231, 3. kolo: appka dřív odznak smazala i při chybě).
+export async function markHecovackaChatRead(competitionId: string): Promise<{ ok: boolean }> {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  if (!user) return;
+  if (!user) return { ok: false };
 
   const { error } = await supabase
     .from("competition_participants")
@@ -285,10 +288,11 @@ export async function markHecovackaChatRead(competitionId: string) {
 
   if (error) {
     console.error("Označení chatu jako přečteného selhalo:", error.message);
-    return;
+    return { ok: false };
   }
 
   revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 export async function submitPrediction(

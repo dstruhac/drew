@@ -80,18 +80,20 @@ grant select, insert, delete on public.hecovacka_messages to authenticated;
 
 -- Realtime -- appka zprávy doručuje ostatním hráčům bez nutnosti
 -- obnovit stránku (Supabase Realtime naslouchá změnám v týhle
--- tabulce). RLS výše platí i tady, klient dostane jen zprávy z
--- hecovaček, kde je participant.
+-- tabulce). RLS výše platí i tady u INSERT/UPDATE (appka dostane jen
+-- řádky, které by SELECT policy pustila).
 --
--- REPLICA IDENTITY FULL -- appka na klientu filtruje DELETE eventy
--- podle competition_id (`filter: competition_id=eq.…`), ale výchozí
--- identita (DEFAULT) posílá ve "starém" záznamu jen primární klíč --
--- competition_id by tam chyběl a filtr by na smazání nikdy nesedl,
--- takže by se smazaná zpráva ostatním hráčům živě nezmizela (nalezeno
--- Codex review na PR #231). FULL zajistí, že starý záznam obsahuje
--- všechny sloupce.
-alter table public.hecovacka_messages replica identity full;
-
+-- DELETE je jiný případ (ověřeno webovým hledáním 25.9.2026, appka
+-- předtím zkoušela REPLICA IDENTITY FULL, což u DELETE s RLS nestačí):
+-- Supabase Realtime u smazaného řádku úmyslně pošle jen primární klíč
+-- v "old" záznamu, ať přes RLS neuteče žádný jiný sloupec smazaného
+-- řádku ven -- ani REPLICA IDENTITY FULL na tom nic nemění. Appka proto
+-- na klientu (chat-panel.tsx) DELETE eventy vůbec nefiltruje podle
+-- competition_id (nejde to), jen podle toho, jestli má appka danou
+-- zprávu zrovna v místní paměti -- appka dostane DELETE eventy ze
+-- VŠECH hecovaček (jen holé UUID smazané zprávy, žádný obsah), pro
+-- cizí hecovačku appka takový event jen tiše ignoruje (nemá to v
+-- seznamu, nemá co smazat).
 alter publication supabase_realtime add table public.hecovacka_messages;
 
 -- Kdy hráč naposledy viděl chat dané hecovačky -- appka podle toho

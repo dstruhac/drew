@@ -46,15 +46,22 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
   // poznat, že mezitím odešel novější -- jinak by starší odpověď mohla
   // dorazit až po novější a přepsat výsledky za jiné hledané slovo, než
   // appka zrovna ukazuje v poli (nalezeno Codex review na PR #231).
+  // Appka `requestId` zvyšuje HNED při změně `query`/`open` (mimo
+  // debounce), ne až uvnitř zpožděného volání -- jinak by starší dotaz,
+  // který zatím čeká na svou odpověď, appka stále považovala za
+  // "aktuální" ještě celých 350 ms po zadání nového hledání (nalezeno
+  // Codex review na PR #231, 3. kolo -- appka první verzi opravy měla
+  // pořád stejnou chybu, jen s menší pravděpodobností).
   const latestRequestIdRef = useRef(0);
 
   useEffect(() => {
     if (!open || !GIPHY_API_KEY) return;
 
+    const requestId = ++latestRequestIdRef.current;
+
     // Appka hledání odloží o 350 ms od posledního stisku klávesy, ať
     // neposílá dotaz na GIPHY při každém písmenku.
     const timeout = setTimeout(async () => {
-      const requestId = ++latestRequestIdRef.current;
       setLoading(true);
       setError(null);
       try {

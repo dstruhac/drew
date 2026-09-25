@@ -64,6 +64,17 @@ export function ChatPanel({
   onIncomingMessageRef.current = onIncomingMessage;
   const currentUserIdRef = useRef(currentUserId);
   currentUserIdRef.current = currentUserId;
+  // Appka při každém (znovu)přihlášení k podpisce dotáhne aktuální stav
+  // z DB (viz níže), ale mezitím pořád běží i živé INSERT/DELETE
+  // eventy -- appka je proto na dobu dotazu odkládá do fronty a
+  // aplikuje je AŽ NA vrácená data, ne naopak, jinak by čerstvě
+  // doručená/smazaná zpráva mohla dorazit dřív, než odpověď dotazu, a
+  // appka by ji tím přepsáním zase ztratila (nalezeno Codex review na
+  // PR #231, 3. kolo).
+  const reconcileInFlightRef = useRef(false);
+  const pendingEventsDuringReconcileRef = useRef<
+    Array<{ type: "insert"; message: ChatMessage } | { type: "delete"; id: string }>
+  >([]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -79,6 +90,9 @@ export function ChatPanel({
         },
         (payload) => {
           const incoming = payload.new as ChatMessage;
+          if (reconcileInFlightRef.current) {
+            pendingEventsDuringReconcileRef.current.push({ type: "insert", message: incoming });
+          }
           setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
           if (incoming.user_id !== currentUserIdRef.current) {
             onIncomingMessageRef.current?.();
@@ -91,10 +105,22 @@ export function ChatPanel({
           event: "DELETE",
           schema: "public",
           table: "hecovacka_messages",
-          filter: `competition_id=eq.${competitionId}`,
+          // BEZ filtru na competition_id (nalezeno Codex review na PR
+          // #231, 3. kolo, ověřeno webovým hledáním 25.9.2026): Supabase
+          // Realtime u DELETE s RLS pošle ve "starém" záznamu jen
+          // primární klíč, ať přes RLS neuteče žádný jiný sloupec --
+          // competition_id v `payload.old` tedy nikdy nebude, i s
+          // REPLICA IDENTITY FULL. Appka proto dostane DELETE eventy ze
+          // VŠECH hecovaček, ale zprávu smaže jen tehdy, když ji má
+          // reálně načtenou (message_id z JINÉ hecovačky appka prostě
+          // nenajde a nic se nestane).
         },
         (payload) => {
           const deletedId = (payload.old as { id?: string }).id;
+          if (!deletedId) return;
+          if (reconcileInFlightRef.current) {
+            pendingEventsDuringReconcileRef.current.push({ type: "delete", id: deletedId });
+          }
           setMessages((prev) => prev.filter((m) => m.id !== deletedId));
         },
       )
@@ -105,15 +131,30 @@ export function ChatPanel({
         // navěky -- Postgres Changes takové "zmeškané" události
         // nedohání (nalezeno Codex review na PR #231). Appka proto při
         // KAŽDÉM úspěšném přihlášení znovu načte aktuální stav z DB a
-        // seznam jím nahradí (RLS platí i tady).
+        // seznam jím nahradí (RLS platí i tady) -- se sloučením
+        // souběžných eventů podle komentáře u `pendingEventsDuringReconcileRef` výše.
         if (status !== "SUBSCRIBED") return;
+        reconcileInFlightRef.current = true;
+        pendingEventsDuringReconcileRef.current = [];
         supabase
           .from("hecovacka_messages")
           .select("id, user_id, body, gif_url, created_at")
           .eq("competition_id", competitionId)
           .order("created_at", { ascending: true })
           .then(({ data }) => {
-            if (data) setMessages(data);
+            reconcileInFlightRef.current = false;
+            if (!data) return;
+            const byId = new Map(data.map((m) => [m.id, m]));
+            for (const event of pendingEventsDuringReconcileRef.current) {
+              if (event.type === "insert") byId.set(event.message.id, event.message);
+              else byId.delete(event.id);
+            }
+            pendingEventsDuringReconcileRef.current = [];
+            setMessages(
+              [...byId.values()].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+              ),
+            );
           });
       });
 
@@ -133,16 +174,21 @@ export function ChatPanel({
   // chat už otevřený zůstala navěky "nepřečtená").
   useEffect(() => {
     if (isActive) {
-      markHecovackaChatRead(competitionId);
       // Appka odznak nových zpráv v horní liště appky (viz
       // ChatNotificationIndicator) drží ve vlastním klientském stavu,
       // ne v přímém propojení s tímhle komponentem -- appka mu proto
-      // pošle zprávu "přečteno" přes window událost, ať se odznak
-      // vyčistí hned, ne až při dalším server-side překreslení hlavičky
-      // (nalezeno Codex review na PR #231).
-      window.dispatchEvent(
-        new CustomEvent("hecovacka-chat-read", { detail: { competitionId } }),
-      );
+      // pošle zprávu "přečteno" přes window událost, ale AŽ PO úspěšném
+      // zápisu do DB, ne rovnou (nalezeno Codex review na PR #231, 3.
+      // kolo: appka dřív odznak smazala, i kdyby zápis chat_last_read_at
+      // selhal -- appka by pak tvářila zprávu za přečtenou, i kdyby
+      // reálně přečtená nebyla).
+      markHecovackaChatRead(competitionId).then(({ ok }) => {
+        if (ok) {
+          window.dispatchEvent(
+            new CustomEvent("hecovacka-chat-read", { detail: { competitionId } }),
+          );
+        }
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, messages.length, competitionId]);
