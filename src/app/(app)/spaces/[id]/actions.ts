@@ -181,6 +181,19 @@ export async function removeHecovackaPlayer(competitionId: string, userId: strin
 }
 
 const CHAT_MESSAGE_MAX_LENGTH = 500;
+const CHAT_GIF_URL_MAX_LENGTH = 500;
+
+// GIFka smí být jen skutečná GIPHY URL (https, host media*.giphy.com) --
+// appka `gifUrl` bere z formuláře jako obyčejný string, klientský
+// GifPicker sice vždycky pošle jen GIPHY URL, ale appka to i tak
+// vynutí i na serveru, ne jen v UI (nalezeno Codex review na PR #231:
+// bez týhle kontroly by šlo přes přímé volání akce uložit libovolnou
+// URL, kterou appka pak ostatním hráčům vykreslí jako <img src>).
+const GIPHY_URL_PATTERN = /^https:\/\/media\d*\.giphy\.com\//;
+
+function isValidGifUrl(url: string) {
+  return url.length <= CHAT_GIF_URL_MAX_LENGTH && GIPHY_URL_PATTERN.test(url);
+}
 
 // Chat hecovačky (na žádost uživatele 25.9.2026) -- appka nepoužívá
 // revalidatePath: ostatním hráčům zprávu doručí Supabase Realtime
@@ -204,6 +217,9 @@ export async function sendHecovackaMessage(
   }
   if (trimmedBody && trimmedBody.length > CHAT_MESSAGE_MAX_LENGTH) {
     return { error: `Zpráva je moc dlouhá (max ${CHAT_MESSAGE_MAX_LENGTH} znaků).` };
+  }
+  if (gifUrl && !isValidGifUrl(gifUrl)) {
+    return { error: "Neplatná URL GIFky." };
   }
 
   try {

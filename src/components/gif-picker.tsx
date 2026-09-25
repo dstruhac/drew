@@ -42,12 +42,19 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
     return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, [open]);
 
+  // Appka u pomalejšího/staršího dotazu (proměnlivá latence GIPHY) umí
+  // poznat, že mezitím odešel novější -- jinak by starší odpověď mohla
+  // dorazit až po novější a přepsat výsledky za jiné hledané slovo, než
+  // appka zrovna ukazuje v poli (nalezeno Codex review na PR #231).
+  const latestRequestIdRef = useRef(0);
+
   useEffect(() => {
     if (!open || !GIPHY_API_KEY) return;
 
     // Appka hledání odloží o 350 ms od posledního stisku klávesy, ať
     // neposílá dotaz na GIPHY při každém písmenku.
     const timeout = setTimeout(async () => {
+      const requestId = ++latestRequestIdRef.current;
       setLoading(true);
       setError(null);
       try {
@@ -57,11 +64,13 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
         const res = await fetch(endpoint);
         if (!res.ok) throw new Error(`GIPHY vrátilo ${res.status}`);
         const json = await res.json();
+        if (latestRequestIdRef.current !== requestId) return;
         setResults(json.data ?? []);
       } catch {
+        if (latestRequestIdRef.current !== requestId) return;
         setError("Nepodařilo se načíst GIFky, zkus to prosím znovu.");
       } finally {
-        setLoading(false);
+        if (latestRequestIdRef.current === requestId) setLoading(false);
       }
     }, 350);
 

@@ -33,6 +33,7 @@ export function ChatPanel({
   currentUserId,
   displayNameByUserId,
   isActive,
+  onIncomingMessage,
 }: {
   competitionId: string;
   initialMessages: ChatMessage[];
@@ -44,12 +45,25 @@ export function ChatPanel({
    * příchodu nové zprávy zatímco je otevřený (ne jen při přepnutí na
    * něj, nalezeno Codex review na PR #231). */
   isActive: boolean;
+  /** Appka je vykreslená pořád, i pod záložkou "Zápasy" -- SpaceTabs
+   * potřebuje vědět o příchozí zprávě od JINÉHO hráče, aby uměl
+   * odznak na záložce Chat držet živý, ne jen podle serverového snapshotu
+   * (nalezeno Codex review na PR #231). */
+  onIncomingMessage?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Appka volá `onIncomingMessage`/`markHecovackaChatRead` z uvnitř
+  // realtime callbacků, které appka jednou přihlásí na `[competitionId]`
+  // -- nechce kvůli tomu podpisku pořád rušit/zakládat znovu, proto appka
+  // aktuální hodnoty drží v ref, ne přímo v dependency poli efektu.
+  const onIncomingMessageRef = useRef(onIncomingMessage);
+  onIncomingMessageRef.current = onIncomingMessage;
+  const currentUserIdRef = useRef(currentUserId);
+  currentUserIdRef.current = currentUserId;
 
   useEffect(() => {
     const supabase = createClient();
@@ -66,6 +80,9 @@ export function ChatPanel({
         (payload) => {
           const incoming = payload.new as ChatMessage;
           setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
+          if (incoming.user_id !== currentUserIdRef.current) {
+            onIncomingMessageRef.current?.();
+          }
         },
       )
       .on(
@@ -81,7 +98,24 @@ export function ChatPanel({
           setMessages((prev) => prev.filter((m) => m.id !== deletedId));
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Zpráva vložená mezi počátečním dotazem na serveru
+        // (initialMessages) a okamžikem, kdy se tahle podpiska skutečně
+        // přihlásí (nebo znovu po výpadku spojení), appce jinak zmizí
+        // navěky -- Postgres Changes takové "zmeškané" události
+        // nedohání (nalezeno Codex review na PR #231). Appka proto při
+        // KAŽDÉM úspěšném přihlášení znovu načte aktuální stav z DB a
+        // seznam jím nahradí (RLS platí i tady).
+        if (status !== "SUBSCRIBED") return;
+        supabase
+          .from("hecovacka_messages")
+          .select("id, user_id, body, gif_url, created_at")
+          .eq("competition_id", competitionId)
+          .order("created_at", { ascending: true })
+          .then(({ data }) => {
+            if (data) setMessages(data);
+          });
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -100,6 +134,15 @@ export function ChatPanel({
   useEffect(() => {
     if (isActive) {
       markHecovackaChatRead(competitionId);
+      // Appka odznak nových zpráv v horní liště appky (viz
+      // ChatNotificationIndicator) drží ve vlastním klientském stavu,
+      // ne v přímém propojení s tímhle komponentem -- appka mu proto
+      // pošle zprávu "přečteno" přes window událost, ať se odznak
+      // vyčistí hned, ne až při dalším server-side překreslení hlavičky
+      // (nalezeno Codex review na PR #231).
+      window.dispatchEvent(
+        new CustomEvent("hecovacka-chat-read", { detail: { competitionId } }),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, messages.length, competitionId]);

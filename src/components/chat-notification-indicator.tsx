@@ -40,6 +40,21 @@ export function ChatNotificationIndicator({
     setUnreadItems(items);
   }, [items]);
 
+  // ChatPanel (na stránce hecovačky) po označení chatu za přečtený
+  // pošle tuhle window událost -- appka podle ní hned smaže odznak i
+  // tady, jinak by ikonka dál tvrdila "nepřečteno" ještě chvíli po
+  // tom, co ho hráč reálně přečetl (appka nemá jiné sdílené místo mezi
+  // těmahle dvěma nezávislými komponentami, nalezeno Codex review na
+  // PR #231).
+  useEffect(() => {
+    function handleRead(e: Event) {
+      const { competitionId } = (e as CustomEvent<{ competitionId: string }>).detail;
+      setUnreadItems((prev) => prev.filter((p) => p.competitionId !== competitionId));
+    }
+    window.addEventListener("hecovacka-chat-read", handleRead);
+    return () => window.removeEventListener("hecovacka-chat-read", handleRead);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: PointerEvent) {

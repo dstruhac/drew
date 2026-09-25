@@ -38,9 +38,19 @@ export function SpaceTabs({
   displayNameByUserId: Record<string, string>;
 }) {
   const [tab, setTab] = useState<"matches" | "chat">(initialTab);
+  // `unreadCount` je jen serverový snapshot z chvíle, kdy appka stránku
+  // vykreslila -- appka ho drží dál ve vlastním stavu a průběžně
+  // aktualizuje podle živých událostí z ChatPanelu (nová zpráva od
+  // jiného hráče, přečtení), jinak by odznak zůstal na staré hodnotě,
+  // dokud appka stránku znovu nenačte (nalezeno Codex review na
+  // PR #231).
+  const [liveUnreadCount, setLiveUnreadCount] = useState(unreadCount);
 
   function selectTab(next: "matches" | "chat") {
     setTab(next);
+    if (next === "chat") {
+      setLiveUnreadCount(0);
+    }
     const url = new URL(window.location.href);
     if (next === "chat") {
       url.searchParams.set("tab", "chat");
@@ -48,6 +58,13 @@ export function SpaceTabs({
       url.searchParams.delete("tab");
     }
     window.history.replaceState(null, "", url);
+  }
+
+  function handleIncomingChatMessage() {
+    // Zpráva doručená, zatímco appka záložku Chat zrovna ukazuje, se
+    // rovnou označí za přečtenou (viz `isActive` v ChatPanelu) -- appka
+    // proto odznak nechá na nule, ne aby na chvíli blikl a zase zmizel.
+    setLiveUnreadCount((prev) => (tab === "chat" ? 0 : prev + 1));
   }
 
   return (
@@ -78,9 +95,9 @@ export function SpaceTabs({
           }`}
         >
           Chat
-          {unreadCount > 0 && tab !== "chat" && (
+          {liveUnreadCount > 0 && tab !== "chat" && (
             <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {liveUnreadCount > 9 ? "9+" : liveUnreadCount}
             </span>
           )}
         </button>
@@ -94,6 +111,7 @@ export function SpaceTabs({
           currentUserId={currentUserId}
           displayNameByUserId={displayNameByUserId}
           isActive={tab === "chat"}
+          onIncomingMessage={handleIncomingChatMessage}
         />
       </div>
     </div>

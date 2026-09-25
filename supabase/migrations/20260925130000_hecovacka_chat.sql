@@ -18,7 +18,15 @@ create table public.hecovacka_messages (
   constraint hecovacka_messages_body_or_gif check (body is not null or gif_url is not null),
   -- Běžný chatový limit délky, appka to samo o sobě nijak nevymáhá na
   -- klientovi zvlášť přísně, jen jako pojistka proti zjevnému zneužití.
-  constraint hecovacka_messages_body_length check (body is null or char_length(body) <= 500)
+  constraint hecovacka_messages_body_length check (body is null or char_length(body) <= 500),
+  -- Stejná kontrola jako v sendHecovackaMessage (actions.ts) -- appka
+  -- gifUrl bere jako obyčejný string z formuláře, tahle podmínka je
+  -- druhá pojistka přímo v DB, ať to nejde obejít ani mimo appku
+  -- (nalezeno Codex review na PR #231).
+  constraint hecovacka_messages_gif_url_check check (
+    gif_url is null
+    or (char_length(gif_url) <= 500 and gif_url ~ '^https://media[0-9]*\.giphy\.com/')
+  )
 );
 
 create index hecovacka_messages_competition_id_created_at_idx
