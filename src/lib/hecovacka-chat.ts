@@ -5,6 +5,12 @@ export type UnreadHecovacka = {
   competitionId: string;
   name: string;
   unreadCount: number;
+  // ID zpráv, ze kterých se `unreadCount` skládá -- appka to potřebuje v
+  // ChatNotificationIndicator na spolehlivou deduplikaci proti souběžně
+  // doručeným živým eventům při reconciliaci (nalezeno Codex review na
+  // PR #231, 6. kolo: pouhé číslo nešlo bezpečně poznat od zprávy, kterou
+  // čerstvý dotaz už jednou započítal).
+  messageIds: string[];
 };
 
 export type HecovackaChatMembership = {
@@ -12,12 +18,19 @@ export type HecovackaChatMembership = {
   name: string;
 };
 
+// Appka chybu dotazu nechává probublat (throw), místo aby ji tiše
+// polkla a vrátila prázdné pole -- volající (getUnreadHecovackaChat)
+// na tenhle rozdíl spoléhá, aby při přechodném výpadku nesmazal už
+// správně zobrazený odznak (nalezeno Codex review na PR #231, 6. kolo:
+// appka to samé opravila pro dotaz na ZPRÁVY v předešlém kole, ale
+// zapomněla na tenhle, dřívější dotaz na ÚČASTI).
 async function getPrivateChatParticipations(supabase: SupabaseClient<Database>, userId: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("competition_participants")
     .select("competition_id, chat_last_read_at, competitions!inner(name, visibility)")
     .eq("user_id", userId)
     .eq("competitions.visibility", "private");
+  if (error) throw error;
   return data ?? [];
 }
 
@@ -25,16 +38,23 @@ async function getPrivateChatParticipations(supabase: SupabaseClient<Database>, 
 // appka to potřebuje v ChatNotificationIndicator (nalezeno Codex review
 // na PR #231, viz komentář tam), aby uměl přes vlastní realtime
 // podpisku poznat i úplně první novou zprávu v hecovačce, která do
-// tohohle okamžiku neměla žádnou nepřečtenou.
+// tohohle okamžiku neměla žádnou nepřečtenou. Na chybu appka reaguje
+// prázdným seznamem (jen se nezaloží realtime podpiska pro tuhle
+// stránku, ne kritické -- na rozdíl od getUnreadHecovackaChat níže
+// appka tady nemá co "smazat", jen co nezaložit).
 export async function getHecovackaChatMemberships(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<HecovackaChatMembership[]> {
-  const participations = await getPrivateChatParticipations(supabase, userId);
-  return participations.map((p) => ({
-    competitionId: p.competition_id,
-    name: p.competitions?.name ?? "",
-  }));
+  try {
+    const participations = await getPrivateChatParticipations(supabase, userId);
+    return participations.map((p) => ({
+      competitionId: p.competition_id,
+      name: p.competitions?.name ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 // Použito v AppHeader (ikonka vedle fotečky, viditelná odkudkoliv v
@@ -57,7 +77,12 @@ export async function getUnreadHecovackaChat(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<UnreadHecovacka[] | null> {
-  const participations = await getPrivateChatParticipations(supabase, userId);
+  let participations;
+  try {
+    participations = await getPrivateChatParticipations(supabase, userId);
+  } catch {
+    return null;
+  }
 
   if (participations.length === 0) return [];
 
@@ -88,7 +113,7 @@ export async function getUnreadHecovackaChat(
 
   let query = supabase
     .from("hecovacka_messages")
-    .select("competition_id, user_id, created_at")
+    .select("id, competition_id, user_id, created_at")
     .in("competition_id", competitionIds)
     .neq("user_id", userId);
   if (!hasUnboundedThreshold && oldestThreshold) {
@@ -97,18 +122,21 @@ export async function getUnreadHecovackaChat(
   const { data: messages, error } = await query;
   if (error) return null;
 
-  const unreadCounts = new Map<string, number>();
+  const unreadMessageIds = new Map<string, string[]>();
   for (const m of messages ?? []) {
     const threshold = lastReadByCompetition.get(m.competition_id);
     if (threshold && m.created_at <= threshold) continue;
-    unreadCounts.set(m.competition_id, (unreadCounts.get(m.competition_id) ?? 0) + 1);
+    const ids = unreadMessageIds.get(m.competition_id) ?? [];
+    ids.push(m.id);
+    unreadMessageIds.set(m.competition_id, ids);
   }
 
-  return [...unreadCounts.entries()]
-    .map(([competitionId, unreadCount]) => ({
+  return [...unreadMessageIds.entries()]
+    .map(([competitionId, messageIds]) => ({
       competitionId,
       name: nameByCompetition.get(competitionId) ?? "",
-      unreadCount,
+      unreadCount: messageIds.length,
+      messageIds,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 }

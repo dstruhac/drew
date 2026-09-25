@@ -223,18 +223,26 @@ export function ChatPanel({
 
     setSending(true);
     setError(null);
-    const result = await sendHecovackaMessage(competitionId, body, gifUrl);
-    setSending(false);
-
-    if (result.error) {
-      setError(result.error);
-      return;
+    // try/finally -- server akce samotná (ne jen její návratová hodnota)
+    // může selhat na výpadku sítě, appka by pak `setSending(false)`
+    // nikdy nespustila a tlačítko Odeslat by zůstalo navěky zamčené
+    // (nalezeno Codex review na PR #231, 6. kolo).
+    try {
+      const result = await sendHecovackaMessage(competitionId, body, gifUrl);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      if (result.message) {
+        const sent = result.message;
+        setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+      }
+      setBody("");
+    } catch {
+      setError("Odeslání zprávy se nepodařilo, zkus to prosím znovu.");
+    } finally {
+      setSending(false);
     }
-    if (result.message) {
-      const sent = result.message;
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-    }
-    setBody("");
   }
 
   async function handleDelete(messageId: string) {

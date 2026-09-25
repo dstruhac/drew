@@ -43,7 +43,7 @@ export function ChatNotificationIndicator({
   const reconcileInFlightRef = useRef(false);
   const pendingEventsDuringReconcileRef = useRef<
     Array<
-      | { type: "insert"; message: { competition_id: string; user_id: string } }
+      | { type: "insert"; message: { id: string; competition_id: string; user_id: string } }
       | { type: "read"; competitionId: string }
     >
   >([]);
@@ -96,24 +96,31 @@ export function ChatNotificationIndicator({
           filter: `competition_id=in.(${competitionIdList})`,
         },
         (payload) => {
-          const message = payload.new as { competition_id: string; user_id: string };
+          const message = payload.new as { id: string; competition_id: string; user_id: string };
           if (message.user_id === currentUserId) return;
           if (reconcileInFlightRef.current) {
             pendingEventsDuringReconcileRef.current.push({ type: "insert", message });
           }
           setUnreadItems((prev) => {
             const existing = prev.find((p) => p.competitionId === message.competition_id);
+            // Appka drží ID už započítaných zpráv (`messageIds`) a
+            // stejnou zprávu podruhé nesčítá -- realtime dokáže tu samou
+            // událost za vzácných okolností doručit dvakrát (nalezeno
+            // Codex review na PR #231, 6. kolo -- souvisí se stejným
+            // problémem u reconciliace níže).
+            if (existing?.messageIds.includes(message.id)) return prev;
             if (existing) {
               return prev.map((p) =>
                 p.competitionId === message.competition_id
-                  ? { ...p, unreadCount: p.unreadCount + 1 }
+                  ? { ...p, unreadCount: p.unreadCount + 1, messageIds: [...p.messageIds, message.id] }
                   : p,
               );
             }
             const name = memberships.find((m) => m.competitionId === message.competition_id)?.name ?? "";
-            return [...prev, { competitionId: message.competition_id, name, unreadCount: 1 }].sort(
-              (a, b) => a.name.localeCompare(b.name, "cs"),
-            );
+            return [
+              ...prev,
+              { competitionId: message.competition_id, name, unreadCount: 1, messageIds: [message.id] },
+            ].sort((a, b) => a.name.localeCompare(b.name, "cs"));
           });
         },
       )
@@ -145,18 +152,30 @@ export function ChatNotificationIndicator({
                 continue;
               }
               const existing = merged.find((p) => p.competitionId === event.message.competition_id);
+              // Zpráva doručená živě těsně kolem dorovnávacího dotazu se
+              // mohla do jeho výsledku (`fresh`) i přes frontu dostat
+              // dvakrát -- appka podle `messageIds` pozná, že ji tenhle
+              // dotaz už započítal, a frontovou kopii přeskočí (nalezeno
+              // Codex review na PR #231, 6. kolo).
+              if (existing?.messageIds.includes(event.message.id)) continue;
               if (existing) {
                 merged = merged.map((p) =>
                   p.competitionId === event.message.competition_id
-                    ? { ...p, unreadCount: p.unreadCount + 1 }
+                    ? { ...p, unreadCount: p.unreadCount + 1, messageIds: [...p.messageIds, event.message.id] }
                     : p,
                 );
               } else {
                 const name =
                   memberships.find((m) => m.competitionId === event.message.competition_id)?.name ?? "";
-                merged = [...merged, { competitionId: event.message.competition_id, name, unreadCount: 1 }].sort(
-                  (a, b) => a.name.localeCompare(b.name, "cs"),
-                );
+                merged = [
+                  ...merged,
+                  {
+                    competitionId: event.message.competition_id,
+                    name,
+                    unreadCount: 1,
+                    messageIds: [event.message.id],
+                  },
+                ].sort((a, b) => a.name.localeCompare(b.name, "cs"));
               }
             }
             return merged;

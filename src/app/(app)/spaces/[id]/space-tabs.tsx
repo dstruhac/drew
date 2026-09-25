@@ -47,14 +47,26 @@ export function SpaceTabs({
   // 5. kolo).
   useEffect(() => {
     setTab(initialTab);
+    if (initialTab === "chat") {
+      // Appka na "?tab=chat" přišla rovnou s chatem otevřeným -- ten se
+      // (přes `isActive` v ChatPanelu) sám označí za přečtený, ale
+      // odznak na týhle záložce by bez týhle řádky zůstal na starém
+      // (kladném) čísle, dokud appka nepřijme další živou zprávu --
+      // klidně i po přepnutí zpátky na "Zápasy" (nalezeno Codex review
+      // na PR #231, 6. kolo).
+      setLiveUnreadCount(0);
+    }
   }, [initialTab]);
   // `unreadCount` je jen serverový snapshot z chvíle, kdy appka stránku
   // vykreslila -- appka ho drží dál ve vlastním stavu a průběžně
   // aktualizuje podle živých událostí z ChatPanelu (nová zpráva od
   // jiného hráče, přečtení), jinak by odznak zůstal na staré hodnotě,
   // dokud appka stránku znovu nenačte (nalezeno Codex review na
-  // PR #231).
-  const [liveUnreadCount, setLiveUnreadCount] = useState(unreadCount);
+  // PR #231). Appka na "?tab=chat" (initialTab==="chat") ale start
+  // rovnou nuluje -- ze stejného důvodu jako v efektu výše.
+  const [liveUnreadCount, setLiveUnreadCount] = useState(
+    initialTab === "chat" ? 0 : unreadCount,
+  );
 
   function selectTab(next: "matches" | "chat") {
     setTab(next);

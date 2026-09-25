@@ -254,7 +254,14 @@ export async function deleteHecovackaMessage(messageId: string) {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  if (!user) return;
+  // Appka musí selhání ohlásit (ne tiše vrátit), aby volající
+  // (chat-panel.tsx) zprávu, kterou z pohledu odesílatele hned schoval,
+  // vrátil zpátky -- tichý návrat by appku přesvědčil, že smazání
+  // proběhlo, i když se v DB vůbec nic nestalo (nalezeno Codex review
+  // na PR #231, 6. kolo).
+  if (!user) {
+    throw new Error("Nejste přihlášen, smazání zprávy se nepodařilo.");
+  }
 
   const { error } = await supabase
     .from("hecovacka_messages")
