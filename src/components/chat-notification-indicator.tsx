@@ -35,6 +35,18 @@ export function ChatNotificationIndicator({
   const [unreadItems, setUnreadItems] = useState<UnreadHecovacka[]>(items);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Appka po dobu reconciliace (viz níže) odkládá souběžně doručené
+  // živé eventy do fronty a aplikuje je AŽ NA vrácená data, ne naopak --
+  // stejný důvod a stejný vzor jako v ChatPanelu (nalezeno Codex review
+  // na PR #231, 4. kolo: appka to tady předtím nedělala, i když
+  // "dorovnávací" dotaz níže na to má úplně stejně náchylné okno).
+  const reconcileInFlightRef = useRef(false);
+  const pendingEventsDuringReconcileRef = useRef<
+    Array<
+      | { type: "insert"; message: { competition_id: string; user_id: string } }
+      | { type: "read"; competitionId: string }
+    >
+  >([]);
 
   useEffect(() => {
     setUnreadItems(items);
@@ -49,6 +61,9 @@ export function ChatNotificationIndicator({
   useEffect(() => {
     function handleRead(e: Event) {
       const { competitionId } = (e as CustomEvent<{ competitionId: string }>).detail;
+      if (reconcileInFlightRef.current) {
+        pendingEventsDuringReconcileRef.current.push({ type: "read", competitionId });
+      }
       setUnreadItems((prev) => prev.filter((p) => p.competitionId !== competitionId));
     }
     window.addEventListener("hecovacka-chat-read", handleRead);
@@ -83,6 +98,9 @@ export function ChatNotificationIndicator({
         (payload) => {
           const message = payload.new as { competition_id: string; user_id: string };
           if (message.user_id === currentUserId) return;
+          if (reconcileInFlightRef.current) {
+            pendingEventsDuringReconcileRef.current.push({ type: "insert", message });
+          }
           setUnreadItems((prev) => {
             const existing = prev.find((p) => p.competitionId === message.competition_id);
             if (existing) {
@@ -107,9 +125,39 @@ export function ChatNotificationIndicator({
         // review na PR #231, 3. kolo). Appka proto při KAŽDÉM úspěšném
         // přihlášení znovu spočítá nepřečtené přímo přes stejnou funkci
         // jako server (`getUnreadHecovackaChat`, jen s klientským
-        // Supabase klientem -- RLS platí i tady) a seznamem nahradí.
+        // Supabase klientem -- RLS platí i tady) a seznamem nahradí --
+        // se sloučením souběžných eventů podle komentáře u
+        // `pendingEventsDuringReconcileRef` výše (nalezeno Codex review
+        // na PR #231, 4. kolo).
         if (status !== "SUBSCRIBED") return;
-        getUnreadHecovackaChat(supabase, currentUserId).then(setUnreadItems);
+        reconcileInFlightRef.current = true;
+        pendingEventsDuringReconcileRef.current = [];
+        getUnreadHecovackaChat(supabase, currentUserId).then((fresh) => {
+          reconcileInFlightRef.current = false;
+          let merged = fresh;
+          for (const event of pendingEventsDuringReconcileRef.current) {
+            if (event.type === "read") {
+              merged = merged.filter((p) => p.competitionId !== event.competitionId);
+              continue;
+            }
+            const existing = merged.find((p) => p.competitionId === event.message.competition_id);
+            if (existing) {
+              merged = merged.map((p) =>
+                p.competitionId === event.message.competition_id
+                  ? { ...p, unreadCount: p.unreadCount + 1 }
+                  : p,
+              );
+            } else {
+              const name =
+                memberships.find((m) => m.competitionId === event.message.competition_id)?.name ?? "";
+              merged = [...merged, { competitionId: event.message.competition_id, name, unreadCount: 1 }].sort(
+                (a, b) => a.name.localeCompare(b.name, "cs"),
+              );
+            }
+          }
+          pendingEventsDuringReconcileRef.current = [];
+          setUnreadItems(merged);
+        });
       });
 
     return () => {

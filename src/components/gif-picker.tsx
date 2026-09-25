@@ -58,6 +58,12 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
     if (!open || !GIPHY_API_KEY) return;
 
     const requestId = ++latestRequestIdRef.current;
+    // Appka staré výsledky schová hned při zadání nového hledání, ne až
+    // po dojetí nového dotazu -- jinak by zůstaly celých 350 ms (+ čas
+    // na odpověď GIPHY) klikatelné a appka by tak mohla poslat GIFku za
+    // úplně jiné slovo, než co je zrovna napsané v poli (nalezeno Codex
+    // review na PR #231, 4. kolo).
+    setResults([]);
 
     // Appka hledání odloží o 350 ms od posledního stisku klávesy, ať
     // neposílá dotaz na GIPHY při každém písmenku.

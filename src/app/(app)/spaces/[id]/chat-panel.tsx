@@ -140,21 +140,38 @@ export function ChatPanel({
           .from("hecovacka_messages")
           .select("id, user_id, body, gif_url, created_at")
           .eq("competition_id", competitionId)
-          .order("created_at", { ascending: true })
+          // Stejný strop jako počáteční serverový dotaz (page.tsx, "Zobrazit
+          // posledních 50") -- appka bez tohohle při každém (znovu)připojení
+          // stahovala a vykreslovala ÚPLNĚ celou historii chatu, ne jen
+          // poslední okno (nalezeno Codex review na PR #231, 4. kolo).
+          .order("created_at", { ascending: false })
+          .limit(50)
           .then(({ data }) => {
             reconcileInFlightRef.current = false;
             if (!data) return;
-            const byId = new Map(data.map((m) => [m.id, m]));
+            const byId = new Map([...data].reverse().map((m) => [m.id, m]));
             for (const event of pendingEventsDuringReconcileRef.current) {
               if (event.type === "insert") byId.set(event.message.id, event.message);
               else byId.delete(event.id);
             }
             pendingEventsDuringReconcileRef.current = [];
-            setMessages(
-              [...byId.values()].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-              ),
+            const merged = [...byId.values()].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
             );
+            setMessages((prev) => {
+              // Zpráva od JINÉHO hráče, kterou appka objevila až tímhle
+              // dotažením (dorazila v mezeře před přihlášením podpisky), by
+              // jinak neprošla přes onIncomingMessage -- odznak na záložce
+              // Chat (viz SpaceTabs) by tak zůstal starý (nalezeno Codex
+              // review na PR #231, 4. kolo).
+              const previouslyKnownIds = new Set(prev.map((m) => m.id));
+              for (const m of merged) {
+                if (!previouslyKnownIds.has(m.id) && m.user_id !== currentUserIdRef.current) {
+                  onIncomingMessageRef.current?.();
+                }
+              }
+              return merged;
+            });
           });
       });
 
