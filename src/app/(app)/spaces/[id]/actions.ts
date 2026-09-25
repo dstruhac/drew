@@ -179,6 +179,95 @@ export async function removeHecovackaPlayer(competitionId: string, userId: strin
   revalidatePath("/hecovacky");
 }
 
+const CHAT_MESSAGE_MAX_LENGTH = 500;
+
+// Chat hecovačky (na žádost uživatele 25.9.2026) -- appka nepoužívá
+// revalidatePath: zprávu ostatním hráčům doručí Supabase Realtime
+// (ChatPanel má vlastní podpisku), plný refetch stránky by chat jen
+// zbytečně sekal.
+export async function sendHecovackaMessage(
+  competitionId: string,
+  body: string | null,
+  gifUrl: string | null,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return { error: "Nejste přihlášen." };
+
+  const trimmedBody = body?.trim() || null;
+  if (!trimmedBody && !gifUrl) {
+    return { error: "Zpráva je prázdná." };
+  }
+  if (trimmedBody && trimmedBody.length > CHAT_MESSAGE_MAX_LENGTH) {
+    return { error: `Zpráva je moc dlouhá (max ${CHAT_MESSAGE_MAX_LENGTH} znaků).` };
+  }
+
+  try {
+    await assertHecovackaNotArchived(supabase, competitionId, "Hecovačka už skončila, chat je uzavřený.");
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Chat je uzavřený." };
+  }
+
+  const { error } = await supabase.from("hecovacka_messages").insert({
+    competition_id: competitionId,
+    user_id: user.id,
+    body: trimmedBody,
+    gif_url: gifUrl,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null };
+}
+
+// Autor smí smazat jen svou vlastní zprávu (odsouhlaseno s uživatelem)
+// -- `.eq("user_id", user.id)` je tu jen jako druhá pojistka navíc k
+// RLS politice hecovacka_messages_delete_own, appka na to nespoléhá
+// jako na jedinou obranu.
+export async function deleteHecovackaMessage(messageId: string) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("hecovacka_messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Smazání zprávy se nepodařilo: ${error.message}`);
+  }
+}
+
+// Appka si pamatuje, dokdy hráč chat naposledy viděl -- podle toho pak
+// pozná nepřečtené zprávy (ikonka v horní liště + odznak na kartičce
+// Dashboardu, viz src/lib/hecovacka-chat.ts). Volá se, jakmile hráč
+// záložku Chat na stránce hecovačky skutečně otevře.
+export async function markHecovackaChatRead(competitionId: string) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .update({ chat_last_read_at: new Date().toISOString() })
+    .eq("competition_id", competitionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Označení chatu jako přečteného selhalo:", error.message);
+    return;
+  }
+
+  revalidatePath("/dashboard");
+}
+
 export async function submitPrediction(
   sport: Sport,
   competitionId: string,

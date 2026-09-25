@@ -49,6 +49,11 @@ uživatele appku a partu kamarádů reálně spojují) a běží na vlastní dom
   - Redirect URI nastavené v Google Console: `https://rvcxdlmwxdykkxpqegzr.supabase.co/auth/v1/callback`
   - Authorized origins: `https://klopi.cz`, `https://drew-pink.vercel.app`,
     `http://localhost:3000`
+- **GIPHY** (chat v hecovačkách, 25.9.2026): `NEXT_PUBLIC_GIPHY_API_KEY`
+  — účet/klíč zdarma na https://developers.giphy.com (appka to nemůže
+  založit sama, vyžaduje uživatelovo přihlášení). Bez klíče appka GIF
+  picker zobrazí, jen s hláškou "vyhledávání není nastavené" místo
+  výsledků — viz "Ruční kroky" níže.
 
 ## Datový model (`supabase/migrations/`)
 
@@ -93,6 +98,13 @@ editor (žádné napojení přes Supabase CLI zatím není — projekt není
   logo_url)`, loga v Supabase Storage bucketu `logos`.
 - **hecovacka_sources** — many-to-many, které veřejné soutěže smí
   appka použít jako zdroj zápasů pro danou hecovačku.
+- **hecovacka_messages** — chat hecovačky (25.9.2026): text a/nebo
+  `gif_url`, jedna společná místnost na celou hecovačku. Vidět/psát smí
+  jen participant, autor smí smazat jen svou vlastní zprávu. Realtime
+  zapnuté (appka doručuje zprávy bez obnovení stránky).
+  `competition_participants.chat_last_read_at` (na téže tabulce jako
+  účast) appka používá k odznaku "nová zpráva" na Dashboardu/v horní
+  liště.
 - **prediction_reminders_sent** — interní evidence "komu už dnes bylo
   posláno upozornění", žádná policy pro `authenticated`.
 
@@ -322,6 +334,14 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Tlačítko "+ Založit hecovačku" i na Dashboardu (22.9.2026) — vedle
   nadpisu "Dashboard", stejné jako appka už měla na `/hecovacky`; dřív
   se k formuláři dalo dostat jen přes `/hecovacky`.
+- [x] **Chat v hecovačkách** (25.9.2026) — text + GIFky (GIPHY),
+  záložka "Chat" vedle "Zápasy" na stránce hecovačky, jedna společná
+  místnost. Nepřečtená zpráva se hlásí dvěma způsoby: ikonka vedle
+  fotečky v horní liště appky (viditelná odkudkoliv, klik vede rovnou
+  do chatu, nebo u víc hecovaček najednou do rozbalovacího seznamu) a
+  odznak na kartičce hecovačky na Dashboardu. Vyžaduje ruční spuštění
+  migrace a založení GIPHY API klíče, viz "Ruční kroky" níže. Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
@@ -348,6 +368,21 @@ repu, ale nikdy nespuštěnou v Supabase — hlídá se to jen ručně tady a v
 chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
+
+**Migrace čeká na ruční spuštění** (25.9.2026): `20260925130000_hecovacka_chat.sql`
+— zakládá chat hecovaček (tabulka `hecovacka_messages` + sloupec
+`chat_last_read_at`). Bez spuštění appka na chatové záložce/RPC dostane
+"permission denied"/"relation does not exist" chybu.
+
+**GIPHY API klíč čeká na založení** (25.9.2026) — appka potřebuje
+`NEXT_PUBLIC_GIPHY_API_KEY` (zdarma účet na
+https://developers.giphy.com), aby GIF vyhledávač v chatu vracel
+výsledky. Appka to nemůže založit sama (vyžaduje uživatelovo
+přihlášení) — bez klíče appka picker zobrazí, jen s hláškou
+"vyhledávání není nastavené". Až bude klíč hotový, appka ho potřebuje
+jako proměnnou prostředí NA VERCELU (Project Settings → Environment
+Variables) a případně i v lokálním `.env.local`, viz
+`.env.local.example`.
 
 **Migrace čekají na ruční spuštění** (19.–20.9.2026), tři soubory
 (spustit v tomhle pořadí podle názvu/timestampu):
