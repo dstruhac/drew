@@ -369,10 +369,18 @@ chatu. Kdykoliv přibude nespuštěná migrace, zapiš ji sem jako
 checklist, ať se neztratí (viz `HISTORY.md` → "Poučení pro příště" u
 e-mailových upozornění, kde se přesně tohle jednou stalo).
 
-**Migrace čeká na ruční spuštění** (25.9.2026): `20260925130000_hecovacka_chat.sql`
-— zakládá chat hecovaček (tabulka `hecovacka_messages` + sloupec
-`chat_last_read_at`). Bez spuštění appka na chatové záložce/RPC dostane
-"permission denied"/"relation does not exist" chybu.
+Migrace `20260925130000_hecovacka_chat.sql` (chat hecovaček) spuštěna
+uživatelem 26.9.2026.
+
+**Migrace čeká na ruční spuštění** (26.9.2026):
+`20260926070000_hecovacka_messages_service_role_grant.sql` — doplňuje
+chybějící `GRANT` pro `service_role` na `hecovacka_messages` (stejná
+opakovaně se vracející chyba jako u předešlých tabulek, viz `HISTORY.md`
+→ "Grants"; objevena při ověřování migrace výše přes `db-probe.yml`,
+403 "permission denied"). Appka to zatím prakticky nepotřebuje (chat
+běží jen jako `authenticated`, žádný sync skript se `hecovacka_messages`
+nedotýká) — jde o prevenci, ať to nechybí, až appka jednou bude
+potřebovat sáhnout na zprávy přes service_role (export, moderace).
 
 **GIPHY API klíč čeká na založení** (25.9.2026) — appka potřebuje
 `NEXT_PUBLIC_GIPHY_API_KEY` (zdarma účet na

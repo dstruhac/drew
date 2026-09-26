@@ -1,0 +1,12 @@
+-- Stejná opakovaně se vracející chyba jako u předešlých tabulek (viz
+-- HISTORY.md -> "Grants"): Supabase u čerstvého projektu automaticky
+-- negrantuje přístup k nové tabulce ani `service_role` roli. Migrace
+-- 20260925130000_hecovacka_chat.sql grantovala jen `authenticated`
+-- (appka do hecovacka_messages zatím zapisuje/čte výhradně jako
+-- přihlášený uživatel přes RLS, žádný sync skript/service-role kód
+-- tuhle tabulku nepoužívá) -- objeveno 26.9.2026 při ověřování migrace
+-- přes db-probe.yml (403 "permission denied for table
+-- hecovacka_messages"). Doplněno i tady, ať to nejde zapomenout, když
+-- appka jednou budoucí funkci (např. export/moderaci zpráv) přes
+-- service_role potřebovat bude.
+grant select, insert, update, delete on public.hecovacka_messages to service_role;
