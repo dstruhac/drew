@@ -125,12 +125,13 @@ do prohlížeče.
   to explicitně změnil — dřívější pravidlo "vždy napiš `@codex review`
   po založení PR" už neplatí).** Appka NEPÍŠE `@codex review`
   automaticky. Místo toho po každém pushi appka sama prožene svůj diff
-  přes `code-review` skill (stejná přísnost/rozsah, jaký předtím
-  dodával Codex -- nálezy řeš/oprav stejně jako jakékoliv jiné review
-  nálezy) a teprve pak, když je appka se svým vlastním review spokojená,
-  řekne uživateli, že PR čeká na "jedeme". Codex appka na PR nespouští
-  sama -- uživatel si ho podle potřeby vyvolá ručně (komentářem `@codex
-  review` na PR), typicky až po vlastním kolečku appky.
+  přes `code-review` skill na úrovni **high** (ne výchozí/nízká —
+  appka chce pokrytí srovnatelné s tím, co dřív dodával Codex, ne jen
+  pár nejjistějších nálezů) a nálezy řeš/oprav stejně jako jakékoliv
+  jiné review nálezy, teprve pak řekne uživateli, že PR čeká na
+  "jedeme". Codex appka na PR nespouští sama -- uživatel si ho podle
+  potřeby vyvolá ručně (komentářem `@codex review` na PR), typicky až
+  po vlastním kolečku appky.
 - **Merge PR — od 21.9.2026 nikdy sám, bez výjimky** (uživatel to
   explicitně zrušil, dřívější pravidlo z 27.8.2026 o samostatném mergi
   neproblematických PR už neplatí). Vždycky čekej na uživatelovo
@@ -139,8 +140,9 @@ do prohlížeče.
   přijde), ověř, že appčino vlastní review (`code-review` skill)
   proběhlo a jeho nálezy jsou vyřešené — merge bez vlastního review
   nebo s nevyřešeným nálezem nedělej, ani se souhlasem v chatu. Pokud
-  uživatel mezitím sám ručně vyvolá Codex review a na PR přibudou jeho
-  komentáře, nejdřív na ně zareaguj (drobnosti oprav rovnou, u větších
+  mezitím na PR přibudou další komentáře (od uživatele, ručně
+  vyvolaného Codexe, nebo kohokoliv jiného), nejdřív na ně zareaguj
+  (drobnosti oprav rovnou, u větších
   věcí navrhni řešení v chatu) — teprve pak čekej na uživatelovo
   "jedeme".
 - **Jakmile je PR smergovaný (ať už jím nebo uživatelem ručně na
