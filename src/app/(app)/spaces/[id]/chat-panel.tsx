@@ -348,12 +348,16 @@ export function ChatPanel({
           onChange={(e) => setBody(e.target.value)}
           placeholder="Napiš zprávu…"
           maxLength={500}
-          // `text-base` (16px) na mobilu -- pod 16px prohlížeč (hlavně
-          // iPhone) při klepnutí do pole automaticky přiblíží celou
-          // stránku a sám se pak neoddálí (nahlášeno 26.9.2026). Na
-          // větší obrazovce (`sm:` a výš, kde appka tohle neřeší) appka
-          // nechává původní menší `text-sm`.
-          className="min-w-0 flex-1 rounded-full border border-border-subtle bg-transparent px-4 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
+          // `text-base` (16px) na dotykových zařízeních -- pod 16px
+          // prohlížeč (hlavně iPhone) při klepnutí do pole automaticky
+          // přiblíží celou stránku a sám se pak neoddálí (nahlášeno
+          // 26.9.2026). Menší `text-sm` appka nechává jen zařízením s
+          // `pointer-fine` (myš/touchpad) -- NE podle šířky okna
+          // (`sm:`), protože mobil na šířku (landscape) bývá širší než
+          // 640px a `sm:` by tak menší písmo (a auto-zoom) omylem
+          // vrátilo i na dotykovém displeji (nalezeno Codex review na
+          // PR #233).
+          className="min-w-0 flex-1 rounded-full border border-border-subtle bg-transparent px-4 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 pointer-fine:text-sm"
         />
         <GifPicker onSelect={(gifUrl) => handleSend(gifUrl)} />
         <button

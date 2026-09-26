@@ -21,9 +21,11 @@ export function NicknameForm({ currentName }: { currentName: string }) {
           required
           maxLength={50}
           defaultValue={currentName}
-          // `text-base` na mobilu, ať prohlížeč sám nezvětšuje celou
-          // stránku (viz stejná poznámka u chat-panel.tsx).
-          className="w-56 rounded-[10px] border border-border-subtle bg-transparent px-3 py-1.5 text-base transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
+          // `text-base` na dotykových zařízeních, ať prohlížeč sám
+          // nezvětšuje celou stránku -- menší písmo appka nechává jen
+          // `pointer-fine` zařízením (myš/touchpad), ne podle šířky
+          // okna, viz stejná poznámka u chat-panel.tsx.
+          className="w-56 rounded-[10px] border border-border-subtle bg-transparent px-3 py-1.5 text-base transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 pointer-fine:text-sm"
         />
         <button
           type="submit"

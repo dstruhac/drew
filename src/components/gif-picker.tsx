@@ -124,10 +124,15 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Hledat GIFku…"
                   autoFocus
-                  // `text-base` na mobilu ze stejného důvodu jako
-                  // v chat-panel.tsx -- pod 16px prohlížeč sám přiblíží
-                  // stránku a neoddálí ji zpátky.
-                  className="w-full bg-transparent text-base outline-none sm:text-xs"
+                  // `text-base` (16px) na dotykových zařízeních ze
+                  // stejného důvodu jako v chat-panel.tsx -- menší
+                  // písmo appka nechává jen `pointer-fine` zařízením
+                  // (myš/touchpad), NE podle šířky okna (`sm:`) --
+                  // mobil na šířku (landscape) je běžně širší než 640px,
+                  // takže `sm:` by menší písmo (a tím pádem auto-zoom)
+                  // omylem vrátilo i na dotykovém displeji (nalezeno
+                  // Codex review na PR #233).
+                  className="w-full bg-transparent text-base outline-none pointer-fine:text-xs"
                 />
                 {query && (
                   <button type="button" onClick={() => setQuery("")} aria-label="Vymazat hledání">
