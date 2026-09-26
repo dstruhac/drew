@@ -118,24 +118,33 @@ do prohlížeče.
   na začátku session v systémových instrukcích). **PR vytvářej rovnou
   sám po každém pushi** — díky tomu Vercel na PR napíše komentář s
   odkazem na preview, což je pro uživatele nejspolehlivější způsob, jak
-  změnu vyzkoušet, než jde do `main`. **Hned po založení PR** (1) se na
-  něj přihlas přes `subscribe_pr_activity` (automaticky se tak dozvím
-  o nových komentářích/CI) a (2) **rovnou napiš komentář `@codex
-  review`**, ať se Codex review spustí bez čekání (uživatel 21.9.2026:
-  "cílem je, aby na kontrolu bylo vždy review") — nálezy pak řeš stejně
-  jako jakékoliv jiné review komentáře (viz Codex sekce v systémových
-  instrukcích o práci s PR).
+  změnu vyzkoušet, než jde do `main`. **Hned po založení PR se na něj
+  přihlas přes `subscribe_pr_activity`** (automaticky se tak dozvím o
+  nových komentářích/CI).
+- **Vlastní review místo automatického Codexe (od 26.9.2026, uživatel
+  to explicitně změnil — dřívější pravidlo "vždy napiš `@codex review`
+  po založení PR" už neplatí).** Appka NEPÍŠE `@codex review`
+  automaticky. Místo toho po každém pushi appka sama prožene svůj diff
+  přes `code-review` skill na úrovni **high** (ne výchozí/nízká —
+  appka chce pokrytí srovnatelné s tím, co dřív dodával Codex, ne jen
+  pár nejjistějších nálezů) a nálezy řeš/oprav stejně jako jakékoliv
+  jiné review nálezy, teprve pak řekne uživateli, že PR čeká na
+  "jedeme". Codex appka na PR nespouští sama -- uživatel si ho podle
+  potřeby vyvolá ručně (komentářem `@codex review` na PR), typicky až
+  po vlastním kolečku appky.
 - **Merge PR — od 21.9.2026 nikdy sám, bez výjimky** (uživatel to
   explicitně zrušil, dřívější pravidlo z 27.8.2026 o samostatném mergi
   neproblematických PR už neplatí). Vždycky čekej na uživatelovo
   výslovné "jedeme"/"mergni to"/"ok" v chatu — **i** u čistě
   dokumentačních/úklidových PR. Než o něj požádáš (nebo než mergneš, až
-  přijde), ověř, že Codex review proběhlo a jeho nálezy jsou vyřešené
-  (odpovězeno/opraveno) — merge bez proběhlého review nebo s nevyřešeným
-  nálezem nedělej, ani se souhlasem v chatu. Pokud mezitím na PR
-  přibudou další komentáře, nejdřív na ně zareaguj (drobnosti oprav
-  rovnou, u větších věcí navrhni řešení v chatu) — teprve pak čekej na
-  uživatelovo "jedeme".
+  přijde), ověř, že appčino vlastní review (`code-review` skill)
+  proběhlo a jeho nálezy jsou vyřešené — merge bez vlastního review
+  nebo s nevyřešeným nálezem nedělej, ani se souhlasem v chatu. Pokud
+  mezitím na PR přibudou další komentáře (od uživatele, ručně
+  vyvolaného Codexe, nebo kohokoliv jiného), nejdřív na ně zareaguj
+  (drobnosti oprav rovnou, u větších
+  věcí navrhni řešení v chatu) — teprve pak čekej na uživatelovo
+  "jedeme".
 - **Jakmile je PR smergovaný (ať už jím nebo uživatelem ručně na
   GitHubu), branch pro tenhle PR je "spotřebovaná".** Než na ni
   pushneš další commit, ověř přes GitHub (`pull_request_read` / `list_pull_requests`),
