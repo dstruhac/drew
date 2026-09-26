@@ -155,26 +155,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Mobilní prohlížeče (hlavně iPhone/Safari) automaticky přiblíží celou
-   stránku, jakmile uživatel klikne do textového pole s písmem menším
-   než 16px -- a bez zásahu appky se pak samy neoddálí (nahlášeno
-   26.9.2026 u psaní zprávy a vyhledávání GIFky v chatu, ale appka má
-   spoustu polí menších než 16px -- skóre tipu, přezdívka, formulář na
-   hecovačku -- takže stejná chyba hrozí všude, appka to proto řeší
-   plošně, ne jen pro jeden formulář). Přes 640px (počítač/tablet na
-   šířku, kde appka žádné klepání prstem/přiblížení neřeší) appka
-   nechává vlastní (menší) velikost písma jednotlivých polí beze
-   změny -- appka NEVYPÍNÁ přiblížení úplně (`user-scalable=no` by
-   appku znepřístupnilo lidem, co si potřebují stránku přiblížit sami),
-   jen odstraňuje důvod, proč by to prohlížeč dělal sám automaticky. */
-@media (max-width: 640px) {
-  input,
-  textarea,
-  select {
-    font-size: 16px;
-  }
-}
-
 /* "Banger" momenty (redesign 29.8.2026) -- krátká animace, kterou si
    appka pustí, když hráč poprvé uvidí trefený přesný výsledek nebo
    vyhrané kolo (viz exact-score-celebration.tsx a

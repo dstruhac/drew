@@ -116,7 +116,10 @@ export function HecovackaForm({
           placeholder="Např. Podzimní klopení"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+          // `text-base` na mobilu, ať prohlížeč sám nezvětšuje celou
+          // stránku (viz stejná poznámka u chat-panel.tsx). Platí pro
+          // všechna textová/číselná/datová pole v tomhle formuláři.
+          className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
         />
       </SectionCard>
 
@@ -129,7 +132,7 @@ export function HecovackaForm({
           placeholder="Např. Poražený platí rundu."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+          className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
         />
         <p className="text-xs text-faint-foreground">Nepovinné -- appka to jen zobrazí, nijak to nevymáhá.</p>
       </SectionCard>
@@ -146,7 +149,7 @@ export function HecovackaForm({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
             />
             <p className="text-xs text-faint-foreground">
               Nevyplníš-li, hecovačka začne vybírat zápasy hned od založení.
@@ -163,7 +166,7 @@ export function HecovackaForm({
               required
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="rounded-[12px] border border-border-subtle bg-transparent px-3 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
             />
           </div>
         </div>
@@ -231,7 +234,7 @@ export function HecovackaForm({
               value={maxMatchesPerDay}
               onFocus={() => setLimitMode("limited")}
               onChange={(e) => setMaxMatchesPerDay(e.target.value)}
-              className="w-16 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="w-16 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:text-sm"
             />
             zápasů/den
           </label>

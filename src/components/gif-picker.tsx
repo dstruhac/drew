@@ -124,7 +124,10 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Hledat GIFku…"
                   autoFocus
-                  className="w-full bg-transparent text-xs outline-none"
+                  // `text-base` na mobilu ze stejného důvodu jako
+                  // v chat-panel.tsx -- pod 16px prohlížeč sám přiblíží
+                  // stránku a neoddálí ji zpátky.
+                  className="w-full bg-transparent text-base outline-none sm:text-xs"
                 />
                 {query && (
                   <button type="button" onClick={() => setQuery("")} aria-label="Vymazat hledání">
