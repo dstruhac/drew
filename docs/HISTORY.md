@@ -4374,6 +4374,29 @@ Vercelovo produkční prostředí by tímhle omezením nemělo být dotčené
 CI. Stojí za budoucí prošetření, pokud by se stejná chyba objevila i
 na Vercelu.
 
+**Dovyšetřeno**: preview build na Vercelu proběhl bez chyby (obě
+verze pushnuté do PR #233), takže Turbopack chyba je potvrzeně jen
+záležitost tohohle sandboxu, ne appky.
+
+**Oprava: `sm:` breakpoint nesprávně řešil dotykovost přes šířku okna
+(26.9.2026, nalezeno ručně vyvolaným Codex review na PR #233)** --
+appka po dokončení vlastního review nechala uživatele, ať si podle
+zavedeného workflow PR ještě sám prožene Codexem. Codex našel reálnou
+mezeru: appka menší písmo (`sm:text-sm`/`sm:text-xs`) vracela podle
+šířky viewportu (`sm:` = od 640px), ne podle toho, jestli je zařízení
+dotykové -- mobil na šířku (landscape) bývá běžně širší než 640px
+(iPhone SE landscape ~667px, iPhone 14 landscape ~844px), takže by tam
+appka omylem menší písmo (a s ním auto-zoom bug, který se tenhle PR
+snažil opravit) vrátila zpátky. Oprava nahrazuje `sm:text-*` za
+Tailwindí variantu `pointer-fine:text-*` (`@media (pointer: fine)`) --
+menší písmo teď dostávají jen zařízení s přesným ukazatelem (myš/
+touchpad), dotykový displej v JAKÉKOLIV orientaci/šířce zůstává na
+16px. Opraveno stejných 8 polí v 5 souborech jako v prvním kole.
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + vlastní
+review (bez nálezů) + `pnpm build` (tentokrát prošel i přes Turbopack
+-- předchozí selhání v sandboxu se nezopakovalo, zůstává nejasné
+proč). Odpovězeno a vyřešeno vlákno na Codexově nálezu na PR.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

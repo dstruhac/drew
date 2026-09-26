@@ -345,9 +345,9 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
 - [x] Oprava: auto-přiblížení stránky na mobilu po klepnutí do
   textového pole (26.9.2026) — psaní zprávy/hledání GIFky v chatu,
   skóre tipu, přezdívka, formulář na hecovačku. Cíleně po polích
-  (`text-base sm:text-...`), ne plošným CSS — plošná varianta by v
-  Tailwind v4 nechtěně zmenšila i záměrně velký vstup skóre tipu. Viz
-  `HISTORY.md`.
+  (`text-base pointer-fine:text-...` — dotykovost appka rozlišuje
+  podle typu ukazatele, ne podle šířky okna, po nálezu Codex review na
+  landscape mobilu). Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
