@@ -342,6 +342,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   odznak na kartičce hecovačky na Dashboardu. Vyžaduje ruční spuštění
   migrace a založení GIPHY API klíče, viz "Ruční kroky" níže. Viz
   `HISTORY.md`.
+- [x] Oprava: auto-přiblížení stránky na mobilu po klepnutí do
+  textového pole (26.9.2026) — psaní zprávy/hledání GIFky v chatu,
+  skóre tipu, přezdívka, formulář na hecovačku. Cíleně po polích
+  (`text-base sm:text-...`), ne plošným CSS — plošná varianta by v
+  Tailwind v4 nechtěně zmenšila i záměrně velký vstup skóre tipu. Viz
+  `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

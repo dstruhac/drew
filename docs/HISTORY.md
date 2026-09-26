@@ -4243,6 +4243,137 @@ spuštění migrace a založení GIPHY klíče vyzkoušet chat naživo (ideáln�
 ve dvou různých prohlížečích/zařízeních, ať se ověří, že zpráva
 doopravdy doletí bez obnovení stránky).
 
+## Chybějící GRANT service_role na hecovacka_messages (26.9.2026)
+
+Po spuštění migrace chatu (`20260925130000_hecovacka_chat.sql`)
+uživatelem appka ověřila stav přes `db-probe.yml` (service role klíč)
+a narazila na 403 "permission denied for table hecovacka_messages" --
+stejná opakovaně se vracející chyba jako u předešlých tabulek (viz
+"Grants" výše): migrace grantovala přístup jen `authenticated`, ne
+`service_role`. Nová migrace
+`20260926070000_hecovacka_messages_service_role_grant.sql` doplňuje
+`grant select, insert, update, delete ... to service_role`. Appka
+ověřila přes `search_code`, že žádný současný kód/sync skript
+`service_role` přístup k téhle tabulce reálně nepotřebuje -- jde čistě
+o prevenci (stejné pravidlo, co appka sama zavedla: grant u KAŽDÉ nové
+tabulky rovnou v migraci). Merged přes PR #232. **Migrace čeká na ruční
+spuštění uživatelem** (viz "Ruční kroky" v `PROJECT.md`).
+
+## Vlastní review místo automatického Codexe (26.9.2026)
+
+Uživatel: "zrus prosim automaticky komentar od codexu s kazdym PR.
+chtel bych, aby jsi si delal sam kolecko PR a review... codex pak
+vyvolam sam rukou, az si provedes vsechna kolecka." Appka do teď po
+každém pushi psala na PR `@codex review` automaticky -- uživatel tenhle
+krok zrušil, appka místo toho po každém pushi sama prožene svůj diff
+přes `code-review` skill na úrovni **high** (explicitně vyšší než
+výchozí, ať pokrytí odpovídá tomu, co dřív dodával Codex) a nálezy
+řeší/opravuje stejně jako jakékoliv jiné review nálezy, teprve pak
+řekne uživateli, že PR čeká na "jedeme". Codex appka na PR nespouští
+sama, uživatel si ho vyvolá ručně, typicky až po vlastním kolečku
+appky. Zapsáno jako trvalé pravidlo do `CLAUDE.md`.
+
+Appka si pravidlo hned "odzkoušela na sobě" -- pustila `code-review
+--level high` na vlastní změnu `CLAUDE.md`/`PROJECT.md` a nález ("nové
+pravidlo o reakci na komentáře se omylem zúžilo jen na ručně vyvolaný
+Codex" + "chybí konkrétní úroveň code-review skillu, jinak je 'stejné
+pokrytí jako Codex' nevymahatelná fráze") rovnou opravila v dalším
+commitu stejného PR #232, než požádala o "jedeme".
+
+Vedlejší efekt zjištěný při popisu pravidla v komentáři na PR: appka
+napsala řetězec "`@codex review`" popisně (vysvětlovala, co appka dřív
+dělala), GitHub/Codexův listener ho ale zjevně vyhodnotil jako skutečné
+vyvolání a Codex zareagoval nevyžádaně. Poučení pro příště: v
+komentářích na PR se tomuhle přesnému řetězci vyhýbat, i když je řeč
+jen o pravidle samotném.
+
+## GIPHY API klíč nasazen a ověřen (26.9.2026)
+
+Uživatel založil zdarma účet na developers.giphy.com a klíč
+(`fD9zDgi1rmE4V9dTX4PralTFYz7C9eXZ`) rovnou nastavil ve Vercelu jako
+`NEXT_PUBLIC_GIPHY_API_KEY` (veřejná/plaintext proměnná -- správně,
+`NEXT_PUBLIC_` proměnné se stejně bundlují do klientského JS a jsou v
+prohlížeči vidět vždycky, "Public" ve Vercelu tomu jen odpovídá,
+"Sensitive" by tady nic nechránilo). Appka klíč sama nemohla ověřit
+proti produkci (síťové omezení, `supabase.co`/cizí API nejdou přímo z
+téhle session), ověřila ho ale přes `api-probe.yml` (GitHub Actions s
+plným internetem) -- přímé volání
+`https://api.giphy.com/v1/gifs/trending?api_key=...` vrátilo `"status":
+200`. Uživatel následně potvrdil, že GIF vyhledávání v chatu na
+produkci reálně funguje.
+
+## Oprava: auto-přiblížení stránky na mobilu (26.9.2026)
+
+Uživatel: "na telefonu se mi vzdycky tak odskakuje focus, kdyz kliknu
+na gif nebo psani, tak se mi jakoby priblizi, ale pak neoddali." Známé
+chování mobilních prohlížečů (hlavně iOS Safari): klepnutí do
+textového pole (`input`/`textarea`/`select`) s vypočítaným písmem pod
+16px prohlížeč vyhodnotí jako "musím přiblížit, ať uživatel vidí, co
+píše" a po odklepnutí pole se sám neoddálí. Standardní oprava je
+zajistit písmo >=16px na mobilu, ne vypínat přiblížení úplně
+(`user-scalable=no` by appku znepřístupnilo lidem, co si potřebují
+stránku přiblížit sami).
+
+**První pokus (revertnutý, nikdy nepushnutý) byl chybný**: appka přidala
+plošné pravidlo přímo do `globals.css` mimo `@layer`:
+
+```css
+@media (max-width: 640px) {
+  input, textarea, select { font-size: 16px; }
+}
+```
+
+Appka na tenhle diff pustila nově zavedené vlastní review
+(`code-review --level high`) -- žádný tvrdý nález, jen měkkou poznámku
+o úzkých polích skóre (vyhodnocenou jako neblokující). Appka si ale
+poznámku sama ještě jednou přebrala a došla ke skutečnému problému,
+který review sám nepojmenoval naplno: Tailwind v4 organizuje svoje
+vlastní utility třídy do `@layer utilities`, a podle CSS Cascade Layers
+specifikace "unlayered" CSS (mimo jakýkoliv `@layer`) vždycky vyhraje
+nad "layered" CSS bez ohledu na specificitu selektoru. Plošné pravidlo
+by tak nejen opravilo malá pole, ale zároveň by NECHTĚNĚ zmenšilo i
+záměrně velký `text-2xl` vstup pro skóre tipu (appčin nejpoužívanější
+prvek) na 16px na mobilu -- reálná vizuální regrese na jednom
+nejdůležitějším místě appky. Appka zvážila i alternativy (`@layer
+base`, `@layer utilities` s uměle navýšenou specificitou) -- obě by buď
+malá pole vůbec neopravily, nebo by vyžadovaly křehký seznam výjimek.
+Rozhodnutí: `globals.css` vráceno beze změny, oprava místo toho cíleně
+po jednotlivých polích přes `text-base sm:text-{původní velikost}` --
+16px pod `sm:` (640px, mobil), původní menší velikost od `sm:` výš
+(počítač/tablet).
+
+**Opraveno 8 polí v 5 souborech**: zpráva (`chat-panel.tsx`) a
+vyhledávání GIFky (`gif-picker.tsx`) v chatu hecovačky, obě kompaktní
+pole skóre tipu (`prediction-form.tsx` -- "hero" verze s `text-2xl`
+zůstává beze změny, je už nad 16px), přezdívka na žebříčku
+(`nickname-form.tsx`), a 5 polí formuláře na založení hecovačky
+(`hecovacky/nova/form.tsx`: název, popis, od/do, max zápasů/den --
+checkboxy/rádia beze změny, ty přiblížení nevyvolávají). Ověřeno `pnpm
+exec tsc --noEmit` + `pnpm check` (60 testů) + vlastní review na
+finální verzi (bez nálezů) + ručním grepem přes celý `src/` na
+kompletnost (žádné další nepokryté pole).
+
+**Vedlejší zjištění při ověřování (sandbox)**: `pnpm build` (Turbopack,
+výchozí od Next.js 16) v tomhle prostředí selhává na nesouvisející
+interní chybě ("Module not found:
+`@vercel/turbopack-next/internal/font/google/font`") při zpracování
+Google Fontu (Manrope) -- reprodukuje se identicky i na commitu PŘED
+touhle změnou, takže nejde o regresi tohohle PR. Appka ověřila `curl`em
+(přímo i přes proxy), že `fonts.googleapis.com`/`fonts.gstatic.com`
+jsou z téhle session ve skutečnosti dostupné (200) -- **starší tabulka
+síťových omezení v `PROJECT.md`/`CLAUDE.md` (25.8.2026, "Google: ne")
+už neplatí přesně takhle, prostředí session mezitím dostalo obecnou
+proxy (`HTTPS_PROXY`), která umí víc domén než dřívější sandbox**.
+Přesná příčina Turbopack chyby zůstává neobjasněná (balíček
+`@vercel/turbopack-next` není ani na npm registry -- jde o interní
+virtuální modul, ne normální závislost); appka to obešla ověřením přes
+`next build --webpack`, který proběhl bez chyby, čímž potvrdila, že
+diff sám je v pořádku a jde čistě o Turbopack/sandbox kombinaci.
+Vercelovo produkční prostředí by tímhle omezením nemělo být dotčené
+(běžný internet, ne tenhle sandbox) -- ověří se až na PR #233 preview
+CI. Stojí za budoucí prošetření, pokud by se stejná chyba objevila i
+na Vercelu.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
