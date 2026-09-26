@@ -360,6 +360,10 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   chatem na mobilu. Sbalený zůstává vidět jen řádek s příznakem
   skončení, zbytek (popis, konec, zdrojové soutěže, pozvánka, hráči)
   je pod klepnutím. Viz `HISTORY.md`.
+- [x] Tlačítko "Opustit soutěž" u hecovaček přesunuto do panelu "Info
+  o hecovačce" (26.9.2026) — dřív samostatně na konci celé stránky.
+  Veřejné soutěže (bez infoboxu) mají tlačítko beze změny na konci
+  stránky. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

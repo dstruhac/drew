@@ -4517,6 +4517,27 @@ změny -- prostý `useState` + podmíněné vykreslení stejným vzorem jako
 od chatu, kde šlo o mnohem rizikovější novou funkci). Uživatel by si
 po nasazení měl zkontrolovat, že se panel chová podle očekávání.
 
+## Tlačítko "Opustit soutěž" přesunuto do infoboxu hecovačky (26.9.2026)
+
+Uživatel: "tedka bych chtel, aby tlacitko opustit soutez bylo v tom
+infoboxiku" -- appka tlačítko (`leaveCompetition` server akce) měla
+dřív samostatně na konci celé stránky detailu soutěže, platilo to
+stejně pro veřejné soutěže i hecovačky.
+
+**Appka si všimla rozporu a rozhodla se sama (technická věc)**: infobox
+(`HecovackaPanel`, právě předtím udělaný rozbalovací) existuje JEN u
+hecovaček (`competition.visibility === "private"`) -- veřejné soutěže
+žádný takový panel nemají. Appka proto tlačítko přesunula dovnitř
+`HecovackaPanel` (na konec rozbaleného obsahu, oddělené linkou) jen pro
+hecovačky; u veřejných soutěží zůstává tlačítko beze změny na konci
+stránky, appka ho odtamtud NEODEBRALA -- jinak by veřejné soutěže o
+možnost odejít přišly úplně. Podmínka (`isJoined && !isArchived`,
+včetně komentáře o nemožnosti návratu přes pozvánku po archivaci,
+nalezeno Codex review na PR #225) zůstala nezměněná, jen se
+přesunula spolu s tlačítkem.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

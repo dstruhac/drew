@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Copy, Check, UserPlus, ChevronDown } from "lucide-react";
-import { addHecovackaPlayer, removeHecovackaPlayer } from "./actions";
+import { addHecovackaPlayer, removeHecovackaPlayer, leaveCompetition } from "./actions";
 
 // Zobrazí se navíc na detailu soukromé soutěže (hecovačky) -- popisek
 // "o co se hraje", datum konce, zdrojové soutěže, seznam hráčů a (jen
@@ -12,6 +12,7 @@ import { addHecovackaPlayer, removeHecovackaPlayer } from "./actions";
 export function HecovackaPanel({
   competitionId,
   isOwner,
+  isJoined,
   isArchived,
   description,
   endDate,
@@ -22,6 +23,10 @@ export function HecovackaPanel({
 }: {
   competitionId: string;
   isOwner: boolean;
+  /** Podmínka pro "Opustit soutěž" -- appka tlačítko přesunula sem
+   * dovnitř infoboxu (na žádost uživatele 26.9.2026, dřív bylo
+   * samostatně na konci celé stránky). */
+  isJoined: boolean;
   /** `true` po uplynutí end_date (archivuje hecovacky.mjs) -- appka se
    * "zakonzervuje": zmizí pozvánkový odkaz, přidávání i odebírání
    * hráčů, "Hraje se do" se změní na "Skončilo" (uživatel 21.9.2026,
@@ -183,6 +188,27 @@ export function HecovackaPanel({
                 </ul>
               )}
             </div>
+          )}
+
+          {/* Skončená hecovačka: "Opustit soutěž" by hráče vymazalo z
+           * finálního pořadí/pódia bez možnosti návratu -- pozvánkový
+           * token po archivaci appka odmítá (accept_hecovacka_invite
+           * vyžaduje status='active', viz migrace 20260915090200), takže
+           * by se hráč nemohl vrátit ani přes pozvánku (nalezeno Codex
+           * review na PR #225 -- appka tuhle podmínku sem přenesla
+           * spolu s tlačítkem, dřív bylo samostatně na konci stránky). */}
+          {isJoined && !isArchived && (
+            <form
+              action={leaveCompetition.bind(null, competitionId)}
+              className="border-t border-border-subtle pt-4"
+            >
+              <button
+                type="submit"
+                className="btn-press rounded-full border border-danger/30 bg-danger/5 px-4 py-2 text-xs font-bold text-danger hover:bg-danger/10"
+              >
+                Opustit soutěž
+              </button>
+            </form>
           )}
         </div>
       )}
