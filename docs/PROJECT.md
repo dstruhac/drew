@@ -348,6 +348,13 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   (`text-base pointer-fine:text-...` — dotykovost appka rozlišuje
   podle typu ukazatele, ne podle šířky okna, po nálezu Codex review na
   landscape mobilu). Viz `HISTORY.md`.
+- [x] Oprava UX GIF pickeru na mobilu + sportovní výchozí téma
+  (26.9.2026) — klávesnice se dřív otevírala hned po kliknutí na
+  "GIF" a zakryla nabídku (appka teď zaostřuje vyhledávání jen na
+  počítači s myší), odeslání GIFky odscrollovalo stránku nahoru
+  (appka teď před zavřením okýnka sama pustí zaostření), výchozí
+  nabídka (bez hledání) je "sports fail" místo obecného GIPHY
+  "trending". Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 

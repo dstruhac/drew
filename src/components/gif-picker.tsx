@@ -10,6 +10,10 @@ import { Search, X } from "lucide-react";
 // v NEXT_PUBLIC_ proměnné bezpečně vystavený v prohlížeči.
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
 
+// Výchozí motiv bez zadaného hledání -- vybráno uživatelem 26.9.2026
+// (místo obecných "trending" GIFek napříč celým GIPHY, netematických).
+const DEFAULT_QUERY = "sports fail";
+
 type GiphyResult = {
   id: string;
   images: {
@@ -20,8 +24,8 @@ type GiphyResult = {
 
 // Malé rozbalovací okno (stejný vzor jako MobileMenu -- klik mimo
 // zavře) s vyhledávacím polem a mřížkou náhledů. Appka defaultně (bez
-// zadaného hledání) ukáže "trending" GIFky, ať okno není prázdné hned
-// po otevření.
+// zadaného hledání) ukáže `DEFAULT_QUERY`, ať okno není prázdné hned
+// po otevření a nabídka sedí tematicky k appce.
 export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -29,13 +33,52 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Appka na dotykových zařízeních vyhledávací pole nezaostřuje samo
+  // (viz `autoFocus` níže), na počítači s myší/touchpadem ale appka
+  // zaostření ponechává -- ať tam psaní hledání jde rovnou bez
+  // klikání do pole (nalezeno vlastní code-review). Appka `pointer:
+  // fine` zjišťuje až po připojení komponenty (ne přímo při
+  // vykreslení), appka totiž tuhle část stránky vykresluje jen po
+  // klientské interakci (otevření okýnka), takže žádná neshoda mezi
+  // serverem a prohlížečem (hydration mismatch) appce nehrozí.
+  const [preferAutoFocus, setPreferAutoFocus] = useState(false);
+  useEffect(() => {
+    setPreferAutoFocus(window.matchMedia("(pointer: fine)").matches);
+  }, []);
+
+  // Appka focus vždycky nejdřív sama pustí, než okýnko zavře -- prohlížeč
+  // (hlavně mobilní Safari) umí při odstranění prvku se zaostřením ze
+  // stránky bez varování hodit scroll na úplný začátek stránky
+  // (nahlášeno 26.9.2026 po odeslání GIFky). Pouští ale JEN zaostření
+  // uvnitř tohohle okýnka (vyhledávací pole) -- iOS Safari při klepnutí
+  // na tlačítko nepouští zaostření z JINÉHO pole (např. pole na zprávu
+  // vedle GIF tlačítka), appka by mu jinak sama zavřením okýnka
+  // nechtěně zavřela klávesnici i zaostření uprostřed psaní zprávy
+  // (nalezeno Codex review). Zaostření appka vrátí zpátky na tlačítko
+  // "GIF" -- jinak by ho hráč ovládající appku klávesnicí/čtečkou
+  // obrazovky po zavření okýnka ztratil úplně (nalezeno vlastní
+  // code-review). `preventScroll` u tohohle zaostření je záměrně --
+  // prohlížeč by jinak mohl zkusit tlačítko "doscrollovat" do pohledu
+  // zrovna ve chvíli, kdy se zavírá klávesnice a stránka se
+  // přeskládává, a appka by tím dostala nový scroll-jump namísto toho,
+  // co se tímhle celým `close()` snaží odstranit (nalezeno vlastní
+  // code-review).
+  function close() {
+    if (containerRef.current?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement | null)?.blur();
+      toggleButtonRef.current?.focus({ preventScroll: true });
+    }
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
 
     function handleClickOutside(e: PointerEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        close();
       }
     }
     document.addEventListener("pointerdown", handleClickOutside);
@@ -71,9 +114,17 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
       setLoading(true);
       setError(null);
       try {
+        // Appka bez zadaného hledání ukáže vtipné sportovní nezdary
+        // (`DEFAULT_QUERY`), ne obecné "trending" GIFky napříč celým
+        // GIPHY -- na žádost uživatele 26.9.2026, ať je výchozí nabídka
+        // tematicky sedící k appce. `lang=cs` appka posílá jen u
+        // hledání, co si hráč sám napsal (může být česky) -- u
+        // anglického `DEFAULT_QUERY` by appce jen zbytečně měnil, jak
+        // GIPHY tenhle konkrétní výraz interpretuje/lokalizuje
+        // (nalezeno Codex review).
         const endpoint = query.trim()
           ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query.trim())}&limit=20&rating=pg-13&lang=cs`
-          : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=pg-13`;
+          : `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(DEFAULT_QUERY)}&limit=20&rating=pg-13`;
         const res = await fetch(endpoint);
         if (!res.ok) throw new Error(`GIPHY vrátilo ${res.status}`);
         const json = await res.json();
@@ -92,7 +143,7 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
 
   function pick(gif: GiphyResult) {
     onSelect(gif.images.original.url);
-    setOpen(false);
+    close();
     setQuery("");
   }
 
@@ -100,7 +151,12 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        ref={toggleButtonRef}
+        // `close()`, ne přímo `setOpen(false)`, když hráč zavře okýnko
+        // tímhle tlačítkem znovu -- jinak by stejný scroll-jump bug
+        // (viz `close()` výše) hrozil i tudy, ne jen přes klik mimo
+        // okýnko nebo vybráním GIFky (nalezeno Codex review).
+        onClick={() => (open ? close() : setOpen(true))}
         aria-label={open ? "Zavřít výběr GIFky" : "Přidat GIFku"}
         aria-expanded={open}
         className="btn-press flex items-center gap-1 rounded-full border border-border-subtle px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-surface-hover hover:text-foreground"
@@ -123,7 +179,16 @@ export function GifPicker({ onSelect }: { onSelect: (gifUrl: string) => void }) 
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Hledat GIFku…"
-                  autoFocus
+                  // `autoFocus` jen na zařízeních s `pointer: fine`
+                  // (myš/touchpad) -- appka dřív klávesnici (a s ní
+                  // zaostření mobilního prohlížeče na tohle pole)
+                  // otevírala hned po kliknutí na "GIF" i na dotyku,
+                  // takže mřížka nabízených GIFek pod polem zajela pod
+                  // klávesnici dřív, než ji hráč vůbec uviděl (nahlášeno
+                  // 26.9.2026). Na počítači appka zaostření nechává --
+                  // žádná klávesnice, co by cokoliv zakrývala, tam
+                  // nehrozí, tak ať jde psát hledání rovnou.
+                  autoFocus={preferAutoFocus}
                   // `text-base` (16px) na dotykových zařízeních ze
                   // stejného důvodu jako v chat-panel.tsx -- menší
                   // písmo appka nechává jen `pointer-fine` zařízením

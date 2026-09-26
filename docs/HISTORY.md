@@ -4397,6 +4397,95 @@ review (bez nálezů) + `pnpm build` (tentokrát prošel i přes Turbopack
 -- předchozí selhání v sandboxu se nezopakovalo, zůstává nejasné
 proč). Odpovězeno a vyřešeno vlákno na Codexově nálezu na PR.
 
+## Oprava UX GIF pickeru na mobilu + sportovní výchozí téma (26.9.2026)
+
+Uživatel po nasazení PR #233 (a tedy i chatu z 25.9.2026) na produkci
+nahlásil tři problémy s GIF pickerem: "kdyz kliknu na gif vyber, tak se
+mi otevre klavesnice a tim se mi ubere moznost videt vsechny nabizene
+gifiky", "po odeslani gifiku se mi odscrolluje nahoru stranka. nelibi"
+a přání, ať výchozí nabídka (bez zadaného hledání) má sportovně-vtipné
+téma místo obecného GIPHY "trending".
+
+**Diagnóza (technická, appka si rozhodla sama):**
+- Vyhledávací pole mělo `autoFocus` -- appka klávesnici otevírala hned
+  po kliknutí na "GIF" tlačítko, ne až když si hráč sám klepl do
+  vyhledávání. Pole je v layoutu NAD mřížkou GIFek; mobilní prohlížeč
+  při otevření klávesnice scrolluje stránku tak, aby bylo zaostřené
+  pole vidět těsně nad klávesnicí -- čímž zbytek okýnka (mřížka GIFek)
+  zajel POD klávesnici.
+- Scroll nahoru po odeslání: `pick()` zavíralo okýnko (`setOpen(false)`)
+  bez toho, aby appka nejdřív pustila zaostření z vyhledávacího pole.
+  Mobilní prohlížeče (hlavně Safari) při odstranění zaostřeného prvku
+  ze stránky bez varování umí hodit scroll na úplný začátek stránky.
+
+**Oprava a její kolečko (appka pustila vlastní `code-review --level
+high` čtyřikrát po sobě na tenhle jeden commit, než ho pushla --
+každé kolo našlo další reálný nález):**
+1. `autoFocus` odstraněno, `close()` pomocná funkce pustí zaostření
+   PŘED zavřením okýnka, výchozí dotaz změněn na `DEFAULT_QUERY =
+   "sports fail"` (viz níže, jak appka tohle konkrétní slovo ověřila).
+2. Review našlo: `close()` pouštělo zaostření BEZ OHLEDU na to, čí je
+   -- na iOS Safari klik na tlačítko nepouští zaostření z JINÉHO pole
+   (zpráva v chatu je vedle GIF tlačítka ve stejném formuláři), takže
+   by appka hráči uprostřed psaní zprávy nechtěně zavřela klávesnici,
+   kdyby si jen tak otevřel a zase zavřel GIF picker. Oprava: `close()`
+   pouští zaostření jen když patří UVNITŘ okýnka pickeru
+   (`containerRef.current?.contains(document.activeElement)`).
+   Zároveň review upozornilo, že `lang=cs` posílaný spolu s anglickým
+   `DEFAULT_QUERY` by mohl GIPHY matoucím způsobem ovlivnit
+   interpretaci výrazu -- `lang=cs` appka teď posílá jen u hledání, co
+   si hráč sám napsal.
+3. Review našlo: tlačítko "GIF" samotné (zavření okýnka opětovným
+   kliknutím) pořád volalo `setOpen((v) => !v)` přímo, ne přes `close()`
+   -- stejný scroll-jump bug by tak hrozil i touhle cestou, ne jen přes
+   klik mimo okýnko nebo vybráním GIFky. Opraveno na `open ? close() :
+   setOpen(true)`.
+4. Review našlo dva další nálezy: (a) `close()` sice pouštělo
+   zaostření, ale nevracelo ho nikam -- hráč ovládající appku
+   klávesnicí/čtečkou obrazovky by po zavření okýnka ztratil pozici
+   úplně (`document.activeElement` spadne na `<body>`). Oprava:
+   `close()` vrací zaostření zpátky na tlačítko "GIF"
+   (`toggleButtonRef`). (b) `autoFocus` appka odstranila úplně, i pro
+   počítač s myší, i když soubor už jednou řešil přesně tenhle
+   rozdíl (`pointer-fine:` u velikosti písma) -- na počítači žádná
+   klávesnice nic nezakrývá, takže tam appka o pohodlí (psaní hledání
+   rovnou bez klikání do pole) hráče připravila zbytečně. Oprava:
+   `autoFocus` teď platí jen při `window.matchMedia("(pointer:
+   fine)").matches` (zjištěno v `useEffect`, appka blok s okýnkem
+   vykresluje jen po klientské interakci, takže hydration mismatch
+   appce nehrozí).
+5. Poslední (5.) kolo review: `toggleButtonRef.current?.focus()` v
+   `close()` bez `{ preventScroll: true }` mohlo samo vyvolat nový
+   scroll-jump -- prohlížeč by mohl zkusit tlačítko doscrollovat do
+   pohledu přesně ve chvíli, kdy se zavírá klávesnice a stránka se
+   přeskládává. Doplněno `{ preventScroll: true }`.
+
+**Výchozí téma "sports fail"**: appka uživateli nabídla přes
+`AskUserQuestion` čtyři varianty (doporučeno "sports fail", dál obecné
+"sport", úžeji "hokej"/"fotbal", nebo vlastní slovo) -- uživatel zvolil
+doporučenou variantu. Appka před nasazením ověřila přes `api-probe.yml`
+přímé volání `GET
+https://api.giphy.com/v1/gifs/search?q=sports%20fail&...`: `total_count:
+500`, ukázkové tituly ("Fail Golden State Warriors GIF by Bleacher
+Report", "epic fail GIF", "Kids Fail GIF by America's Funniest Home
+Videos") tematicky sedí.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) po každém
+kole opravy. Appka NEMOHLA ověřit vizuálně na reálném telefonu (sandbox
+nemá přístup na `giphy.com` CDN ani obecně na cizí domény z
+prohlížeče/Playwrightu) -- uživatel by měl chování po nasazení
+vyzkoušet naživo (otevřít GIF picker, zavřít bez výběru, poslat GIFku)
+a dát vědět, jestli scroll-jump/klávesnice problém reálně zmizel.
+
+**Vědomě nedořešeno**: `preferAutoFocus` se zjišťuje jen jednou při
+připojení komponenty, ne živě -- na hybridním zařízení (např. odpojení
+myši od notebooku s dotykovou obrazovkou uprostřed session) by mohl
+zůstat zastaralý. Appka tenhle (6.) nález vlastního review vědomě
+nechala být -- pro appku hranou malou partou kamarádů jde o
+zanedbatelně nepravděpodobný scénář, řešení (sledovat změnu přes
+`matchMedia(...).addEventListener`) by přidalo složitost bez reálného
+přínosu.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
