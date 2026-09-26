@@ -30,6 +30,7 @@ export function CompetitionCard({
   linkToDetail = true,
   showLogo = true,
   isStake = false,
+  unreadChatCount = 0,
 }: {
   competition: {
     id: string;
@@ -70,6 +71,11 @@ export function CompetitionCard({
    * zobrazí label "O co se hraje:" (stejné znění jako v `HecovackaPanel`
    * a ve formuláři na založení hecovačky). */
   isStake?: boolean;
+  /** Počet nepřečtených zpráv v chatu hecovačky (25.9.2026, na žádost
+   * uživatele) -- appka podle toho zobrazí malý odznak v rohu karty.
+   * Má smysl jen u hecovaček (Dashboard je jediné místo, co ho posílá),
+   * veřejné soutěže chat nemají. */
+  unreadChatCount?: number;
 }) {
   const content = (
     <>
@@ -141,8 +147,16 @@ export function CompetitionCard({
   return (
     <div
       style={sportAccentStyle(competition.sport)}
-      className={`card-lift flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)] ${isArchived ? "saturate-[0.55]" : ""}`}
+      className={`card-lift relative flex h-full flex-col gap-4 rounded-[22px] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-card)] ${isArchived ? "saturate-[0.55]" : ""}`}
     >
+      {unreadChatCount > 0 && (
+        <span
+          title="Nová zpráva v chatu"
+          className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white"
+        >
+          {unreadChatCount > 9 ? "9+" : unreadChatCount}
+        </span>
+      )}
       {linkToDetail ? (
         <Link href={`/spaces/${competition.id}`} className="flex flex-1 flex-col gap-4">
           {content}

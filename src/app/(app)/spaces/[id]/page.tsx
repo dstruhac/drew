@@ -22,6 +22,8 @@ import { PredictionForm } from "./prediction-form";
 import { ExactScoreCelebration } from "./exact-score-celebration";
 import { HecovackaPanel } from "./hecovacka-panel";
 import { HecovackaResultsCard } from "@/components/hecovacka-results-card";
+import { SpaceTabs } from "./space-tabs";
+import type { ChatMessage } from "./chat-panel";
 import { joinCompetition, leaveCompetition } from "./actions";
 import { formatRelativeKickoff } from "@/lib/format-kickoff";
 import { competitionFallbackSport, sportAccentStyle } from "@/lib/sport";
@@ -93,8 +95,14 @@ const MATCH_GRID_CLASSNAME =
 
 export default async function CompetitionDetailPage({
   params,
+  searchParams,
 }: PageProps<"/spaces/[id]">) {
   const { id } = await params;
+  const sp = await searchParams;
+  // Deep-link na záložku Chat (appka na ni odkazuje z ikonky
+  // v horní liště/odznaku na Dashboardu, viz AppHeader) -- výchozí
+  // (bez parametru, nebo cokoliv jiného) je "Zápasy".
+  const initialTab: "matches" | "chat" = sp?.tab === "chat" ? "chat" : "matches";
   const supabase = await createClient();
 
   const upcomingWindowEnd = upcomingWindowEndIso();
@@ -123,7 +131,7 @@ export default async function CompetitionDetailPage({
       .single(),
     supabase
       .from("competition_participants")
-      .select("user_id, profiles!user_id(display_name)")
+      .select("user_id, chat_last_read_at, profiles!user_id(display_name)")
       .eq("competition_id", id),
     supabase
       .from("matches")
@@ -223,8 +231,15 @@ export default async function CompetitionDetailPage({
   const isArchived = competition.visibility === "private" && competition.status === "archived";
   let sourceNames: string[] = [];
   let candidates: { id: string; display_name: string }[] = [];
+  // Posledních 50 zpráv chatu (nejnovější dole -- appka je po dotažení
+  // otočí) + kolik z nich je NEPŘEČTENÝCH (appka to spočítá rovnou tady
+  // ze stejných dat, žádný dotaz navíc jen pro číslo do odznaku
+  // záložky Chat). Viz src/lib/hecovacka-chat.ts pro totéž napříč VŠEMI
+  // hecovačkami (Dashboard, horní lišta).
+  let chatMessages: ChatMessage[] = [];
+  let ownUnreadChatCount = 0;
   if (competition.visibility === "private") {
-    const [sourcesResult, profilesResult] = await Promise.all([
+    const [sourcesResult, profilesResult, messagesResult] = await Promise.all([
       supabase
         .from("hecovacka_sources")
         .select("competitions!source_competition_id(name)")
@@ -234,15 +249,28 @@ export default async function CompetitionDetailPage({
       isOwner
         ? supabase.from("profiles").select("id, display_name").order("display_name")
         : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("hecovacka_messages")
+        .select("id, user_id, body, gif_url, created_at")
+        .eq("competition_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50),
     ]);
     throwIfSupabaseError(sourcesResult.error, "Načtení zdrojových soutěží hecovačky");
     throwIfSupabaseError(profilesResult.error ?? null, "Načtení hráčů appky");
+    throwIfSupabaseError(messagesResult.error, "Načtení zpráv chatu");
 
     sourceNames = (sourcesResult.data ?? [])
       .map((s) => s.competitions?.name)
       .filter((name): name is string => Boolean(name));
     const participantIds = new Set((participants ?? []).map((p) => p.user_id));
     candidates = (profilesResult.data ?? []).filter((p) => !participantIds.has(p.id));
+
+    chatMessages = [...(messagesResult.data ?? [])].reverse();
+    const ownChatLastReadAt = participants?.find((p) => p.user_id === user?.id)?.chat_last_read_at ?? null;
+    ownUnreadChatCount = chatMessages.filter(
+      (m) => m.user_id !== user?.id && (!ownChatLastReadAt || m.created_at > ownChatLastReadAt),
+    ).length;
   }
   const inviteUrl =
     isOwner && competition.invite_token ? `https://klopi.cz/pozvanka/${competition.invite_token}` : null;
@@ -293,123 +321,12 @@ export default async function CompetitionDetailPage({
       : null;
   const ownWeeklyPoints = user ? weekly.pointsByUser.get(user.id) ?? 0 : 0;
 
-  return (
-    <main
-      style={sportAccentStyle(competition.sport)}
-      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10"
-    >
-      <header>
-        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
-          <Link
-            href="/dashboard"
-            className="transition-colors hover:text-foreground"
-          >
-            Dashboard
-          </Link>
-          <span>·</span>
-          <Link
-            href="/spaces"
-            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
-            Soutěže
-          </Link>
-        </div>
-
-        <div className="mt-2 flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white">
-            {competition.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={competition.logo_url}
-                alt=""
-                className="h-7 w-7 object-contain"
-              />
-            ) : (
-              <Trophy className="h-5 w-5 text-accent" strokeWidth={2} />
-            )}
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight">{competition.name}</h1>
-        </div>
-
-        <div className="mt-2 flex items-center gap-4 pl-[52px] text-xs font-semibold text-muted-foreground">
-          <span className="rounded-full border border-border-subtle px-2 py-0.5">
-            {SPORT_LABELS[competition.sport]}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" strokeWidth={2.2} />
-            {participants?.length ?? 0} hráč
-            {(participants?.length ?? 0) === 1 ? "" : "ů"}
-          </span>
-          {ownRank && (
-            <span className="flex items-center gap-1.5">
-              <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
-              Celkově: {ownRank.rank}. místo z {ownRank.total}
-            </span>
-          )}
-        </div>
-
-        <div className="mt-4">
-          {/* Pompézní CTA (14.9.2026, na žádost uživatele "tlačítko
-           * větší, viditelnější, pompéznější") -- větší, s vlastním
-           * gradientem ve sportovní barvě a jemným pulzujícím "sonar"
-           * halo (viz .btn-hero v globals.css), ať je jasné, že tohle je
-           * hlavní akce na stránce, dokud hráč soutěž nehraje. Dřívější
-           * samostatné tlačítko "Žebříček →" tady vedle bylo odstraněno
-           * (14.9.2026, na žádost uživatele "jsou tam dvě") -- tuhle roli
-           * teď přebírá banner "tenhle týden" níž.
-           * Soukromá soutěž (hecovačka) nemá samoobslužné "Chci hrát"
-           * -- RLS to teď stejně odmítne (viz
-           * 20260914090300_competition_participants_hecovacky.sql),
-           * navíc kdokoliv, kdo hecovačku vůbec vidí, už je jejím
-           * tvůrcem nebo participantem (competitions_select_visible),
-           * takže !isJoined u ní reálně nikdy nenastane. */}
-          {!isJoined && competition.visibility === "public" && (
-            <form action={joinCompetition.bind(null, competition.id)}>
-              <button
-                type="submit"
-                className="btn-press btn-hero flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))] px-7 py-3.5 text-sm font-extrabold text-accent-foreground hover:brightness-105"
-              >
-                <Rocket className="h-4 w-4" strokeWidth={2.4} />
-                Chci hrát
-              </button>
-            </form>
-          )}
-        </div>
-      </header>
-
-      {!isJoined && competition.visibility === "public" && (
-        <div className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
-          👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
-          tipovat zápasy!
-        </div>
-      )}
-
-      {competition.visibility === "private" && (
-        <HecovackaPanel
-          competitionId={competition.id}
-          isOwner={isOwner}
-          isArchived={isArchived}
-          description={competition.description}
-          endDate={competition.end_date}
-          sourceNames={sourceNames}
-          participants={(participants ?? []).map((p) => ({
-            userId: p.user_id,
-            displayName: p.profiles?.display_name ?? "Neznámý hráč",
-          }))}
-          candidates={candidates}
-          inviteUrl={inviteUrl}
-        />
-      )}
-
-      {isArchived && (
-        <HecovackaResultsCard
-          standings={standings}
-          sport={competitionFallbackSport(competition.sport)}
-          competitionId={competition.id}
-        />
-      )}
-
+  // Sekce "Zápasy" (banner + Nadcházející/Probíhající/Odloženo/Proběhlé)
+  // vytažená do proměnné, ať appka může u hecovaček stejný obsah dát do
+  // SpaceTabs (záložka vedle Chatu, viz src/app/(app)/spaces/[id]/space-tabs.tsx)
+  // a u veřejných soutěží (bez tabů, beze změny) ho vykreslit rovnou.
+  const matchesSection = (
+    <>
       {/* "Jak si vedu tenhle týden" hned pod hlavičkou (14.9.2026, na
        * žádost uživatele "at je hned videt") -- zobrazuje se VŽDY
        * (14.9.2026, uživatel upřesnil "ten banner se na strance
@@ -745,6 +662,142 @@ export default async function CompetitionDetailPage({
           </>
         );
       })()}
+    </>
+  );
+
+  return (
+    <main
+      style={sportAccentStyle(competition.sport)}
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:max-w-5xl sm:px-10"
+    >
+      <header>
+        <div className="flex items-center gap-2 text-xs font-bold text-faint-foreground">
+          <Link
+            href="/dashboard"
+            className="transition-colors hover:text-foreground"
+          >
+            Dashboard
+          </Link>
+          <span>·</span>
+          <Link
+            href="/spaces"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.6} />
+            Soutěže
+          </Link>
+        </div>
+
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white">
+            {competition.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={competition.logo_url}
+                alt=""
+                className="h-7 w-7 object-contain"
+              />
+            ) : (
+              <Trophy className="h-5 w-5 text-accent" strokeWidth={2} />
+            )}
+          </span>
+          <h1 className="text-2xl font-extrabold tracking-tight">{competition.name}</h1>
+        </div>
+
+        <div className="mt-2 flex items-center gap-4 pl-[52px] text-xs font-semibold text-muted-foreground">
+          <span className="rounded-full border border-border-subtle px-2 py-0.5">
+            {SPORT_LABELS[competition.sport]}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" strokeWidth={2.2} />
+            {participants?.length ?? 0} hráč
+            {(participants?.length ?? 0) === 1 ? "" : "ů"}
+          </span>
+          {ownRank && (
+            <span className="flex items-center gap-1.5">
+              <Trophy className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Celkově: {ownRank.rank}. místo z {ownRank.total}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4">
+          {/* Pompézní CTA (14.9.2026, na žádost uživatele "tlačítko
+           * větší, viditelnější, pompéznější") -- větší, s vlastním
+           * gradientem ve sportovní barvě a jemným pulzujícím "sonar"
+           * halo (viz .btn-hero v globals.css), ať je jasné, že tohle je
+           * hlavní akce na stránce, dokud hráč soutěž nehraje. Dřívější
+           * samostatné tlačítko "Žebříček →" tady vedle bylo odstraněno
+           * (14.9.2026, na žádost uživatele "jsou tam dvě") -- tuhle roli
+           * teď přebírá banner "tenhle týden" níž.
+           * Soukromá soutěž (hecovačka) nemá samoobslužné "Chci hrát"
+           * -- RLS to teď stejně odmítne (viz
+           * 20260914090300_competition_participants_hecovacky.sql),
+           * navíc kdokoliv, kdo hecovačku vůbec vidí, už je jejím
+           * tvůrcem nebo participantem (competitions_select_visible),
+           * takže !isJoined u ní reálně nikdy nenastane. */}
+          {!isJoined && competition.visibility === "public" && (
+            <form action={joinCompetition.bind(null, competition.id)}>
+              <button
+                type="submit"
+                className="btn-press btn-hero flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))] px-7 py-3.5 text-sm font-extrabold text-accent-foreground hover:brightness-105"
+              >
+                <Rocket className="h-4 w-4" strokeWidth={2.4} />
+                Chci hrát
+              </button>
+            </form>
+          )}
+        </div>
+      </header>
+
+      {!isJoined && competition.visibility === "public" && (
+        <div className="rounded-2xl border border-border-subtle bg-surface-hover px-4 py-3 text-sm font-medium">
+          👋 Ještě nehraješ tuhle soutěž. Klikni na „Chci hrát“ výše a začni
+          tipovat zápasy!
+        </div>
+      )}
+
+      {competition.visibility === "private" && (
+        <HecovackaPanel
+          competitionId={competition.id}
+          isOwner={isOwner}
+          isArchived={isArchived}
+          description={competition.description}
+          endDate={competition.end_date}
+          sourceNames={sourceNames}
+          participants={(participants ?? []).map((p) => ({
+            userId: p.user_id,
+            displayName: p.profiles?.display_name ?? "Neznámý hráč",
+          }))}
+          candidates={candidates}
+          inviteUrl={inviteUrl}
+        />
+      )}
+
+      {isArchived && (
+        <HecovackaResultsCard
+          standings={standings}
+          sport={competitionFallbackSport(competition.sport)}
+          competitionId={competition.id}
+        />
+      )}
+
+      {/* Chat jen u hecovaček (na žádost uživatele 25.9.2026), jako
+       * záložka vedle "Zápasy" -- veřejné soutěže dostanou přesně
+       * stejný obsah (matchesSection) jako appka měla dřív, bez tabů. */}
+      {competition.visibility === "private" ? (
+        <SpaceTabs
+          competitionId={competition.id}
+          initialTab={initialTab}
+          unreadCount={ownUnreadChatCount}
+          matchesContent={matchesSection}
+          chatMessages={chatMessages}
+          currentUserId={user?.id ?? ""}
+          displayNameByUserId={Object.fromEntries(displayNameByUserId)}
+        />
+      ) : (
+        matchesSection
+      )}
 
       {/* Skončená hecovačka: "Opustit soutěž" by hráče vymazalo z
        * finálního pořadí/pódia bez možnosti návratu -- pozvánkový

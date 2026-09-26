@@ -234,6 +234,9 @@ export interface Database {
           // 20260914090300_competition_participants_hecovacky.sql.
           added_by: string | null;
           notified_at: string | null;
+          // Kdy hráč naposledy viděl chat hecovačky -- NULL = nikdy
+          // (viz 20260925130000_hecovacka_chat.sql).
+          chat_last_read_at: string | null;
         };
         Insert: {
           competition_id: string;
@@ -241,10 +244,12 @@ export interface Database {
           email_reminders_enabled?: boolean;
           added_by?: string | null;
           notified_at?: string | null;
+          chat_last_read_at?: string | null;
         };
         Update: {
           email_reminders_enabled?: boolean;
           notified_at?: string | null;
+          chat_last_read_at?: string | null;
         };
         Relationships: [
           {
@@ -293,6 +298,40 @@ export interface Database {
             columns: ["source_competition_id"];
             isOneToOne: false;
             referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      hecovacka_messages: {
+        Row: {
+          id: string;
+          competition_id: string;
+          user_id: string;
+          body: string | null;
+          gif_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          competition_id: string;
+          user_id: string;
+          body?: string | null;
+          gif_url?: string | null;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "hecovacka_messages_competition_id_fkey";
+            columns: ["competition_id"];
+            isOneToOne: false;
+            referencedRelation: "competitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "hecovacka_messages_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

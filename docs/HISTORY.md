@@ -4140,6 +4140,109 @@ typegen` po smazání `.next` selhává na chybějících generovaných typech
 typecheck` skript to řeší správně) + `pnpm build` + `pnpm test` (60
 testů, beze změny).
 
+## Chat v hecovačkách (25.9.2026)
+
+Uživatel: "šlo by přidat do hecovačky chat? aby tam uživatele mohli
+přidávat gifíky z nějaké knihovny?" -- než appka cokoliv napsala,
+proběhla podrobná diskuze o chování (AskUserQuestion + volná diskuze),
+protokol rozhodnutí:
+
+- **Rozsah**: jen hecovačky, ne veřejné soutěže -- ty appka hraje i s
+  lidmi, co se navzájem neznají, chat by tam vyžadoval moderaci navíc.
+- **Granularita**: JEDNA společná místnost na celou hecovačku, ne
+  zvlášť po zápasech.
+- **Umístění v UI**: appka nejdřív navrhovala novou sekci na stránce
+  hecovačky, uživatel si ale vyžádal záložky -- "Zápasy"/"Chat" místo
+  sebe navzájem, ne obě najednou pod sebou.
+- **Upozornění**: uživatel nejdřív zvolil "zatím bez upozornění", pak
+  se ale doptal "jak se dozvím o nové zprávě na Dashboardu?" -- appka
+  na rozpor upozornila (bez odznaku by se to nedalo poznat vůbec) a
+  uživatel zvolil vizuální odznak (bez e-mailu). Uživatel pak navíc
+  chtěl i ikonku v horní liště appky vedle fotečky (viditelnou
+  odkudkoliv, ne jen na Dashboardu) a aby klik vedl ROVNOU do
+  konkrétního chatu, ne jen na Dashboard.
+- **Mazání**: autor smí smazat jen svou vlastní zprávu.
+- **GIF knihovna**: GIPHY (zdarma veřejné API určené přímo pro tenhle
+  účel, appka jen ukládá vybranou URL, žádné server-side volání).
+
+### Implementace
+
+**Databáze** (`20260925130000_hecovacka_chat.sql`):
+- `hecovacka_messages` (`competition_id`, `user_id`, `body` a/nebo
+  `gif_url` -- aspoň jedno z obojího vyžaduje check constraint, limit
+  délky textu 500 znaků). RLS: vidět/psát smí jen participant DANÉ
+  hecovačky (stejné pravidlo jako zápasy/tipy), insert navíc kontroluje
+  `visibility='private'` a `status<>'archived'` (skončená hecovačka se
+  "zakonzervuje" stejně jako zápasy/přidávání hráčů, viz starší zápis
+  o `assertHecovackaNotArchived`), delete jen vlastní zprávu. Appka
+  tabulku přidala do `supabase_realtime` publikace -- Supabase Realtime
+  respektuje stejné RLS politiky, appka tak nemusí řešit žádnou
+  zvláštní autorizaci pro doručování zpráv naživo.
+- `competition_participants.chat_last_read_at` (nový sloupec, NULL =
+  nikdy neotevřel) -- appka na tenhle sloupec nepotřebovala žádný nový
+  grant/policy, protože update vlastního řádku už dřív povolovala
+  `competition_participants_update_own` (20260828170000) a
+  `authenticated` už měl table-level UPDATE grant.
+
+**`src/lib/hecovacka-chat.ts`** (`getUnreadHecovackaChat`) -- sdílená
+funkce pro AppHeader i Dashboard: vrátí seznam hecovaček, kde hráč má
+nepřečtenou zprávu OD NĚKOHO JINÉHO (vlastní zprávy appka nepočítá).
+Dva dotazy (participace + zprávy), ne dotaz na hecovačku zvlášť --
+druhý dotaz appka aspoň omezí na nejstarší práh napříč všemi
+hecovačkami (kdo nikdy neotevřel, nemá žádný, pak musí číst od
+začátku), přesné odseknutí PER hecovačku dopočítá v JS.
+
+**UI**:
+- `src/app/(app)/spaces/[id]/space-tabs.tsx` -- záložky "Zápasy"/"Chat"
+  na stránce hecovačky. Obě záložky jsou vykreslené POŘÁD (appka mezi
+  nimi jen přepíná `hidden`, ne mount/unmount) -- díky tomu je přepnutí
+  okamžité a `ChatPanel` si nemusí znovu zakládat realtime podpisku při
+  každém kliknutí. URL (`?tab=chat`, deep-link z ikonky/odznaku) appka
+  mění přes `history.replaceState`, NE přes `next/navigation` router --
+  ten by vyvolal nové server-side vykreslení celé stránky jen kvůli
+  přepnutí záložky.
+- `src/app/(app)/spaces/[id]/chat-panel.tsx` -- zprávy appka NEPŘIDÁVÁ
+  po odeslání sama do seznamu, spolehne se na vlastní Supabase Realtime
+  podpisku (INSERT/DELETE), stejnou cestou pro odesílatele i příjemce
+  -- appka tak nemusí řešit dvojí zobrazení/deduplikaci vlastní zprávy.
+  `markHecovackaChatRead` (actions.ts) appka volá při PŘEPNUTÍ na
+  záložku Chat (ne při pouhém mountu komponenty, který díky "obě
+  záložky pořád vykreslené" nastává hned při načtení stránky bez
+  ohledu na to, jestli hráč chat vůbec otevřel).
+- `src/components/gif-picker.tsx` -- vyhledávání přímo z prohlížeče na
+  GIPHY REST API (`NEXT_PUBLIC_GIPHY_API_KEY`, veřejný "client-side"
+  typ klíče, bezpečně vystavitelný). Bez zadaného hledání appka rovnou
+  ukáže "trending" GIFky. Chybějící klíč appka ošetřuje srozumitelnou
+  hláškou místo pádu.
+- `src/components/chat-notification-indicator.tsx` -- ikonka vedle
+  fotečky v `AppHeader` (sdílený layout, viditelná na každé stránce).
+  Nepřečtená zpráva jen v JEDNÉ hecovačce -> odkaz vede rovnou tam.
+  Ve VÍC hecovačkách najednou appka nemá jak vybrat "tu jednu pravou",
+  proto rozbalí malé menu (stejný vzor jako `MobileMenu` -- klik mimo
+  zavře) se seznamem, klik na položku vede rovnou do jejího chatu.
+- `CompetitionCard`/Dashboard -- malý odznak (počet) v rohu kartičky
+  hecovačky, nový prop `unreadChatCount` (výchozí 0, veřejné soutěže ho
+  nikdy neposílají).
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + `pnpm
+build`. Vizuálně přes Playwright na dočasné testovací stránce
+(`src/app/chattest/page.tsx`, dočasný zápis `/chattest` do
+`PUBLIC_PATHS` v `middleware.ts` -- obojí po ověření smazáno/vráceno,
+stejný postup jako u dřívějších vizuálních kontrol) -- odznak na
+kartičce, ikonka + rozbalovací seznam v horní liště (1 i víc
+hecovaček), GIF picker (fallback hláška bez klíče) a chatové bubliny
+(vlastní/cizí zpráva, GIF zpráva) potvrzeny na screenshotech ve
+světlém i tmavém režimu. Samotné GIFky se v sandboxu nenačetly (žádný
+přístup na GIPHY CDN odsud, viz síťové omezení) -- to appka nemůže
+ověřit dřív, než bude mít reálný GIPHY klíč na Vercelu.
+
+**Nedotestováno end-to-end** (síťové omezení sandboxu, žádné napojení
+na produkční Supabase): realtime doručování zpráv mezi dvěma reálnými
+prohlížeči/účty, skutečné GIPHY vyhledávání. Uživatel by měl po
+spuštění migrace a založení GIPHY klíče vyzkoušet chat naživo (ideálně
+ve dvou různých prohlížečích/zařízeních, ať se ověří, že zpráva
+doopravdy doletí bez obnovení stránky).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

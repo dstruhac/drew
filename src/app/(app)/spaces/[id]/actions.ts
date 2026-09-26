@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/supabase/database.types";
+import type { ChatMessage } from "./chat-panel";
 
 export type SubmitPredictionState = {
   error: string | null;
@@ -177,6 +178,128 @@ export async function removeHecovackaPlayer(competitionId: string, userId: strin
   revalidatePath(`/spaces/${competitionId}`);
   revalidatePath(`/spaces/${competitionId}/leaderboard`);
   revalidatePath("/hecovacky");
+}
+
+const CHAT_MESSAGE_MAX_LENGTH = 500;
+const CHAT_GIF_URL_MAX_LENGTH = 500;
+
+// GIFka smí být jen skutečná GIPHY URL (https, host media*.giphy.com) --
+// appka `gifUrl` bere z formuláře jako obyčejný string, klientský
+// GifPicker sice vždycky pošle jen GIPHY URL, ale appka to i tak
+// vynutí i na serveru, ne jen v UI (nalezeno Codex review na PR #231:
+// bez týhle kontroly by šlo přes přímé volání akce uložit libovolnou
+// URL, kterou appka pak ostatním hráčům vykreslí jako <img src>).
+const GIPHY_URL_PATTERN = /^https:\/\/media\d*\.giphy\.com\//;
+
+function isValidGifUrl(url: string) {
+  return url.length <= CHAT_GIF_URL_MAX_LENGTH && GIPHY_URL_PATTERN.test(url);
+}
+
+// Chat hecovačky (na žádost uživatele 25.9.2026) -- appka nepoužívá
+// revalidatePath: ostatním hráčům zprávu doručí Supabase Realtime
+// (ChatPanel má vlastní podpisku), plný refetch stránky by chat jen
+// zbytečně sekal. Odesílateli appka vrátí uloženou zprávu přímo v
+// odpovědi (ne přes vlastní realtime událost, viz komentář v
+// chat-panel.tsx -- nalezeno Codex review na PR #231).
+export async function sendHecovackaMessage(
+  competitionId: string,
+  body: string | null,
+  gifUrl: string | null,
+): Promise<{ error: string | null; message?: ChatMessage }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return { error: "Nejste přihlášen." };
+
+  const trimmedBody = body?.trim() || null;
+  if (!trimmedBody && !gifUrl) {
+    return { error: "Zpráva je prázdná." };
+  }
+  if (trimmedBody && trimmedBody.length > CHAT_MESSAGE_MAX_LENGTH) {
+    return { error: `Zpráva je moc dlouhá (max ${CHAT_MESSAGE_MAX_LENGTH} znaků).` };
+  }
+  if (gifUrl && !isValidGifUrl(gifUrl)) {
+    return { error: "Neplatná URL GIFky." };
+  }
+
+  try {
+    await assertHecovackaNotArchived(supabase, competitionId, "Hecovačka už skončila, chat je uzavřený.");
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Chat je uzavřený." };
+  }
+
+  const { data, error } = await supabase
+    .from("hecovacka_messages")
+    .insert({
+      competition_id: competitionId,
+      user_id: user.id,
+      body: trimmedBody,
+      gif_url: gifUrl,
+    })
+    .select("id, user_id, body, gif_url, created_at")
+    .single();
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { error: null, message: data };
+}
+
+// Autor smí smazat jen svou vlastní zprávu (odsouhlaseno s uživatelem)
+// -- `.eq("user_id", user.id)` je tu jen jako druhá pojistka navíc k
+// RLS politice hecovacka_messages_delete_own, appka na to nespoléhá
+// jako na jedinou obranu.
+export async function deleteHecovackaMessage(messageId: string) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  // Appka musí selhání ohlásit (ne tiše vrátit), aby volající
+  // (chat-panel.tsx) zprávu, kterou z pohledu odesílatele hned schoval,
+  // vrátil zpátky -- tichý návrat by appku přesvědčil, že smazání
+  // proběhlo, i když se v DB vůbec nic nestalo (nalezeno Codex review
+  // na PR #231, 6. kolo).
+  if (!user) {
+    throw new Error("Nejste přihlášen, smazání zprávy se nepodařilo.");
+  }
+
+  const { error } = await supabase
+    .from("hecovacka_messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw new Error(`Smazání zprávy se nepodařilo: ${error.message}`);
+  }
+}
+
+// Appka si pamatuje, dokdy hráč chat naposledy viděl -- podle toho pak
+// pozná nepřečtené zprávy (ikonka v horní liště + odznak na kartičce
+// Dashboardu, viz src/lib/hecovacka-chat.ts). Volá se, jakmile hráč
+// záložku Chat na stránce hecovačky skutečně otevře. Appka vrací
+// `{ ok }` -- volající (ChatPanel) podle toho pozná, jestli zápis
+// doopravdy prošel, než zmizí odznak v horní liště (nalezeno Codex
+// review na PR #231, 3. kolo: appka dřív odznak smazala i při chybě).
+export async function markHecovackaChatRead(competitionId: string): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) return { ok: false };
+
+  const { error } = await supabase
+    .from("competition_participants")
+    .update({ chat_last_read_at: new Date().toISOString() })
+    .eq("competition_id", competitionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Označení chatu jako přečteného selhalo:", error.message);
+    return { ok: false };
+  }
+
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 export async function submitPrediction(

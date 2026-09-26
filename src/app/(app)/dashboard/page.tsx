@@ -11,6 +11,7 @@ import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { buildMatchLogos } from "@/lib/team-logos";
 import { findSharedMatchIds } from "@/lib/shared-matches";
 import { topWinnerNames } from "@/lib/hecovacka-standings";
+import { getUnreadHecovackaChat } from "@/lib/hecovacka-chat";
 import type { CompetitionSport } from "@/lib/supabase/database.types";
 
 // Vstupní stránka appky po přihlášení (nahrazuje dřívější /spaces,
@@ -60,6 +61,7 @@ export default async function DashboardPage() {
     profileResult,
     totalCompetitionsResult,
     allCompetitionsResult,
+    unreadHecovackaChat,
   ] = await Promise.all([
     competitionIds.length
       ? supabase
@@ -113,6 +115,7 @@ export default async function DashboardPage() {
       .select("id, name, sport, logo_url, description")
       .eq("visibility", "public")
       .order("created_at", { ascending: false }),
+    getUnreadHecovackaChat(supabase, user?.id ?? ""),
   ]);
 
   throwIfSupabaseError(allParticipantsResult.error ?? null, "Načtení účastníků soutěží");
@@ -129,6 +132,14 @@ export default async function DashboardPage() {
   const weeklyBadges = weeklyBadgesResult.data;
   const profileRow = profileResult.data;
   const totalCompetitionsCount = totalCompetitionsResult.count;
+  // `getUnreadHecovackaChat` vrací `null` při chybě dotazu (appka ho
+  // odlišuje od "opravdu nula" kvůli klientské reconciliaci jinde, viz
+  // src/lib/hecovacka-chat.ts) -- appka tu na prvním vykreslení stránky
+  // nemá žádný předchozí stav na zachování, takže jen ukáže kartičky
+  // bez odznaku.
+  const unreadChatByCompetition = new Map(
+    (unreadHecovackaChat ?? []).map((u) => [u.competitionId, u.unreadCount]),
+  );
 
   // Soutěže, které hráč ještě nehraje -- nabídne se mu je
   // JoinCompetitionsModal, pokud zatím nehraje žádnou (viz níže).
@@ -371,6 +382,7 @@ export default async function DashboardPage() {
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
                   winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                  unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
                   isStake
                   layout="carousel"
                 />
@@ -382,6 +394,7 @@ export default async function DashboardPage() {
                   rank={rankByCompetition.get(competition.id) ?? null}
                   allCaughtUp={!missingCompetitionIds.has(competition.id)}
                   winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                  unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
                   isStake
                   layout="stack"
                 />
@@ -409,6 +422,7 @@ function DashboardCompetitionListItem({
   allCaughtUp,
   winners,
   isStake,
+  unreadChatCount = 0,
   layout,
 }: {
   competition: {
@@ -423,6 +437,9 @@ function DashboardCompetitionListItem({
   allCaughtUp: boolean;
   winners: string[];
   isStake?: boolean;
+  /** Jen u hecovaček (viz CompetitionCard) -- veřejné soutěže appka
+   * volá bez tohohle propu, zůstane na výchozí 0. */
+  unreadChatCount?: number;
   /** "carousel" = kartička má na mobilu fixní procentuální šířku (peek
    * dalšího řádku při swipu), "stack" = plná šířka (počítačová mřížka,
    * appka tam carousel vzhled nikdy nepoužívá). */
@@ -440,6 +457,7 @@ function DashboardCompetitionListItem({
         isArchived={competition.status === "archived"}
         winners={winners}
         isStake={isStake}
+        unreadChatCount={unreadChatCount}
       />
     </li>
   );
