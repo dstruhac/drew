@@ -4486,6 +4486,58 @@ zanedbatelně nepravděpodobný scénář, řešení (sledovat změnu přes
 `matchMedia(...).addEventListener`) by přidalo složitost bez reálného
 přínosu.
 
+## Panel "Info o hecovačce" rozbalovací, defaultně sbalený (26.9.2026)
+
+Uživatel: "slo by, aby se sekce 'o co se hraje' apod schovala a byla
+rozbalovaci? prekazi mi v tom vhatu" -- `HecovackaPanel` (popis, "Hraje
+se do"/zdrojové soutěže, pozvánkový odkaz, seznam hráčů, přidávání
+hráčů) se na detailu hecovačky vykresluje NAD záložkami
+"Zápasy"/"Chat" (`SpaceTabs`), takže na mobilu zabíral místo nad
+chatem a hráč musel scrollovat, než se ke chatu vůbec dostal.
+
+Appka se nejdřív zeptala na výchozí stav (produktová volba, ne
+technická) přes `AskUserQuestion`: sbalený vs. rozbalený při příchodu
+na stránku. Uživatel zvolil doporučenou variantu -- **sbalený**.
+
+Implementace: celý `<section>` appka obalila `<button>` hlavičkou
+("Info o hecovačce" + `ChevronDown`, stejný vzor jako
+`MobileMenuCompetitions` -- `aria-expanded`, rotace ikony přes
+`transition-transform`), zbytek obsahu appka vykresluje jen když
+`expanded` (výchozí `false`). **Příznak skončení hecovačky ("🏁
+Skončila") appka nechává vidět i sbalený** -- jediná informace z
+panelu, kterou appka usoudila, že hráč potřebuje na první pohled bez
+klepání (zda se ještě hraje). Appka si sbalení NEPAMATUJE mezi
+návštěvami (žádný `localStorage`) -- při každém příchodu na stránku
+začíná sbaleně, přesně jak uživatel odsouhlasil.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů). Appka to
+vizuálně přes Playwright neověřila (u tak malé, dobře prozkoumatelné
+změny -- prostý `useState` + podmíněné vykreslení stejným vzorem jako
+`MobileMenuCompetitions` -- appka to nepovažovala za nutné, na rozdíl
+od chatu, kde šlo o mnohem rizikovější novou funkci). Uživatel by si
+po nasazení měl zkontrolovat, že se panel chová podle očekávání.
+
+## Tlačítko "Opustit soutěž" přesunuto do infoboxu hecovačky (26.9.2026)
+
+Uživatel: "tedka bych chtel, aby tlacitko opustit soutez bylo v tom
+infoboxiku" -- appka tlačítko (`leaveCompetition` server akce) měla
+dřív samostatně na konci celé stránky detailu soutěže, platilo to
+stejně pro veřejné soutěže i hecovačky.
+
+**Appka si všimla rozporu a rozhodla se sama (technická věc)**: infobox
+(`HecovackaPanel`, právě předtím udělaný rozbalovací) existuje JEN u
+hecovaček (`competition.visibility === "private"`) -- veřejné soutěže
+žádný takový panel nemají. Appka proto tlačítko přesunula dovnitř
+`HecovackaPanel` (na konec rozbaleného obsahu, oddělené linkou) jen pro
+hecovačky; u veřejných soutěží zůstává tlačítko beze změny na konci
+stránky, appka ho odtamtud NEODEBRALA -- jinak by veřejné soutěže o
+možnost odejít přišly úplně. Podmínka (`isJoined && !isArchived`,
+včetně komentáře o nemožnosti návratu přes pozvánku po archivaci,
+nalezeno Codex review na PR #225) zůstala nezměněná, jen se
+přesunula spolu s tlačítkem.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů).
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

@@ -761,6 +761,7 @@ export default async function CompetitionDetailPage({
         <HecovackaPanel
           competitionId={competition.id}
           isOwner={isOwner}
+          isJoined={isJoined}
           isArchived={isArchived}
           description={competition.description}
           endDate={competition.end_date}
@@ -799,13 +800,17 @@ export default async function CompetitionDetailPage({
         matchesSection
       )}
 
-      {/* Skončená hecovačka: "Opustit soutěž" by hráče vymazalo z
-       * finálního pořadí/pódia bez možnosti návratu -- pozvánkový
-       * token po archivaci appka odmítá (accept_hecovacka_invite
-       * vyžaduje status='active', viz migrace 20260915090200), takže
-       * by se hráč nemohl vrátit ani přes pozvánku. Nalezeno Codex
-       * review na PR #225. */}
-      {isJoined && !isArchived && (
+      {/* U hecovaček appka tlačítko vykresluje uvnitř HecovackaPanel
+       * (na žádost uživatele 26.9.2026) -- tady zůstává jen pro veřejné
+       * soutěže, které žádný takový infobox nemají. Důvod podmínky
+       * "!isArchived" (jen u hecovaček reálně relevantní, veřejné
+       * soutěže se nearchivují): "Opustit soutěž" by hráče vymazalo z
+       * finálního pořadí/pódia bez možnosti návratu -- pozvánkový token
+       * po archivaci appka odmítá (accept_hecovacka_invite vyžaduje
+       * status='active', viz migrace 20260915090200), takže by se hráč
+       * nemohl vrátit ani přes pozvánku. Nalezeno Codex review na PR
+       * #225. */}
+      {isJoined && !isArchived && competition.visibility !== "private" && (
         <form
           action={leaveCompetition.bind(null, competition.id)}
           className="mt-4 self-start"

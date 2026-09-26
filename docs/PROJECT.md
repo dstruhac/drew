@@ -355,6 +355,15 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   (appka teď před zavřením okýnka sama pustí zaostření), výchozí
   nabídka (bez hledání) je "sports fail" místo obecného GIPHY
   "trending". Viz `HISTORY.md`.
+- [x] Panel "Info o hecovačce" na detailu hecovačky rozbalovací,
+  defaultně sbalený (26.9.2026) — na žádost uživatele, vadil mu nad
+  chatem na mobilu. Sbalený zůstává vidět jen řádek s příznakem
+  skončení, zbytek (popis, konec, zdrojové soutěže, pozvánka, hráči)
+  je pod klepnutím. Viz `HISTORY.md`.
+- [x] Tlačítko "Opustit soutěž" u hecovaček přesunuto do panelu "Info
+  o hecovačce" (26.9.2026) — dřív samostatně na konci celé stránky.
+  Veřejné soutěže (bez infoboxu) mají tlačítko beze změny na konci
+  stránky. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
