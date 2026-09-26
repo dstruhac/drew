@@ -275,7 +275,11 @@ export function PredictionForm({
           onChange={focusAwayOnFirstDigit}
           onFocus={selectAllOnFocus}
           onBlur={maybeAutoSave}
-          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+          // `text-base` na dotykových zařízeních, ať prohlížeč sám
+          // nezvětšuje celou stránku -- menší písmo appka nechává jen
+          // `pointer-fine` zařízením (myš/touchpad), ne podle šířky
+          // okna, viz stejná poznámka u chat-panel.tsx.
+          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-base transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 pointer-fine:text-sm"
         />
         <span className="text-faint-foreground">:</span>
         <input
@@ -289,7 +293,11 @@ export function PredictionForm({
           onChange={recomputeTieWarning}
           onFocus={selectAllOnFocus}
           onBlur={maybeAutoSave}
-          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40"
+          // `text-base` na dotykových zařízeních, ať prohlížeč sám
+          // nezvětšuje celou stránku -- menší písmo appka nechává jen
+          // `pointer-fine` zařízením (myš/touchpad), ne podle šířky
+          // okna, viz stejná poznámka u chat-panel.tsx.
+          className="w-14 rounded-[10px] border border-border-subtle bg-transparent px-2 py-1 text-center text-base transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 pointer-fine:text-sm"
         />
       </div>
 
