@@ -56,6 +56,26 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Scrollovatelný rámeček (má `overflow-y-auto` + `max-h`/`min-h`) --
+  // appka z něj čte scroll pozici ("je hráč u dna?"), ale NEPOUŽÍVÁ ho
+  // jako cíl pro ResizeObserver (viz messagesContentRef níže, proč).
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // Vnitřní obal se samotnými zprávami, bez `max-h` -- appka na něj
+  // připojuje ResizeObserver, protože jeho výška roste s obsahem bez
+  // omezení. Rámeček nad ním (messagesContainerRef) má `max-h-[420px]`,
+  // takže po přetečení jeho VLASTNÍ (ořezaná) výška dál neroste --
+  // ResizeObserver na něm by přestal reagovat přesně v běžném,
+  // používaném chatu (nalezeno vlastní code-review).
+  const messagesContentRef = useRef<HTMLDivElement>(null);
+  // `true`, jen když TAHLE konkrétní karta/zařízení právě odesílá
+  // vlastní zprávu (nastaveno na začátku handleSend, shozeno po jejím
+  // doběhnutí) -- appka podle toho v realtime INSERT handleru pozná,
+  // že příchozí zpráva se stejným `user_id` je TATO odeslaná zpráva,
+  // ne zpráva odeslaná stejným účtem z JINÉ karty/zařízení (appka by
+  // jinak hráče, co si tady čte starší historii, nechtěně odscrollovala
+  // pokaždé, když by si sám poslal zprávu odjinud -- nalezeno vlastní
+  // code-review).
+  const pendingOwnSendRef = useRef(false);
   // Appka volá `onIncomingMessage`/`markHecovackaChatRead` z uvnitř
   // realtime callbacků, které appka jednou přihlásí na `[competitionId]`
   // -- nechce kvůli tomu podpisku pořád rušit/zakládat znovu, proto appka
@@ -92,6 +112,22 @@ export function ChatPanel({
           const incoming = payload.new as ChatMessage;
           if (reconcileInFlightRef.current) {
             pendingEventsDuringReconcileRef.current.push({ type: "insert", message: incoming });
+          }
+          // Appka na VLASTNÍ zprávu vynucuje doscrollování (viz
+          // isNearBottomRef níže) bez ohledu na to, jestli appce dorazí
+          // dřív odpověď server akce (handleSend), nebo tahle realtime
+          // podpiska -- na čerstvém/obnovujícím se websocket spojení
+          // (viz komentář nahoře u komponenty) může realtime INSERT
+          // appce dorazit dřív, než se HTTP odpověď na server akci
+          // vůbec vrátí. Appka proto tenhle příznak nastavuje na OBOU
+          // místech, ne jen v handleSend (nalezeno vlastní code-review).
+          // Podmínka navíc na `pendingOwnSendRef` -- appka jinak
+          // odscrollovala i kartu/zařízení, co si zrovna čte starší
+          // historii, kdykoliv by hráč poslal zprávu odjinud (stejný
+          // účet, jiná karta/telefon), ne jen tuhle otevřenou kartu
+          // (nalezeno vlastní code-review).
+          if (incoming.user_id === currentUserIdRef.current && pendingOwnSendRef.current) {
+            isNearBottomRef.current = true;
           }
           setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
           if (incoming.user_id !== currentUserIdRef.current) {
@@ -180,9 +216,57 @@ export function ChatPanel({
     };
   }, [competitionId]);
 
+  // Appka drží scroll "u dna", jen pokud tam hráč zrovna je (na žádost
+  // uživatele 29.9.2026 -- appka dřív scrollovala na dno napevno při
+  // KAŽDÉ nové zprávě, viz `[messages.length]` níže v historii, což
+  // mělo dva problémy: (1) GIFka se dotáhne přes síť AŽ PO tomhle
+  // scrollu, takže appka scrollovala na dno, které GIFku ještě
+  // nepočítalo, a po jejím dohrání appka "vypadla" nad skutečné dno;
+  // (2) appka hráče násilně odscrollovala dolů i uprostřed čtení
+  // starší historie. `ResizeObserver` na scrollovatelném kontejneru
+  // appce řeší obojí najednou -- reaguje na JAKÝKOLIV růst výšky
+  // (nová zpráva i pozdě dohraná GIFka, na libovolné pozici v okně),
+  // ale doscrolluje jen když appka byla těsně před tím u dna.
+  const isNearBottomRef = useRef(true);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    const container = messagesContainerRef.current;
+    const content = messagesContentRef.current;
+    if (!container || !content) return;
+
+    // Appka je hned po načtení stránky u dna (poslední zprávy), stejně
+    // jako appka dělala dřív -- teprve odtud appka sleduje, jestli
+    // hráč zůstává u dna, nebo si odscrolloval nahoru.
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    isNearBottomRef.current = true;
+
+    function updateIsNearBottom() {
+      const threshold = 48;
+      isNearBottomRef.current =
+        container!.scrollHeight - container!.scrollTop - container!.clientHeight < threshold;
+    }
+    container.addEventListener("scroll", updateIsNearBottom);
+
+    // Sleduje `content` (vnitřní obal bez `max-h`), NE `container`
+    // (scrollovatelný rámeček s `max-h-[420px]`) -- viz komentář u
+    // `messagesContentRef` výše.
+    const resizeObserver = new ResizeObserver(() => {
+      if (isNearBottomRef.current) {
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      }
+    });
+    resizeObserver.observe(content);
+
+    return () => {
+      container.removeEventListener("scroll", updateIsNearBottom);
+      resizeObserver.disconnect();
+    };
+    // Na `[competitionId]`, NE `[]` -- appka stejnou instanci komponenty
+    // umí (Next.js dynamický segment routy) použít i pro JINOU hecovačku
+    // beze změny (stejný důvod, proč appka `useState(initialTab)` řeší
+    // vlastním efektem v SpaceTabs, viz komentář tam). Bez tohohle by
+    // `isNearBottomRef` a počáteční scroll na dno zůstaly ze STARÉ
+    // hecovačky (nalezeno vlastní code-review).
+  }, [competitionId]);
 
   // Označí chat jako přečtený, jakmile appka aktivuje tuhle záložku --
   // a znovu při KAŽDÉ nové zprávě, dokud je aktivní pořád otevřená
@@ -223,6 +307,13 @@ export function ChatPanel({
 
     setSending(true);
     setError(null);
+    // Appka na VLASTNÍ odeslanou zprávu doscrolluje vždycky, i když
+    // hráč byl zrovna odscrollovaný nahoru v historii -- typické
+    // chování chatu (viděl bys hned svou vlastní zprávu). Appka si
+    // tenhle záměr poznamená JEŠTĚ PŘED odesláním (viz `pendingOwnSendRef`
+    // výše a jeho použití v realtime INSERT handleru) -- odpověď server
+    // akce totiž nemusí dorazit jako první (viz komentář tam).
+    pendingOwnSendRef.current = true;
     // try/finally -- server akce samotná (ne jen její návratová hodnota)
     // může selhat na výpadku sítě, appka by pak `setSending(false)`
     // nikdy nespustila a tlačítko Odeslat by zůstalo navěky zamčené
@@ -235,6 +326,7 @@ export function ChatPanel({
       }
       if (result.message) {
         const sent = result.message;
+        isNearBottomRef.current = true;
         setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       }
       setBody("");
@@ -242,6 +334,7 @@ export function ChatPanel({
       setError("Odeslání zprávy se nepodařilo, zkus to prosím znovu.");
     } finally {
       setSending(false);
+      pendingOwnSendRef.current = false;
     }
   }
 
@@ -272,65 +365,76 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-hover p-4">
-      <div className="flex max-h-[420px] min-h-[200px] flex-col gap-3 overflow-y-auto">
-        {messages.length === 0 && (
-          <p className="m-auto text-sm text-muted-foreground">
-            Zatím tu nikdo nic nenapsal -- buď první!
-          </p>
-        )}
-        {messages.map((m) => {
-          const isOwn = m.user_id === currentUserId;
-          return (
-            <div key={m.id} className={`group flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-muted-foreground">
-                  {isOwn ? "Ty" : displayNameByUserId[m.user_id] ?? "Neznámý hráč"}
-                </span>
-                <span className="text-[10px] font-medium text-faint-foreground">
-                  {new Date(m.created_at).toLocaleTimeString("cs-CZ", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: "Europe/Prague",
-                  })}
-                </span>
-                {isOwn && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(m.id)}
-                    aria-label="Smazat zprávu"
-                    // Napůl viditelné vždy (dřív `opacity-0` + jen
-                    // `group-hover`, takže tlačítko na dotykových
-                    // zařízeních a přes klávesnici nešlo vůbec objevit
-                    // -- appka na mobilu myš/hover nemá, nalezeno Codex
-                    // review na PR #231, 5. kolo), plně viditelné při
-                    // hoveru/focusu.
-                    className="opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+      <div
+        ref={messagesContainerRef}
+        className="flex max-h-[420px] min-h-[200px] flex-col overflow-y-auto"
+      >
+        {/* `ResizeObserver` výše sleduje TENHLE vnitřní obal, ne rodiče
+         * nad ním -- rodič má `max-h-[420px]`, takže po přetečení jeho
+         * vlastní (ořezaná) výška dál neroste a appka by na přidání
+         * další zprávy/dohrání GIFky vůbec nezareagovala (nalezeno
+         * vlastní code-review). Tenhle vnitřní obal žádný strop nemá,
+         * roste s obsahem pořád. */}
+        <div ref={messagesContentRef} className="flex flex-1 flex-col gap-3">
+          {messages.length === 0 && (
+            <p className="m-auto text-sm text-muted-foreground">
+              Zatím tu nikdo nic nenapsal -- buď první!
+            </p>
+          )}
+          {messages.map((m) => {
+            const isOwn = m.user_id === currentUserId;
+            return (
+              <div key={m.id} className={`group flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground">
+                    {isOwn ? "Ty" : displayNameByUserId[m.user_id] ?? "Neznámý hráč"}
+                  </span>
+                  <span className="text-[10px] font-medium text-faint-foreground">
+                    {new Date(m.created_at).toLocaleTimeString("cs-CZ", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "Europe/Prague",
+                    })}
+                  </span>
+                  {isOwn && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(m.id)}
+                      aria-label="Smazat zprávu"
+                      // Napůl viditelné vždy (dřív `opacity-0` + jen
+                      // `group-hover`, takže tlačítko na dotykových
+                      // zařízeních a přes klávesnici nešlo vůbec objevit
+                      // -- appka na mobilu myš/hover nemá, nalezeno Codex
+                      // review na PR #231, 5. kolo), plně viditelné při
+                      // hoveru/focusu.
+                      className="opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <X className="h-3 w-3 text-faint-foreground hover:text-danger" strokeWidth={2.6} />
+                    </button>
+                  )}
+                </div>
+                {m.body && (
+                  <p
+                    className={`mt-0.5 max-w-[85%] rounded-2xl px-3 py-1.5 text-sm ${
+                      isOwn ? "bg-accent/15" : "bg-surface"
+                    }`}
                   >
-                    <X className="h-3 w-3 text-faint-foreground hover:text-danger" strokeWidth={2.6} />
-                  </button>
+                    {m.body}
+                  </p>
+                )}
+                {m.gif_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.gif_url}
+                    alt=""
+                    className="mt-1 max-h-40 rounded-2xl border border-border-subtle"
+                  />
                 )}
               </div>
-              {m.body && (
-                <p
-                  className={`mt-0.5 max-w-[85%] rounded-2xl px-3 py-1.5 text-sm ${
-                    isOwn ? "bg-accent/15" : "bg-surface"
-                  }`}
-                >
-                  {m.body}
-                </p>
-              )}
-              {m.gif_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={m.gif_url}
-                  alt=""
-                  className="mt-1 max-h-40 rounded-2xl border border-border-subtle"
-                />
-              )}
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {error && <p className="text-xs font-semibold text-danger">{error}</p>}

@@ -364,6 +364,13 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   o hecovačce" (26.9.2026) — dřív samostatně na konci celé stránky.
   Veřejné soutěže (bez infoboxu) mají tlačítko beze změny na konci
   stránky. Viz `HISTORY.md`.
+- [x] Oprava: chat po odeslání/doručení GIFky nescrolloval na skutečné
+  dno (29.9.2026) — appka scrollovala dřív, než se obrázek stihl
+  natáhnout přes síť, takže po dohrání "vypadla" nad novou zprávu.
+  Appka teď scroll drží u dna přes `ResizeObserver` na obsahu chatu
+  (reaguje na jakýkoliv růst výšky, nejen na poslední zprávu) a jen
+  když tam hráč zrovna je -- při čtení starší historie appku silou
+  neodscrolluje. Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
