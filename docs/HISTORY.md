@@ -4538,6 +4538,134 @@ přesunula spolu s tlačítkem.
 
 Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů).
 
+## Oprava: chat nescrolloval na skutečné dno po GIFce (29.9.2026)
+
+Uživatel: "v chatu v hecovacce mi odjizdi focus - neni porad dole, ale
+kdyz poslu gifik, tak se mi 'nezobrazi' a musim si k nemu
+doscrollovat." Appka na první pohled vypadá jako dva různé problémy
+("focus mi odjíždí" + "GIFka se nezobrazí"), ve skutečnosti šlo o
+jednu příčinu: appka scrolluje na dno chatu (`bottomRef.current
+?.scrollIntoView(...)`) v `useEffect` na `[messages.length]`, který se
+spustí hned, jak appka novou zprávu přidá do stavu -- ale u zprávy s
+GIFkou appka na tenhle moment ještě nemá stažený/vykreslený samotný
+obrázek (`<img src={gif_url}>` bez explicitní šířky/výšky, tedy s
+nulovou výškou, dokud appka soubor nedotáhne z GIPHY CDN). Appka proto
+scrollne na dno, které v tu chvíli GIFku ještě nepočítá, a jakmile se
+obrázek pak doopravdy natáhne (přidá pod tím výšku), appka "vypadne"
+nad skutečné dno -- přesně "focus odjíždí, není pořád dole" i "GIFka
+se nezobrazí, musím doscrollovat" popisují tenhle jeden jev, jen
+jinými slovy.
+
+**První pokus (revertnutý ještě před pushem)**: appka zkusila cílenou
+opravu jen na `<img>` elementu POSLEDNÍ zprávy v okně (`onLoad`/
+`onError` handler, co po dohrání/chybě obrázku znovu zavolá
+`scrollIntoView`). Appka na tenhle diff pustila vlastní `code-review
+--level high`, který našel tři propojené nedostatky: (1) hráč A pošle
+GIFku (dostane handler, protože je poslední), ale než se stihne
+natáhnout, hráč B pošle rychlou textovku -- ta se stane novou poslední
+zprávou, GIFka hráče A svůj handler při překreslení ztratí (React ho
+odebere, protože `isLast` už neplatí) a bug se vrátí přesně pro
+nejběžnější případ (víc lidí píše najednou); (2) `scrollIntoView` se
+volalo bezpodmínečně, i kdyby si hráč mezitím sám odscrolloval nahoru
+číst historii -- přesně to, čemu se měl komentář u `isLast` vyhnout,
+jen to nepokrýval; (3) šlo o léčení příznaku (cílení na konkrétní
+`<img>`), ne příčiny (appka nikde neřeší, jestli je hráč vůbec u dna,
+než na něj něco vynutí).
+
+**Finální oprava**: appka celý mechanismus přepsala na `ResizeObserver`
+sledující scrollovatelný kontejner zpráv jako celek, ne jednotlivé
+`<img>` elementy. Appka si přes scroll listener drží `isNearBottomRef`
+(je hráč aktuálně blízko dna, práh 48px), a `ResizeObserver` na
+kontejneru zavolá `scrollIntoView` na jakýkoliv růst výšky (nová
+zpráva NEBO pozdě dohraná GIFka, na libovolné pozici v seznamu), ale
+jen když `isNearBottomRef.current` je `true`. Tím appka řeší najednou
+původní bug (GIFka může dorůst kdykoliv, appka na to zareaguje bez
+ohledu na to, jestli je zrovna "poslední") i nově nalezený (hráče
+čtoucího historii appka už silou nescrolluje). Výjimka: appka na
+VLASTNÍ odeslanou zprávu/GIFku doscrolluje vždycky (nastaví
+`isNearBottomRef.current = true` hned po úspěšném odeslání) -- běžné
+chatové chování, i kdyby hráč byl předtím odscrollovaný nahoru.
+Nahradila i původní `useEffect` na `[messages.length]` (ten teď dělá
+totéž, jen jako vedlejší efekt růstu výšky, který `ResizeObserver`
+zachytí sám).
+
+**Druhé kolo vlastního review našlo kritickou chybu v týhle finální
+verzi**: appka `ResizeObserver` napojila na SCROLLOVATELNÝ rámeček
+(ten s `max-h-[420px]`/`overflow-y-auto`), ne na obsah uvnitř něj --
+jenže vlastní (ořezaná) výška TAKOVÉHO rámečku po přetečení dál neroste
+(k tomu overflow/scroll slouží), takže by `ResizeObserver` přestal
+reagovat přesně v běžném, používaném chatu (jakmile je zpráv dost na
+zaplnění 420px) -- ne jen okrajově, ale prakticky pořád. Oprava:
+appka přidala samostatný VNITŘNÍ obal (`messagesContentRef`, bez
+`max-h`, roste s obsahem neomezeně) čistě pro `ResizeObserver`;
+scrollovatelný rámeček (`messagesContainerRef`) appka dál používá jen
+pro čtení scroll pozice ("je hráč u dna?").
+
+**Třetí kolo vlastního review našlo souběh (race condition)** u
+pravidla "vlastní odeslaná zpráva vždycky doscrolluje": appka příznak
+`isNearBottomRef.current = true` nastavovala jen v `handleSend`, PO
+úspěšné odpovědi server akce -- ale appka má už z dřívějška
+zdokumentované (komentář na začátku souboru), že na čerstvém/
+obnovujícím se websocket spojení může realtime INSERT dorazit DŘÍV,
+než se appce vrátí HTTP odpověď na tu samou server akci. V tom pořadí
+by `ResizeObserver` zareagoval na růst výšky (přidání vlastní zprávy
+přes realtime) ještě se STARÝM (nepravdivým) `isNearBottomRef`, appka
+by nedoscrollovala, a `handleSend` by pak už neměl co -- appka zprávu
+mezitím dedupem odmítla přidat podruhé, takže žádný další růst výšky,
+co by nový (už správný) příznak mohl využít. Oprava: appka
+`isNearBottomRef.current = true` nastavuje na OBOU místech, kde appka
+vlastní zprávu může poprvé přidat do stavu (realtime INSERT s
+`incoming.user_id === currentUserIdRef.current`, i `handleSend`) --
+ne jen v jednom.
+
+**Čtvrté kolo vlastního review našlo další hraniční případ** téhož
+pravidla: appka `isNearBottomRef.current = true` v realtime INSERT
+handleru nastavovala pro KAŽDOU zprávu se stejným `user_id`, ne jen
+pro tu, co odeslala TAHLE konkrétní karta -- hráč s otevřeným chatem na
+dvou zařízeních (nebo dvou kartách) pod stejným účtem by tak jednu
+kartu nechtěně odscrolloval pokaždé, když by poslal zprávu z druhé.
+Oprava: appka přidala `pendingOwnSendRef` -- `true` jen po dobu, co
+TAHLE karta uvnitř `handleSend` skutečně odesílá (nastaveno na začátku,
+shozeno v `finally`) -- realtime handler doscrolluje jen když
+`incoming.user_id` sedí NA TENTO ÚČET a zároveň tahle karta zrovna
+sama odesílá.
+
+**Páté kolo vlastního review našlo poslední díru**: appka nový efekt
+(scroll na dno + `ResizeObserver`) měla na `useEffect(..., [])` --
+proběhne tak jen JEDNOU, při prvním vykreslení komponenty. Jenže appka
+si u týdle dynamické routy (`/spaces/[id]`) už jednou zapsala poučení
+(viz `space-tabs.tsx`, `useState(initialTab)`), že Next.js instanci
+komponenty nemusí vůbec zahodit, jen jí pošle nové propy, když appka
+naviguje na STEJNOU routu s jiným `[id]` (typicky klik na jinou
+hecovačku z rozbalovacího seznamu ikonky nových zpráv v horní liště).
+Appka `<ChatPanel>`/`<SpaceTabs>` nikde nedává `key={competitionId}`,
+takže tenhle scénář reálně hrozí -- hráč čtoucí historii v hecovačce A
+by po přepnutí na hecovačku B zůstal se STARÝM (nulovým) scrollem a
+appka by mu novou hecovačku B ani nescrollovala na její vlastní dno,
+ani by dál nedoscrollovávala na její nové zprávy, dokud by si sám
+jednou neposunul dolů. Oprava: efekt appka přepnula na
+`useEffect(..., [competitionId])` -- stejné řešení jako
+`SpaceTabs` u stejného problému.
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + šesté kolo
+vlastního review (bez dalších nálezů). Appka tohle nemohla ověřit
+vizuálně (žádný přístup na GIPHY CDN z tohohle sandboxu) -- uživatel
+by si po nasazení měl poslat GIFku a zkontrolovat, že chat doopravdy
+zůstane u ní dole, i že odscrollování nahoru při čtení historie appka
+sama nezruší.
+
+**Vědomě nedořešeno** (7. kolo review, poslední nález): `pendingOwnSendRef`
+kontroluje jen "posílá TAHLE karta zrovna něco", ne "je tahle konkrétní
+příchozí zpráva TA, co karta posílá" -- při stejném účtu na dvou
+zařízeních, kde OBĚ pošlou zprávu ve stejném zlomku sekundy, by appka
+teoreticky mohla druhé zařízení nechtěně odscrollovat i uprostřed čtení
+historie. Appka tenhle (velmi úzký, vyžaduje souběh dvou vzácných
+podmínek najednou) nález vědomě nechala být -- opravdu robustní řešení
+by vyžadovalo klientské ID generované PŘED odesláním a propsané až do
+DB řádku (appka teď zná ID zprávy až z odpovědi serveru), což je zásah
+do datového modelu neúměrný závažnosti nálezu pro appku hranou malou
+partou kamarádů.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash
