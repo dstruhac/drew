@@ -4666,6 +4666,68 @@ DB řádku (appka teď zná ID zprávy až z odpovědi serveru), což je zásah
 do datového modelu neúměrný závažnosti nálezu pro appku hranou malou
 partou kamarádů.
 
+## Dashboard: "Soutěže"/"Hecovačky" jako výrazný přepínač (29.9.2026)
+
+Uživatel: "na dashboardu jsou 'Soutěže' a 'Hecovačky' je to trošku
+nepřehledné - já jich mám zvolených hodně a překáží mi to. chtělo by to
+nějaké taby, jako to je v detailu hecovačky, ale nějaké výrazné." Appka
+dřív obě sekce ("Tvoje soutěže", "Tvoje hecovačky") ukazovala pod sebou
+napořád -- s víc hraných soutěží i hecovaček to dělalo z Dashboardu
+dlouhý sled kartiček, kde se muselo scrollovat skrz jedno, než se
+dostalo k druhému.
+
+**Rozsah appka nemusela upřesňovat** (jednoznačné ze zadání): přepnout
+na skutečné taby -- jedna sekce vidět, druhá schovaná, přepínání jedním
+klikem. **Vizuální styl appka zvolila sama (technické/designové
+rozhodnutí, appka to nemusela dávat na výběr)**: uživatel výslovně
+řekl "jako v hecovačce, ale výraznější" -- appka srovnala vlastní
+existující vzory a zvolila plný (segmentovaný) přepínač s vyplněným
+pozadím u aktivní volby (`bg-accent`), ne tlumené podtržené záložky
+jako `SpaceTabs` na detailu hecovačky (tenký spodní pruh + barva
+textu). Nový vzhled appka odvodila ze svého vlastního "pompézního"
+stylu už použitého jinde (tlačítka "Chci hrát"/"Založit hecovačku") --
+plné pozadí je vizuálně výraznější než podtržení, přesně co uživatel
+chtěl.
+
+**Implementace**: nová komponenta `src/app/(app)/dashboard/dashboard-tabs.tsx`
+(Client Component, appka do ní posílá hotové obsahy obou sekcí jako
+`React.ReactNode` -- stejný vzor jako `matchesContent`/`chatMessages` u
+`SpaceTabs`, appka přes server/client hranici nemůže poslat funkci, jen
+hotové elementy). Appka odstranila duplicitní počty ze záhlaví
+jednotlivých sekcí (byly by teď dvakrát -- jednou v tabu, jednou v
+nadpisu sekce), odkazy "Procházet všechny soutěže"/"Všechny hecovačky"
+zůstaly, jen bez samostatného nadpisu nad nimi.
+
+**Odznak nepřečteného chatu appka přidala navíc, appku o to nikdo
+nepožádal, ale appka usoudila, že je potřeba** (technické rozhodnutí,
+appka ho jen vysvětluje): appka dřív ukazovala nepřečtenou zprávu
+hecovačky přímo na kartičce v sekci, co byla VŽDY vidět -- po přepnutí
+na taby by hráč na záložce "Soutěže" o nepřečtené zprávě v nějaké
+hecovačce nemusel vůbec vědět. Appka proto na záložku "Hecovačky"
+přidala stejný typ odznaku (součet přes všechny hecovačky), jaký appka
+už má na záložce "Chat" v `SpaceTabs` -- jde o zachování funkčnosti,
+co appka měla už předtím, ne o novou featuru.
+
+Výchozí záložka appka nechala "Soutěže" (appka nepřidávala žádné
+zapamatování poslední volby mezi návštěvami -- uživatel to nežádal).
+
+Ověřeno `pnpm exec tsc --noEmit` + `pnpm check` (60 testů) + vlastní
+review (`code-review --level high`).
+
+**Review našlo reálnou regresi**: výchozí záložka byla napevno
+"Soutěže" -- hráč BEZ jediné veřejné soutěže, ale s hecovačkou (appka
+nemá 100% jistotu, že takový hráč neexistuje) by po příchodu na
+Dashboard uviděl prázdnou záložku "Soutěže" a jedinou relevantní sekci
+(i s případným odznakem nepřečteného chatu) by musel objevit až druhým
+klikem -- to appka dřív (obě sekce pod sebou) neřešila vůbec. Oprava:
+výchozí záložka je "Hecovačky", pokud appka nemá žádnou veřejnou soutěž
+ale aspoň jednu hecovačku, jinak zůstává "Soutěže". Druhý nález review
+(chybějící `aria-controls`/šipky mezi taby dle WAI-ARIA "tabs" vzoru)
+appka nechala být -- stejná mezera je i ve stávajícím `SpaceTabs`
+(detail hecovačky), appka tu jen zachovala konzistentní (byť ne 100%
+bezbariérový) vzor, ne aby ho opravovala nekonzistentně jen na jednom
+místě.
+
 ## Jak navázat (pro budoucí Claude Code session)
 
 ```bash

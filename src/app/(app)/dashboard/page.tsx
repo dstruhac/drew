@@ -5,6 +5,7 @@ import { SpotlightMatchCard } from "@/components/spotlight-match-card";
 import { BadgeCenter } from "@/components/badge-center";
 import { JoinCompetitionsModal } from "@/components/join-competitions-modal";
 import { ExpandableList } from "@/components/expandable-list";
+import { DashboardTabs } from "./dashboard-tabs";
 import { competitionFallbackSport } from "@/lib/sport";
 import { UPCOMING_WINDOW_DAYS } from "@/lib/upcoming-window";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
@@ -139,6 +140,13 @@ export default async function DashboardPage() {
   // bez odznaku.
   const unreadChatByCompetition = new Map(
     (unreadHecovackaChat ?? []).map((u) => [u.competitionId, u.unreadCount]),
+  );
+  // Součet přes všechny hecovačky -- appka ho dává jako odznak na
+  // záložku "Hecovačky" (viz DashboardTabs níže), ať o nepřečteném
+  // chatu hráč ví, i když je zrovna na záložce "Soutěže".
+  const totalUnreadHecovackaChat = [...unreadChatByCompetition.values()].reduce(
+    (sum, count) => sum + count,
+    0,
   );
 
   // Soutěže, které hráč ještě nehraje -- nabídne se mu je
@@ -302,106 +310,102 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-muted-foreground">
-              Tvoje soutěže{" "}
-              <span className="text-faint-foreground">
-                ({myCompetitions.length}/{totalCompetitionsCount ?? myCompetitions.length})
-              </span>
-            </h2>
-            <Link
-              href="/spaces"
-              className="text-xs font-bold text-accent hover:underline"
-            >
-              Procházet všechny soutěže →
-            </Link>
-          </div>
+        <DashboardTabs
+          competitionsCount={myCompetitions.length}
+          hecovackyCount={myHecovacky.length}
+          unreadHecovackaChatCount={totalUnreadHecovackaChat}
+          competitionsContent={
+            <>
+              <div className="flex justify-end">
+                <Link href="/spaces" className="text-xs font-bold text-accent hover:underline">
+                  Procházet všechny soutěže ({myCompetitions.length}/
+                  {totalCompetitionsCount ?? myCompetitions.length}) →
+                </Link>
+              </div>
 
-          {myCompetitions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Zatím žádná -- vyber si soutěž v nabídce, nebo klikni na{" "}
-              <Link href="/spaces" className="font-bold text-accent underline underline-offset-2">
-                Procházet všechny soutěže
-              </Link>
-              .
-            </p>
-          ) : (
-            <ExpandableList
-              initialCount={myCompetitions.length}
-              carouselItems={myCompetitions.map((competition) => (
-                <DashboardCompetitionListItem
-                  key={competition.id}
-                  competition={competition}
-                  rank={rankByCompetition.get(competition.id) ?? null}
-                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
-                  layout="carousel"
+              {myCompetitions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Zatím žádná -- vyber si soutěž v nabídce, nebo klikni na{" "}
+                  <Link href="/spaces" className="font-bold text-accent underline underline-offset-2">
+                    Procházet všechny soutěže
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <ExpandableList
+                  initialCount={myCompetitions.length}
+                  carouselItems={myCompetitions.map((competition) => (
+                    <DashboardCompetitionListItem
+                      key={competition.id}
+                      competition={competition}
+                      rank={rankByCompetition.get(competition.id) ?? null}
+                      allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                      winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                      layout="carousel"
+                    />
+                  ))}
+                  stackItems={myCompetitions.map((competition) => (
+                    <DashboardCompetitionListItem
+                      key={competition.id}
+                      competition={competition}
+                      rank={rankByCompetition.get(competition.id) ?? null}
+                      allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                      winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                      layout="stack"
+                    />
+                  ))}
                 />
-              ))}
-              stackItems={myCompetitions.map((competition) => (
-                <DashboardCompetitionListItem
-                  key={competition.id}
-                  competition={competition}
-                  rank={rankByCompetition.get(competition.id) ?? null}
-                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
-                  layout="stack"
-                />
-              ))}
-            />
-          )}
-        </section>
+              )}
+            </>
+          }
+          hecovackyContent={
+            <>
+              <div className="flex justify-end">
+                <Link href="/hecovacky" className="text-xs font-bold text-accent hover:underline">
+                  Všechny hecovačky →
+                </Link>
+              </div>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-muted-foreground">
-              Tvoje hecovačky{" "}
-              <span className="text-faint-foreground">({myHecovacky.length})</span>
-            </h2>
-            <Link href="/hecovacky" className="text-xs font-bold text-accent hover:underline">
-              Všechny hecovačky →
-            </Link>
-          </div>
-
-          {myHecovacky.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Zatím žádná -- soukromá sázka mezi kamarády, kterou si sám(a) založíš. Mrkni na{" "}
-              <Link href="/hecovacky/nova" className="font-bold text-accent underline underline-offset-2">
-                Založit hecovačku
-              </Link>
-              .
-            </p>
-          ) : (
-            <ExpandableList
-              initialCount={myHecovacky.length}
-              carouselItems={myHecovacky.map((competition) => (
-                <DashboardCompetitionListItem
-                  key={competition.id}
-                  competition={competition}
-                  rank={rankByCompetition.get(competition.id) ?? null}
-                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
-                  unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
-                  isStake
-                  layout="carousel"
+              {myHecovacky.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Zatím žádná -- soukromá sázka mezi kamarády, kterou si sám(a) založíš. Mrkni na{" "}
+                  <Link href="/hecovacky/nova" className="font-bold text-accent underline underline-offset-2">
+                    Založit hecovačku
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <ExpandableList
+                  initialCount={myHecovacky.length}
+                  carouselItems={myHecovacky.map((competition) => (
+                    <DashboardCompetitionListItem
+                      key={competition.id}
+                      competition={competition}
+                      rank={rankByCompetition.get(competition.id) ?? null}
+                      allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                      winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                      unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
+                      isStake
+                      layout="carousel"
+                    />
+                  ))}
+                  stackItems={myHecovacky.map((competition) => (
+                    <DashboardCompetitionListItem
+                      key={competition.id}
+                      competition={competition}
+                      rank={rankByCompetition.get(competition.id) ?? null}
+                      allCaughtUp={!missingCompetitionIds.has(competition.id)}
+                      winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
+                      unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
+                      isStake
+                      layout="stack"
+                    />
+                  ))}
                 />
-              ))}
-              stackItems={myHecovacky.map((competition) => (
-                <DashboardCompetitionListItem
-                  key={competition.id}
-                  competition={competition}
-                  rank={rankByCompetition.get(competition.id) ?? null}
-                  allCaughtUp={!missingCompetitionIds.has(competition.id)}
-                  winners={topWinnerNames(standingsByCompetition.get(competition.id) ?? [])}
-                  unreadChatCount={unreadChatByCompetition.get(competition.id) ?? 0}
-                  isStake
-                  layout="stack"
-                />
-              ))}
-            />
-          )}
-        </section>
+              )}
+            </>
+          }
+        />
       </BadgeCenter>
     </main>
   );
