@@ -371,6 +371,12 @@ Kompletní feature set — detailní historie/zdůvodnění každého bodu je v
   (reaguje na jakýkoliv růst výšky, nejen na poslední zprávu) a jen
   když tam hráč zrovna je -- při čtení starší historie appku silou
   neodscrolluje. Viz `HISTORY.md`.
+- [x] Dashboard: "Soutěže"/"Hecovačky" jako výrazný přepínač, ne dvě
+  sekce pod sebou (29.9.2026) — na žádost uživatele, s víc hraných
+  soutěží i hecovaček to bylo nepřehledné. Vyplněný (segmentovaný)
+  přepínač, ne tlumené záložky jako na detailu hecovačky. Odznak
+  nepřečteného chatu na záložce "Hecovačky", ať o něm hráč ví i ze
+  záložky "Soutěže". Viz `HISTORY.md`.
 
 ### Vědomě odloženo / mimo současný rozsah
 
